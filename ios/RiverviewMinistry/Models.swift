@@ -1,0 +1,283 @@
+import Foundation
+
+struct Person: Codable, Identifiable, Hashable, Sendable {
+    let id: UUID
+    var firstName: String
+    var middleName: String?
+    var lastName: String
+    var preferredName: String?
+    var suffix: String?
+    var email: String?
+    var mobilePhone: String?
+    var homePhone: String?
+    var addressLine1: String?
+    var addressLine2: String?
+    var city: String?
+    var stateRegion: String?
+    var postalCode: String?
+    var countryCode: String?
+    var notes: String?
+    var isActive: Bool
+    var isPublic: Bool
+
+    var displayName: String {
+        let givenName = preferredName.nilIfBlank ?? firstName
+        return ([givenName, lastName] + [suffix.nilIfBlank].compactMap { $0 })
+            .joined(separator: " ")
+    }
+}
+
+struct MinistryRole: Codable, Identifiable, Hashable, Sendable {
+    let id: UUID
+    var name: String
+    var description: String?
+    var requiresVote: Bool
+    var isActive: Bool
+    var isPublic: Bool
+    var displayOrder: Int
+}
+
+struct MinistrySubRole: Codable, Identifiable, Hashable, Sendable {
+    let id: UUID
+    var roleId: UUID?
+    var name: String
+    var leadershipRank: Int
+    var isActive: Bool
+}
+
+struct MinistryTerm: Codable, Identifiable, Hashable, Sendable {
+    let id: UUID
+    var name: String
+    var startDate: String?
+    var endDate: String?
+    var termType: String
+    var isActive: Bool
+
+    var dateRangeLabel: String {
+        guard
+            let startDate,
+            let endDate,
+            let start = AppDate.parse(startDate),
+            let end = AppDate.parse(endDate)
+        else {
+            return termType == "ongoing" ? "Ongoing" : "Dates not set"
+        }
+        return "\(AppDate.display(start)) – \(AppDate.display(end))"
+    }
+}
+
+struct AssignmentDetail: Codable, Identifiable, Hashable, Sendable {
+    let id: UUID
+    let personId: UUID
+    let firstName: String
+    let preferredName: String?
+    let lastName: String
+    let personName: String
+    let email: String?
+    let mobilePhone: String?
+    let homePhone: String?
+    let roleId: UUID
+    let roleName: String
+    let subRoleId: UUID?
+    let subRoleName: String?
+    let leadershipRank: Int
+    let termId: UUID?
+    let termName: String?
+    let startDate: String?
+    let endDate: String?
+    let termType: String?
+    let voteDate: String?
+    let requiresVote: Bool
+    let voteMissing: Bool
+    let status: String
+    let isPublic: Bool
+    let notes: String?
+
+    var endDateValue: Date? {
+        endDate.flatMap(AppDate.parse)
+    }
+}
+
+struct MinistrySnapshot: Sendable {
+    let people: [Person]
+    let roles: [MinistryRole]
+    let subRoles: [MinistrySubRole]
+    let terms: [MinistryTerm]
+    let assignments: [AssignmentDetail]
+}
+
+struct PersonDraft: Sendable {
+    var firstName = ""
+    var middleName = ""
+    var lastName = ""
+    var preferredName = ""
+    var suffix = ""
+    var email = ""
+    var mobilePhone = ""
+    var homePhone = ""
+    var isPublic = true
+
+    init() {}
+
+    init(person: Person) {
+        firstName = person.firstName
+        middleName = person.middleName ?? ""
+        lastName = person.lastName
+        preferredName = person.preferredName ?? ""
+        suffix = person.suffix ?? ""
+        email = person.email ?? ""
+        mobilePhone = person.mobilePhone ?? ""
+        homePhone = person.homePhone ?? ""
+        isPublic = person.isPublic
+    }
+}
+
+struct AssignmentDraft: Sendable {
+    var personId: UUID?
+    var roleId: UUID?
+    var subRoleId: UUID?
+    var termId: UUID?
+    var voteDate: Date?
+    var notes = ""
+    var isPublic = true
+}
+
+struct RoleDraft: Sendable {
+    var name = ""
+    var description = ""
+    var requiresVote = false
+    var isPublic = true
+}
+
+struct TermDraft: Sendable {
+    var name = ""
+    var startDate = Date()
+    var endDate = Calendar.current.date(byAdding: .year, value: 2, to: Date()) ?? Date()
+    var termType = "custom"
+}
+
+struct ImportSummary: Sendable, Equatable {
+    var inserted = 0
+    var updated = 0
+    var unchanged = 0
+    var conflicts = 0
+    var errors = 0
+
+    var total: Int {
+        inserted + updated + unchanged + conflicts + errors
+    }
+
+    mutating func record(outcome: String) {
+        switch outcome {
+        case "inserted": inserted += 1
+        case "updated": updated += 1
+        case "unchanged": unchanged += 1
+        case "conflict": conflicts += 1
+        default: errors += 1
+        }
+    }
+}
+
+struct ImportRPCResult: Decodable, Sendable {
+    let outcome: String
+    let personId: UUID?
+    let assignmentId: UUID?
+    let message: String?
+}
+
+enum CSVImportKind: String, CaseIterable, Identifiable, Sendable {
+    case members = "Members"
+    case assignments = "Assignments"
+
+    var id: String { rawValue }
+}
+
+enum EndingWindow: String, CaseIterable, Identifiable, Sendable {
+    case all = "All terms"
+    case sixMonths = "Ending in 6 months"
+    case oneYear = "Ending in 1 year"
+
+    var id: String { rawValue }
+
+    var monthCount: Int? {
+        switch self {
+        case .all: nil
+        case .sixMonths: 6
+        case .oneYear: 12
+        }
+    }
+}
+
+struct PlanningCenterSyncResult: Decodable, Sendable {
+    let importRunId: UUID?
+    let status: String
+    let counts: [String: Int]
+}
+
+struct SupabaseConfiguration: Codable, Equatable, Sendable {
+    var projectURL: String
+    var publishableKey: String
+
+    var isValid: Bool {
+        guard
+            let url = URL(string: projectURL),
+            ["https", "http"].contains(url.scheme?.lowercased())
+        else {
+            return false
+        }
+        return !publishableKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
+struct SupabaseSession: Codable, Sendable {
+    let accessToken: String
+    let refreshToken: String
+    let expiresAt: TimeInterval?
+    let user: SupabaseUser
+}
+
+struct SupabaseUser: Codable, Sendable {
+    let id: UUID
+    let email: String?
+}
+
+enum AppDate {
+    private static let storageFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    private static let displayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
+
+    static func parse(_ value: String) -> Date? {
+        storageFormatter.date(from: value)
+    }
+
+    static func storage(_ date: Date) -> String {
+        storageFormatter.string(from: date)
+    }
+
+    static func display(_ date: Date) -> String {
+        displayFormatter.string(from: date)
+    }
+}
+
+extension Optional where Wrapped == String {
+    var nilIfBlank: String? {
+        guard let self else { return nil }
+        let trimmed = self.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}

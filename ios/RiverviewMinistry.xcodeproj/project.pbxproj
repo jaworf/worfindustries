@@ -1,0 +1,492 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		01FEE2DE9B15976446ED19D0 /* PDFKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 404558B33BD2F1EEF561EED3 /* PDFKit.framework */; };
+		10548F89AF5556FA03A54BC6 /* ReportGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B0229A245EA2E42F5C7BACE /* ReportGenerator.swift */; };
+		2C7AB5B16D7C555998922DEB /* RiverviewMinistryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 113F77FA38284B131B948F77 /* RiverviewMinistryApp.swift */; };
+		44D6C117ED069D356FA94386 /* CSVParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71A7999EEA0096F50C3E875A /* CSVParserTests.swift */; };
+		4C4FA073374DC1593E0152A7 /* SupabaseRESTClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F46DF979B2389576B440E47C /* SupabaseRESTClient.swift */; };
+		5051ACD94C61A68CBDE1F346 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F1174859764BDF95B9C1AF /* AppModel.swift */; };
+		6898E71C024D006078D4745F /* DirectoryAndReportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12729D6DCEF8B428DB530DA5 /* DirectoryAndReportsView.swift */; };
+		6E0D194C1A92586FA9A9CD32 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41FA8ACFBB66E3CDE9BDD599 /* Models.swift */; };
+		9A2147F3F31FD5CA999B6216 /* AssignmentEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3831A2FE9F60FCC270E859CD /* AssignmentEntryView.swift */; };
+		9AA03C86B7C0D4B732227E99 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4EDB91B010BBE0915BD0CE2 /* Security.framework */; };
+		B513FCEB934B66E31E57BAF5 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8192A129B768735625B720D /* KeychainStore.swift */; };
+		CA473992AF8FA0559047E3FF /* CSVParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBD0A9251FACF249D4834243 /* CSVParser.swift */; };
+		D4F83FC0D8EBD68E85139E71 /* ManageAndSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4678E027F70CE6D1FE1C0082 /* ManageAndSettingsView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2F11259D2B033A48A50BE2AE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7ADB804972C92F5662138CF5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 76277ECFDB0D1CE5E1977C3C;
+			remoteInfo = RiverviewMinistry;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		113F77FA38284B131B948F77 /* RiverviewMinistryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiverviewMinistryApp.swift; sourceTree = "<group>"; };
+		12729D6DCEF8B428DB530DA5 /* DirectoryAndReportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectoryAndReportsView.swift; sourceTree = "<group>"; };
+		205A4DABAED0C73F2958D714 /* RiverviewMinistry.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RiverviewMinistry.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3831A2FE9F60FCC270E859CD /* AssignmentEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssignmentEntryView.swift; sourceTree = "<group>"; };
+		404558B33BD2F1EEF561EED3 /* PDFKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PDFKit.framework; path = System/Library/Frameworks/PDFKit.framework; sourceTree = SDKROOT; };
+		41FA8ACFBB66E3CDE9BDD599 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		4678E027F70CE6D1FE1C0082 /* ManageAndSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManageAndSettingsView.swift; sourceTree = "<group>"; };
+		6B0229A245EA2E42F5C7BACE /* ReportGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportGenerator.swift; sourceTree = "<group>"; };
+		71A7999EEA0096F50C3E875A /* CSVParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSVParserTests.swift; sourceTree = "<group>"; };
+		A8192A129B768735625B720D /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		AFA930086EB4D65E1DD03032 /* RiverviewMinistryTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RiverviewMinistryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B4F1174859764BDF95B9C1AF /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		C4EDB91B010BBE0915BD0CE2 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		F46DF979B2389576B440E47C /* SupabaseRESTClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseRESTClient.swift; sourceTree = "<group>"; };
+		FBD0A9251FACF249D4834243 /* CSVParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSVParser.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1D73FB3A22FE31BCB1D0765D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				01FEE2DE9B15976446ED19D0 /* PDFKit.framework in Frameworks */,
+				9AA03C86B7C0D4B732227E99 /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		075E4F718316A55AC13A90C1 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				404558B33BD2F1EEF561EED3 /* PDFKit.framework */,
+				C4EDB91B010BBE0915BD0CE2 /* Security.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		2E012E1F5E439352B02F908B /* RiverviewMinistry */ = {
+			isa = PBXGroup;
+			children = (
+				B4F1174859764BDF95B9C1AF /* AppModel.swift */,
+				3831A2FE9F60FCC270E859CD /* AssignmentEntryView.swift */,
+				FBD0A9251FACF249D4834243 /* CSVParser.swift */,
+				12729D6DCEF8B428DB530DA5 /* DirectoryAndReportsView.swift */,
+				A8192A129B768735625B720D /* KeychainStore.swift */,
+				4678E027F70CE6D1FE1C0082 /* ManageAndSettingsView.swift */,
+				41FA8ACFBB66E3CDE9BDD599 /* Models.swift */,
+				6B0229A245EA2E42F5C7BACE /* ReportGenerator.swift */,
+				113F77FA38284B131B948F77 /* RiverviewMinistryApp.swift */,
+				F46DF979B2389576B440E47C /* SupabaseRESTClient.swift */,
+			);
+			path = RiverviewMinistry;
+			sourceTree = "<group>";
+		};
+		9AE41024578DCEE3291CCB32 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				205A4DABAED0C73F2958D714 /* RiverviewMinistry.app */,
+				AFA930086EB4D65E1DD03032 /* RiverviewMinistryTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A9A3F1BD7B0B72118F87501C /* RiverviewMinistryTests */ = {
+			isa = PBXGroup;
+			children = (
+				71A7999EEA0096F50C3E875A /* CSVParserTests.swift */,
+			);
+			path = RiverviewMinistryTests;
+			sourceTree = "<group>";
+		};
+		AA3AE9FF5AEC5FDB17EC3515 = {
+			isa = PBXGroup;
+			children = (
+				2E012E1F5E439352B02F908B /* RiverviewMinistry */,
+				A9A3F1BD7B0B72118F87501C /* RiverviewMinistryTests */,
+				075E4F718316A55AC13A90C1 /* Frameworks */,
+				9AE41024578DCEE3291CCB32 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2530DD0616CAD3583D81061A /* RiverviewMinistryTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8AF61397766CDEFB63BC489B /* Build configuration list for PBXNativeTarget "RiverviewMinistryTests" */;
+			buildPhases = (
+				22131F51D018F0FD52AECE7C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C063B743BFE26CED36E58024 /* PBXTargetDependency */,
+			);
+			name = RiverviewMinistryTests;
+			packageProductDependencies = (
+			);
+			productName = RiverviewMinistryTests;
+			productReference = AFA930086EB4D65E1DD03032 /* RiverviewMinistryTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		76277ECFDB0D1CE5E1977C3C /* RiverviewMinistry */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DAE6A41192CF5ACEC269573E /* Build configuration list for PBXNativeTarget "RiverviewMinistry" */;
+			buildPhases = (
+				224CD05398B1AD7805C2CDAB /* Sources */,
+				1D73FB3A22FE31BCB1D0765D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RiverviewMinistry;
+			packageProductDependencies = (
+			);
+			productName = RiverviewMinistry;
+			productReference = 205A4DABAED0C73F2958D714 /* RiverviewMinistry.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7ADB804972C92F5662138CF5 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					2530DD0616CAD3583D81061A = {
+						ProvisioningStyle = Automatic;
+					};
+					76277ECFDB0D1CE5E1977C3C = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = F095CEC10D6291A42017B78D /* Build configuration list for PBXProject "RiverviewMinistry" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = AA3AE9FF5AEC5FDB17EC3515;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 9AE41024578DCEE3291CCB32 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				76277ECFDB0D1CE5E1977C3C /* RiverviewMinistry */,
+				2530DD0616CAD3583D81061A /* RiverviewMinistryTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		22131F51D018F0FD52AECE7C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				44D6C117ED069D356FA94386 /* CSVParserTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		224CD05398B1AD7805C2CDAB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5051ACD94C61A68CBDE1F346 /* AppModel.swift in Sources */,
+				9A2147F3F31FD5CA999B6216 /* AssignmentEntryView.swift in Sources */,
+				CA473992AF8FA0559047E3FF /* CSVParser.swift in Sources */,
+				6898E71C024D006078D4745F /* DirectoryAndReportsView.swift in Sources */,
+				B513FCEB934B66E31E57BAF5 /* KeychainStore.swift in Sources */,
+				D4F83FC0D8EBD68E85139E71 /* ManageAndSettingsView.swift in Sources */,
+				6E0D194C1A92586FA9A9CD32 /* Models.swift in Sources */,
+				10548F89AF5556FA03A54BC6 /* ReportGenerator.swift in Sources */,
+				2C7AB5B16D7C555998922DEB /* RiverviewMinistryApp.swift in Sources */,
+				4C4FA073374DC1593E0152A7 /* SupabaseRESTClient.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C063B743BFE26CED36E58024 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 76277ECFDB0D1CE5E1977C3C /* RiverviewMinistry */;
+			targetProxy = 2F11259D2B033A48A50BE2AE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		4F9E94DAE93E7AD208366D19 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.riverviewadventist.ministry;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		5BFDB27ED4B3ED48C80F160F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Riverview Ministry";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Pasco Riverview Adventist Church";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "Riverview Ministry";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		A1692E9EE220AB5F741E5533 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.riverviewadventist.ministry.tests;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RiverviewMinistry.app/RiverviewMinistry";
+			};
+			name = Release;
+		};
+		C83F8C1668D93AB7A2EBDF39 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.riverviewadventist.ministry;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D45197DCC96E7D4982031989 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.riverviewadventist.ministry.tests;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RiverviewMinistry.app/RiverviewMinistry";
+			};
+			name = Debug;
+		};
+		F21A131C4B19D189017BED3E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Riverview Ministry";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Pasco Riverview Adventist Church";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "Riverview Ministry";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		8AF61397766CDEFB63BC489B /* Build configuration list for PBXNativeTarget "RiverviewMinistryTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D45197DCC96E7D4982031989 /* Debug */,
+				A1692E9EE220AB5F741E5533 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DAE6A41192CF5ACEC269573E /* Build configuration list for PBXNativeTarget "RiverviewMinistry" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C83F8C1668D93AB7A2EBDF39 /* Debug */,
+				4F9E94DAE93E7AD208366D19 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F095CEC10D6291A42017B78D /* Build configuration list for PBXProject "RiverviewMinistry" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F21A131C4B19D189017BED3E /* Debug */,
+				5BFDB27ED4B3ED48C80F160F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 7ADB804972C92F5662138CF5 /* Project object */;
+}

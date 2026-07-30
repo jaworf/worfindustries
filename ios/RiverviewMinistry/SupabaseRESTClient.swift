@@ -1,0 +1,620 @@
+import Foundation
+
+actor SupabaseRESTClient {
+    private var configuration: SupabaseConfiguration
+    private var session: SupabaseSession?
+    private let urlSession: URLSession
+    private let encoder: JSONEncoder
+    private let decoder: JSONDecoder
+
+    init(
+        configuration: SupabaseConfiguration,
+        session: SupabaseSession? = nil,
+        urlSession: URLSession = .shared
+    ) {
+        self.configuration = configuration
+        self.session = session
+        self.urlSession = urlSession
+
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        self.encoder = encoder
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        self.decoder = decoder
+    }
+
+    func currentSession() -> SupabaseSession? {
+        session
+    }
+
+    func signIn(email: String, password: String) async throws -> SupabaseSession {
+        let body = try encoder.encode(SignInRequest(email: email, password: password))
+        let response: SupabaseSession = try await send(
+            method: "POST",
+            path: "auth/v1/token",
+            query: [URLQueryItem(name: "grant_type", value: "password")],
+            body: body,
+            requiresAuthentication: false
+        )
+        session = response
+        return response
+    }
+
+    private func validAccessToken() async throws -> String {
+        guard let current = session else {
+            throw SupabaseClientError.notSignedIn
+        }
+        let refreshThreshold = Date().timeIntervalSince1970 + 60
+        guard
+            let expiresAt = current.expiresAt,
+            expiresAt <= refreshThreshold
+        else {
+            return current.accessToken
+        }
+
+        let body = try encoder.encode(
+            RefreshRequest(refreshToken: current.refreshToken)
+        )
+        let refreshed: SupabaseSession = try await send(
+            method: "POST",
+            path: "auth/v1/token",
+            query: [URLQueryItem(name: "grant_type", value: "refresh_token")],
+            body: body,
+            requiresAuthentication: false
+        )
+        session = refreshed
+        return refreshed.accessToken
+    }
+
+    func loadSnapshot() async throws -> MinistrySnapshot {
+        async let people: [Person] = restAll(
+            "people",
+            query: [
+                .init(name: "select", value: "*"),
+                .init(name: "is_active", value: "eq.true"),
+                .init(name: "order", value: "last_name.asc,first_name.asc")
+            ]
+        )
+        async let roles: [MinistryRole] = restAll(
+            "roles",
+            query: [
+                .init(name: "select", value: "*"),
+                .init(name: "order", value: "display_order.asc,name.asc")
+            ]
+        )
+        async let subRoles: [MinistrySubRole] = restAll(
+            "sub_roles",
+            query: [
+                .init(name: "select", value: "*"),
+                .init(name: "order", value: "leadership_rank.asc,name.asc")
+            ]
+        )
+        async let terms: [MinistryTerm] = restAll(
+            "terms",
+            query: [
+                .init(name: "select", value: "*"),
+                .init(name: "order", value: "start_date.desc.nullslast,name.asc")
+            ]
+        )
+        async let assignments: [AssignmentDetail] = restAll(
+            "assignment_details",
+            query: [
+                .init(name: "select", value: "*"),
+                .init(name: "order", value: "role_name.asc,leadership_rank.asc,last_name.asc,first_name.asc")
+            ]
+        )
+
+        return try await MinistrySnapshot(
+            people: people,
+            roles: roles,
+            subRoles: subRoles,
+            terms: terms,
+            assignments: assignments
+        )
+    }
+
+    func createPerson(_ draft: PersonDraft) async throws -> Person {
+        let payload = PersonWrite(
+            firstName: draft.firstName,
+            middleName: draft.middleName.nilIfBlank,
+            lastName: draft.lastName,
+            preferredName: draft.preferredName.nilIfBlank,
+            suffix: draft.suffix.nilIfBlank,
+            email: draft.email.nilIfBlank,
+            mobilePhone: draft.mobilePhone.nilIfBlank,
+            homePhone: draft.homePhone.nilIfBlank,
+            isActive: true,
+            isPublic: draft.isPublic
+        )
+        let rows: [Person] = try await restWrite("POST", table: "people", body: payload)
+        guard let person = rows.first else { throw SupabaseClientError.emptyResponse }
+        return person
+    }
+
+    func createAssignment(_ draft: AssignmentDraft) async throws {
+        guard let personId = draft.personId, let roleId = draft.roleId else {
+            throw SupabaseClientError.invalidRequest("A person and ministry role are required.")
+        }
+        let payload = AssignmentWrite(
+            personId: personId,
+            roleId: roleId,
+            subRoleId: draft.subRoleId,
+            termId: draft.termId,
+            voteDate: draft.voteDate.map(AppDate.storage),
+            notes: draft.notes.nilIfBlank,
+            status: "active",
+            isPublic: draft.isPublic
+        )
+        let _: [AssignmentWriteResult] = try await restWrite(
+            "POST",
+            table: "assignments",
+            body: payload
+        )
+    }
+
+    func createRole(_ draft: RoleDraft, displayOrder: Int) async throws {
+        let payload = RoleWrite(
+            name: draft.name,
+            description: draft.description.nilIfBlank,
+            requiresVote: draft.requiresVote,
+            isActive: true,
+            isPublic: draft.isPublic,
+            displayOrder: displayOrder
+        )
+        let _: [MinistryRole] = try await restWrite("POST", table: "roles", body: payload)
+    }
+
+    func updateRole(_ role: MinistryRole) async throws {
+        let payload = RoleWrite(
+            name: role.name,
+            description: role.description,
+            requiresVote: role.requiresVote,
+            isActive: role.isActive,
+            isPublic: role.isPublic,
+            displayOrder: role.displayOrder
+        )
+        let _: [MinistryRole] = try await restWrite(
+            "PATCH",
+            table: "roles",
+            query: [.init(name: "id", value: "eq.\(role.id.uuidString)")],
+            body: payload
+        )
+    }
+
+    func createTerm(_ draft: TermDraft) async throws {
+        let ongoing = draft.termType == "ongoing"
+        let payload = TermWrite(
+            name: draft.name,
+            startDate: ongoing ? nil : AppDate.storage(draft.startDate),
+            endDate: ongoing ? nil : AppDate.storage(draft.endDate),
+            termType: draft.termType,
+            isActive: true
+        )
+        let _: [MinistryTerm] = try await restWrite("POST", table: "terms", body: payload)
+    }
+
+    func runPlanningCenterSync() async throws -> PlanningCenterSyncResult {
+        let data = try encoder.encode(EmptyBody())
+        return try await send(
+            method: "POST",
+            path: "functions/v1/planning-center-sync",
+            body: data
+        )
+    }
+
+    func importCSV(
+        _ document: CSVDocument,
+        kind: CSVImportKind,
+        sourceName: String
+    ) async throws -> ImportSummary {
+        let run = try await createImportRun(kind: kind, sourceName: sourceName)
+        var summary = ImportSummary()
+
+        for (offset, row) in document.rows.enumerated() {
+            let rowNumber = offset + 2
+            do {
+                let result: ImportRPCResult
+                switch kind {
+                case .members:
+                    guard
+                        let firstName = row.csvValue("First Name", "first_name"),
+                        let lastName = row.csvValue("Last Name", "last_name")
+                    else {
+                        continue
+                    }
+                    let externalId = row.csvValue("id")
+                        ?? "\(sourceName)-member-row-\(rowNumber)"
+                    let record = PersonImportRecord(
+                        firstName: firstName,
+                        middleName: row.csvValue("Middle Name", "middle_name"),
+                        lastName: lastName,
+                        preferredName: row.csvValue("Preferred Name", "preferred_name"),
+                        suffix: row.csvValue("Suffix"),
+                        email: row.csvValue("Home Email", "Email"),
+                        mobilePhone: row.csvValue("Mobile Phone Number", "Mobile Phone"),
+                        homePhone: row.csvValue("Home Phone Number", "Home Phone"),
+                        addressLine1: row.csvValue("Address Line 1"),
+                        addressLine2: row.csvValue("Address Line 2"),
+                        city: row.csvValue("City"),
+                        stateRegion: row.csvValue("State", "State Region"),
+                        postalCode: row.csvValue("Postal Code", "ZIP"),
+                        countryCode: row.csvValue("Country Code"),
+                        isActive: true
+                    )
+                    result = try await mergePerson(
+                        externalId: externalId,
+                        record: record,
+                        runId: run.id,
+                        rowNumber: rowNumber
+                    )
+
+                case .assignments:
+                    guard
+                        let personName = row.csvValue("Name", "Person Name"),
+                        let roleName = row.csvValue("Role", "Role Name")
+                    else {
+                        continue
+                    }
+                    let externalId = row.csvValue("id")
+                        ?? "\(sourceName)-assignment-row-\(rowNumber)"
+                    let canonicalRoleName = roleName == "Sabbath Schol — Fireside D"
+                        ? "Sabbath School — Fireside D"
+                        : roleName
+                    let record = AssignmentImportRecord(
+                        personName: personName,
+                        roleName: canonicalRoleName,
+                        subRoleName: row.csvValue("Sub-Role", "Sub Role", "Sub Role Name"),
+                        termName: row.csvValue("Term", "Term Name"),
+                        voteDate: ImportedDate.storageValue(row.csvValue("Voted", "Vote Date")),
+                        notes: row.csvValue("Notes")
+                    )
+                    result = try await mergeAssignment(
+                        externalId: externalId,
+                        record: record,
+                        runId: run.id,
+                        rowNumber: rowNumber
+                    )
+                }
+                summary.record(outcome: result.outcome)
+            } catch {
+                summary.errors += 1
+            }
+        }
+
+        try await finishImportRun(run.id, summary: summary)
+        return summary
+    }
+
+    private func createImportRun(
+        kind: CSVImportKind,
+        sourceName: String
+    ) async throws -> ImportRunRecord {
+        let payload = ImportRunWrite(
+            sourceType: kind == .members ? "members_csv" : "assignments_csv",
+            sourceName: sourceName,
+            status: "processing"
+        )
+        let rows: [ImportRunRecord] = try await restWrite(
+            "POST",
+            table: "import_runs",
+            body: payload
+        )
+        guard let run = rows.first else { throw SupabaseClientError.emptyResponse }
+        return run
+    }
+
+    private func finishImportRun(_ id: UUID, summary: ImportSummary) async throws {
+        let status = summary.errors > 0
+            ? "failed"
+            : (summary.conflicts > 0 ? "completed_with_conflicts" : "completed")
+        let payload = ImportRunFinish(
+            status: status,
+            insertedCount: summary.inserted,
+            updatedCount: summary.updated,
+            unchangedCount: summary.unchanged,
+            conflictCount: summary.conflicts,
+            errorCount: summary.errors,
+            completedAt: ISO8601DateFormatter().string(from: Date())
+        )
+        let _: [ImportRunRecord] = try await restWrite(
+            "PATCH",
+            table: "import_runs",
+            query: [.init(name: "id", value: "eq.\(id.uuidString)")],
+            body: payload
+        )
+    }
+
+    private func mergePerson(
+        externalId: String,
+        record: PersonImportRecord,
+        runId: UUID,
+        rowNumber: Int
+    ) async throws -> ImportRPCResult {
+        let body = MergePersonRequest(
+            pSourceSystem: "members_csv",
+            pExternalId: externalId,
+            pRecord: record,
+            pImportRunId: runId,
+            pRowNumber: rowNumber
+        )
+        return try await rpc("merge_person_from_source", body: body)
+    }
+
+    private func mergeAssignment(
+        externalId: String,
+        record: AssignmentImportRecord,
+        runId: UUID,
+        rowNumber: Int
+    ) async throws -> ImportRPCResult {
+        let body = MergeAssignmentRequest(
+            pSourceSystem: "assignments_csv",
+            pExternalId: externalId,
+            pRecord: record,
+            pImportRunId: runId,
+            pRowNumber: rowNumber
+        )
+        return try await rpc("upsert_assignment_from_source", body: body)
+    }
+
+    private func rpc<Response: Decodable, Body: Encodable>(
+        _ name: String,
+        body: Body
+    ) async throws -> Response {
+        let data = try encoder.encode(body)
+        return try await send(
+            method: "POST",
+            path: "rest/v1/rpc/\(name)",
+            body: data
+        )
+    }
+
+    private func restAll<Element: Decodable>(
+        _ relation: String,
+        query: [URLQueryItem]
+    ) async throws -> [Element] {
+        let pageSize = 1000
+        var offset = 0
+        var result: [Element] = []
+
+        while true {
+            let page: [Element] = try await send(
+                method: "GET",
+                path: "rest/v1/\(relation)",
+                query: query + [
+                    .init(name: "limit", value: String(pageSize)),
+                    .init(name: "offset", value: String(offset))
+                ]
+            )
+            result.append(contentsOf: page)
+            if page.count < pageSize { return result }
+            offset += pageSize
+        }
+    }
+
+    private func restWrite<Response: Decodable, Body: Encodable>(
+        _ method: String,
+        table: String,
+        query: [URLQueryItem] = [],
+        body: Body
+    ) async throws -> Response {
+        let data = try encoder.encode(body)
+        return try await send(
+            method: method,
+            path: "rest/v1/\(table)",
+            query: query,
+            body: data,
+            preferRepresentation: true
+        )
+    }
+
+    private func send<Response: Decodable>(
+        method: String,
+        path: String,
+        query: [URLQueryItem] = [],
+        body: Data? = nil,
+        requiresAuthentication: Bool = true,
+        preferRepresentation: Bool = false
+    ) async throws -> Response {
+        guard configuration.isValid else {
+            throw SupabaseClientError.invalidConfiguration
+        }
+
+        let trimmedBase = configuration.projectURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard var components = URLComponents(string: "\(trimmedBase)/\(path)") else {
+            throw SupabaseClientError.invalidConfiguration
+        }
+        if !query.isEmpty {
+            components.queryItems = query
+        }
+        guard let url = components.url else {
+            throw SupabaseClientError.invalidConfiguration
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.httpBody = body
+        request.setValue(configuration.publishableKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if preferRepresentation {
+            request.setValue("return=representation", forHTTPHeaderField: "Prefer")
+        }
+
+        if requiresAuthentication {
+            let accessToken = try await validAccessToken()
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await urlSession.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw SupabaseClientError.invalidResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            if let detail = try? decoder.decode(SupabaseErrorResponse.self, from: data) {
+                throw SupabaseClientError.server(
+                    status: http.statusCode,
+                    message: detail.message ?? detail.errorDescription ?? detail.error ?? "Unknown server error"
+                )
+            }
+            throw SupabaseClientError.server(
+                status: http.statusCode,
+                message: String(data: data, encoding: .utf8) ?? "Unknown server error"
+            )
+        }
+        guard !data.isEmpty else { throw SupabaseClientError.emptyResponse }
+        return try decoder.decode(Response.self, from: data)
+    }
+}
+
+enum SupabaseClientError: LocalizedError {
+    case invalidConfiguration
+    case notSignedIn
+    case invalidRequest(String)
+    case invalidResponse
+    case emptyResponse
+    case server(status: Int, message: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidConfiguration:
+            "Enter a valid Supabase project URL and publishable key."
+        case .notSignedIn:
+            "Sign in to continue."
+        case .invalidRequest(let message):
+            message
+        case .invalidResponse:
+            "Supabase returned an invalid response."
+        case .emptyResponse:
+            "Supabase returned no data."
+        case .server(let status, let message):
+            "Supabase error \(status): \(message)"
+        }
+    }
+}
+
+private struct SignInRequest: Encodable {
+    let email: String
+    let password: String
+}
+
+private struct RefreshRequest: Encodable {
+    let refreshToken: String
+}
+
+private struct SupabaseErrorResponse: Decodable {
+    let message: String?
+    let error: String?
+    let errorDescription: String?
+}
+
+private struct EmptyBody: Codable {}
+
+private struct PersonWrite: Encodable {
+    let firstName: String
+    let middleName: String?
+    let lastName: String
+    let preferredName: String?
+    let suffix: String?
+    let email: String?
+    let mobilePhone: String?
+    let homePhone: String?
+    let isActive: Bool
+    let isPublic: Bool
+}
+
+private struct AssignmentWrite: Encodable {
+    let personId: UUID
+    let roleId: UUID
+    let subRoleId: UUID?
+    let termId: UUID?
+    let voteDate: String?
+    let notes: String?
+    let status: String
+    let isPublic: Bool
+}
+
+private struct AssignmentWriteResult: Decodable {
+    let id: UUID
+}
+
+private struct RoleWrite: Encodable {
+    let name: String
+    let description: String?
+    let requiresVote: Bool
+    let isActive: Bool
+    let isPublic: Bool
+    let displayOrder: Int
+}
+
+private struct TermWrite: Encodable {
+    let name: String
+    let startDate: String?
+    let endDate: String?
+    let termType: String
+    let isActive: Bool
+}
+
+private struct ImportRunWrite: Encodable {
+    let sourceType: String
+    let sourceName: String
+    let status: String
+}
+
+private struct ImportRunFinish: Encodable {
+    let status: String
+    let insertedCount: Int
+    let updatedCount: Int
+    let unchangedCount: Int
+    let conflictCount: Int
+    let errorCount: Int
+    let completedAt: String
+}
+
+private struct ImportRunRecord: Decodable {
+    let id: UUID
+}
+
+private struct PersonImportRecord: Encodable {
+    let firstName: String
+    let middleName: String?
+    let lastName: String
+    let preferredName: String?
+    let suffix: String?
+    let email: String?
+    let mobilePhone: String?
+    let homePhone: String?
+    let addressLine1: String?
+    let addressLine2: String?
+    let city: String?
+    let stateRegion: String?
+    let postalCode: String?
+    let countryCode: String?
+    let isActive: Bool
+}
+
+private struct AssignmentImportRecord: Encodable {
+    let personName: String
+    let roleName: String
+    let subRoleName: String?
+    let termName: String?
+    let voteDate: String?
+    let notes: String?
+}
+
+private struct MergePersonRequest: Encodable {
+    let pSourceSystem: String
+    let pExternalId: String
+    let pRecord: PersonImportRecord
+    let pImportRunId: UUID
+    let pRowNumber: Int
+}
+
+private struct MergeAssignmentRequest: Encodable {
+    let pSourceSystem: String
+    let pExternalId: String
+    let pRecord: AssignmentImportRecord
+    let pImportRunId: UUID
+    let pRowNumber: Int
+}
