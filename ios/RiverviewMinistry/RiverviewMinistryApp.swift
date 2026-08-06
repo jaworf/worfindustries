@@ -290,6 +290,7 @@ struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var showingConnection = false
+    @State private var showingPasswordReset = false
 
     var body: some View {
         NavigationStack {
@@ -338,6 +339,22 @@ struct LoginView: View {
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
                         .disabled(email.nilIfBlank == nil || password.isEmpty || model.isBusy)
+
+                        Button("Forgot Password?") {
+                            model.errorMessage = nil
+                            model.noticeMessage = nil
+                            showingPasswordReset = true
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(AppTheme.riverBlue)
+
+                        Text(
+                            "Use the password for your Riverview app account. " +
+                            "It is separate from the Supabase project or database password."
+                        )
+                        .appFont(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                     }
                     .padding(24)
                     .frame(maxWidth: 470)
@@ -361,6 +378,90 @@ struct LoginView: View {
                 ConfigurationView(isInitialSetup: false)
                     .environmentObject(model)
                     .frame(minWidth: 420, minHeight: 440)
+            }
+            .sheet(isPresented: $showingPasswordReset) {
+                ForgotPasswordView(initialEmail: email)
+                    .environmentObject(model)
+                    .frame(minWidth: 420, minHeight: 420)
+            }
+        }
+    }
+}
+
+private struct ForgotPasswordView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var model: AppModel
+    @State private var email: String
+    @State private var didSend = false
+
+    init(initialEmail: String) {
+        _email = State(initialValue: initialEmail)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if didSend {
+                    Section {
+                        Label("Recovery email sent", systemImage: "envelope.badge.fill")
+                            .appFont(.headline, weight: .semibold)
+                            .foregroundStyle(AppTheme.riverBlueDark)
+                        Text(
+                            "Open the newest recovery email and follow its link to choose " +
+                            "a new password. Each recovery link is single-use and can expire."
+                        )
+                        Button("Done") {
+                            dismiss()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                } else {
+                    Section {
+                        TextField("Email", text: $email)
+                            .textContentType(.emailAddress)
+                            .withoutAutocapitalization()
+                            .autocorrectionDisabled()
+
+                        Button {
+                            Task {
+                                didSend = await model.requestPasswordReset(email: email)
+                            }
+                        } label: {
+                            if model.isBusy {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                Text("Send Password Recovery")
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(email.nilIfBlank == nil || model.isBusy)
+                    } header: {
+                        Text("Riverview app account")
+                    } footer: {
+                        Text(
+                            "This resets the staff login used by the app. It does not " +
+                            "change the Supabase project or database password."
+                        )
+                    }
+
+                    if let error = model.errorMessage {
+                        Section {
+                            Label(error, systemImage: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                        }
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle("Reset Password")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
             }
         }
     }

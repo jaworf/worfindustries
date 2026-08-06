@@ -17,6 +17,9 @@ final class AppModel: ObservableObject {
     private var client: SupabaseRESTClient?
     private let configurationKey = "supabase-configuration"
     private let sessionAccount = "supabase-session"
+    private static let passwordResetURL = URL(
+        string: "https://riverview-ministry-directory.jaworf.chatgpt.site/reset-password"
+    )!
 
     private static var isRunningTests: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -81,12 +84,35 @@ final class AppModel: ObservableObject {
     func signIn(email: String, password: String) async {
         await perform {
             let client = try requireClient()
-            let newSession = try await client.signIn(email: email, password: password)
+            guard let normalizedEmail = email.nilIfBlank else {
+                throw SupabaseClientError.invalidRequest("Enter your email address.")
+            }
+            let newSession = try await client.signIn(
+                email: normalizedEmail,
+                password: password
+            )
             try KeychainStore.save(newSession, account: sessionAccount)
             session = newSession
             try await reload(using: client)
             noticeMessage = "Signed in and ministry data loaded."
         }
+    }
+
+    func requestPasswordReset(email: String) async -> Bool {
+        var succeeded = false
+        await perform {
+            guard let normalizedEmail = email.nilIfBlank else {
+                throw SupabaseClientError.invalidRequest("Enter your email address.")
+            }
+            try await requireClient().requestPasswordReset(
+                email: normalizedEmail,
+                redirectTo: Self.passwordResetURL
+            )
+            noticeMessage =
+                "Password recovery email sent. Open the newest email and follow its link."
+            succeeded = true
+        }
+        return succeeded
     }
 
     func signOut() {

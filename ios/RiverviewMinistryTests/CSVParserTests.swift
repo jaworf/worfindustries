@@ -34,6 +34,13 @@ final class CSVParserTests: XCTestCase {
         XCTAssertLessThan(AppTextSize.large.bodyPointSize, AppTextSize.extraLarge.bodyPointSize)
     }
 
+    func testInvalidCredentialsHaveFriendlyMessage() {
+        XCTAssertEqual(
+            SupabaseClientError.invalidCredentials.localizedDescription,
+            "The email or password is incorrect."
+        )
+    }
+
     func testPlacementFocusFindsEmptyMinistryAndUnfilledExpiredPosition() throws {
         let emptyRole = makeRole(name: "Empty Ministry")
         let gapRole = makeRole(name: "Needs Replacement")

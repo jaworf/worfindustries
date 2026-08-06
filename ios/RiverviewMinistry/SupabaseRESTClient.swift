@@ -42,6 +42,22 @@ actor SupabaseRESTClient {
         return response
     }
 
+    func requestPasswordReset(email: String, redirectTo: URL) async throws {
+        let body = try encoder.encode(PasswordResetRequest(email: email))
+        let _: EmptyBody = try await send(
+            method: "POST",
+            path: "auth/v1/recover",
+            query: [
+                URLQueryItem(
+                    name: "redirect_to",
+                    value: redirectTo.absoluteString
+                )
+            ],
+            body: body,
+            requiresAuthentication: false
+        )
+    }
+
     private func validAccessToken() async throws -> String {
         guard let current = session else {
             throw SupabaseClientError.notSignedIn
@@ -568,9 +584,23 @@ actor SupabaseRESTClient {
         }
         guard (200..<300).contains(http.statusCode) else {
             if let detail = try? decoder.decode(SupabaseErrorResponse.self, from: data) {
+                let message = detail.message
+                    ?? detail.errorDescription
+                    ?? detail.error
+                    ?? "Unknown server error"
+                if
+                    http.statusCode == 400,
+                    detail.code == "invalid_credentials"
+                        || detail.errorCode == "invalid_credentials"
+                        || message.localizedCaseInsensitiveContains(
+                            "invalid login credentials"
+                        )
+                {
+                    throw SupabaseClientError.invalidCredentials
+                }
                 throw SupabaseClientError.server(
                     status: http.statusCode,
-                    message: detail.message ?? detail.errorDescription ?? detail.error ?? "Unknown server error"
+                    message: message
                 )
             }
             throw SupabaseClientError.server(
@@ -586,6 +616,7 @@ actor SupabaseRESTClient {
 enum SupabaseClientError: LocalizedError {
     case invalidConfiguration
     case notSignedIn
+    case invalidCredentials
     case invalidRequest(String)
     case invalidResponse
     case emptyResponse
@@ -597,6 +628,8 @@ enum SupabaseClientError: LocalizedError {
             "Enter a valid Supabase project URL and publishable key."
         case .notSignedIn:
             "Sign in to continue."
+        case .invalidCredentials:
+            "The email or password is incorrect."
         case .invalidRequest(let message):
             message
         case .invalidResponse:
@@ -614,11 +647,17 @@ private struct SignInRequest: Encodable {
     let password: String
 }
 
+private struct PasswordResetRequest: Encodable {
+    let email: String
+}
+
 private struct RefreshRequest: Encodable {
     let refreshToken: String
 }
 
 private struct SupabaseErrorResponse: Decodable {
+    let code: String?
+    let errorCode: String?
     let message: String?
     let error: String?
     let errorDescription: String?

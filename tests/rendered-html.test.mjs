@@ -57,6 +57,14 @@ test("provides a compact iframe route", async () => {
   assert.match(html, /Volunteer ministry directory/i);
 });
 
+test("provides a password recovery page", async () => {
+  const response = await render("/reset-password");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Reset your app password/i);
+  assert.match(html, /does not change the Supabase project or database password/i);
+});
+
 test("keeps public data limited to approved directory fields", async () => {
   const client = await readFile(
     new URL("app/directory-client.tsx", root),
@@ -72,4 +80,17 @@ test("keeps public data limited to approved directory fields", async () => {
   assert.match(page, /SUPABASE_PUBLISHABLE_KEY/);
   assert.doesNotMatch(client, /service[_-]?role/i);
   assert.match(layout, /\/og-blue\.png/);
+});
+
+test("updates passwords with the recovery token without privileged keys", async () => {
+  const resetClient = await readFile(
+    new URL("app/reset-password/password-reset-client.tsx", root),
+    "utf8",
+  );
+
+  assert.match(resetClient, /window\.location\.hash/);
+  assert.match(resetClient, /\/auth\/v1\/user/);
+  assert.match(resetClient, /parameters\.get\("type"\) !== "recovery"/);
+  assert.match(resetClient, /Bearer \$\{accessToken\}/);
+  assert.doesNotMatch(resetClient, /service[_-]?role/i);
 });
