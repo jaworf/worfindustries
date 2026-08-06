@@ -9,12 +9,17 @@ private enum PersonEntryMode: String, CaseIterable, Identifiable {
 
 struct AssignmentEntryView: View {
     @EnvironmentObject private var model: AppModel
+    @Binding private var route: AssignmentRoute?
     @State private var mode: PersonEntryMode = .existing
     @State private var personSearch = ""
     @State private var assignment = AssignmentDraft()
     @State private var newPerson = PersonDraft()
     @State private var includeVoteDate = false
     @State private var selectedVoteDate = Date()
+
+    init(route: Binding<AssignmentRoute?> = .constant(nil)) {
+        _route = route
+    }
 
     private var selectedPerson: Person? {
         model.people.first(where: { $0.id == assignment.personId })
@@ -104,7 +109,7 @@ struct AssignmentEntryView: View {
                             .foregroundStyle(.orange)
                     }
                     Text(voteRequirementDescription)
-                        .font(.footnote)
+                        .appFont(.footnote)
                         .foregroundStyle(.secondary)
                     DatePicker(
                         "Vote date",
@@ -125,7 +130,7 @@ struct AssignmentEntryView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Note", systemImage: "note.text")
-                        .font(.headline)
+                        .appFont(.headline, weight: .semibold)
                         .foregroundStyle(AppTheme.riverBlueDark)
                     TextField(
                         "Add context for this assignment (optional)",
@@ -145,7 +150,7 @@ struct AssignmentEntryView: View {
                 )
                 .disabled(assignment.notes.nilIfBlank == nil)
                 Text("Notes remain staff-only unless this option is enabled.")
-                    .font(.footnote)
+                    .appFont(.footnote)
                     .foregroundStyle(.secondary)
                 Toggle("Show this assignment in the public directory", isOn: $assignment.isPublic)
             }
@@ -202,6 +207,12 @@ struct AssignmentEntryView: View {
                 assignment.noteIsPublic = false
             }
         }
+        .onAppear {
+            applyRouteIfNeeded(route)
+        }
+        .onChange(of: route) { _, newRoute in
+            applyRouteIfNeeded(newRoute)
+        }
     }
 
     private var voteRequirementDescription: String {
@@ -234,11 +245,11 @@ struct AssignmentEntryView: View {
                                 ?? selectedPerson.mobilePhone
                                 ?? "No contact detail"
                         )
-                        .font(.caption)
+                        .appFont(.caption)
                         .foregroundStyle(.secondary)
                         if let membership = selectedPerson.membershipStatus.nilIfBlank {
                             Text("Membership: \(membership)")
-                                .font(.caption)
+                                .appFont(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -258,7 +269,7 @@ struct AssignmentEntryView: View {
                     "Start typing to find a volunteer by name, email, or phone.",
                     systemImage: "magnifyingglass"
                 )
-                .font(.callout)
+                .appFont(.callout)
                 .foregroundStyle(.secondary)
                 .padding(.vertical, 6)
             } else {
@@ -272,11 +283,11 @@ struct AssignmentEntryView: View {
                                 Text(person.displayName)
                                     .foregroundStyle(.primary)
                                 Text(person.email ?? person.mobilePhone ?? "No contact detail")
-                                    .font(.caption)
+                                    .appFont(.caption)
                                     .foregroundStyle(.secondary)
                                 if let membership = person.membershipStatus.nilIfBlank {
                                     Text("Membership: \(membership)")
-                                        .font(.caption)
+                                        .appFont(.caption)
                                         .foregroundStyle(.secondary)
                                 }
                             }
@@ -333,5 +344,24 @@ struct AssignmentEntryView: View {
             selectedVoteDate = Date()
             mode = .existing
         }
+    }
+
+    private func applyRouteIfNeeded(_ requestedRoute: AssignmentRoute?) {
+        guard let requestedRoute else { return }
+
+        mode = .existing
+        assignment.personId = requestedRoute.personId
+        assignment.roleId = requestedRoute.roleId
+        assignment.subRoleId = requestedRoute.subRoleId
+
+        if let personId = requestedRoute.personId,
+           let person = model.people.first(where: { $0.id == personId }) {
+            personSearch = person.displayName
+        } else {
+            personSearch = ""
+        }
+
+        includeVoteDate = placementRequiresVote
+        route = nil
     }
 }

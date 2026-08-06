@@ -28,13 +28,81 @@ enum AppTextSize: String, CaseIterable, Identifiable {
         }
     }
 
-    var dynamicTypeSize: DynamicTypeSize {
+    var scale: CGFloat {
         switch self {
-        case .small: .large
-        case .medium: .xLarge
-        case .large: .xxLarge
-        case .extraLarge: .xxxLarge
+        case .small: 1.0
+        case .medium: 1.10
+        case .large: 1.20
+        case .extraLarge: 1.35
         }
+    }
+
+    var bodyPointSize: CGFloat { 15.5 * scale }
+}
+
+enum AppTextStyle {
+    case largeTitle
+    case title
+    case title2
+    case title3
+    case headline
+    case body
+    case callout
+    case subheadline
+    case footnote
+    case caption
+    case caption2
+
+    var basePointSize: CGFloat {
+        switch self {
+        case .largeTitle: 31
+        case .title: 26
+        case .title2: 22
+        case .title3: 19
+        case .headline: 16.5
+        case .body: 15.5
+        case .callout: 15
+        case .subheadline: 14.5
+        case .footnote: 13.5
+        case .caption: 12.75
+        case .caption2: 11.75
+        }
+    }
+
+}
+
+private struct AppTextSizeKey: EnvironmentKey {
+    static let defaultValue = AppTextSize.large
+}
+
+extension EnvironmentValues {
+    var appTextSize: AppTextSize {
+        get { self[AppTextSizeKey.self] }
+        set { self[AppTextSizeKey.self] = newValue }
+    }
+}
+
+private struct AppFontModifier: ViewModifier {
+    @Environment(\.appTextSize) private var textSize
+    let style: AppTextStyle
+    let weight: Font.Weight
+
+    func body(content: Content) -> some View {
+        content.font(
+            .system(
+                size: style.basePointSize * textSize.scale,
+                weight: weight
+            )
+        )
+    }
+}
+
+extension View {
+    func appFont(
+        _ style: AppTextStyle = .body,
+        weight: Font.Weight = .regular
+    ) -> some View {
+        modifier(AppFontModifier(style: style, weight: weight))
     }
 }
 
@@ -63,12 +131,19 @@ struct RiverviewMinistryApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(model)
+                .environment(\.appTextSize, selectedTextSize)
                 .environment(\.colorScheme, .light)
-                .dynamicTypeSize(selectedTextSize.dynamicTypeSize)
+                .font(selectedTextSize.bodyFont)
                 .tint(AppTheme.riverBlue)
                 .preferredColorScheme(.light)
                 .frame(minWidth: 390, minHeight: 560)
         }
+    }
+}
+
+private extension AppTextSize {
+    var bodyFont: Font {
+        .system(size: bodyPointSize)
     }
 }
 
@@ -106,7 +181,7 @@ private struct MessageBanner: View {
                     ? "checkmark.circle.fill"
                     : "exclamationmark.triangle.fill")
                 Text(message)
-                    .font(.callout)
+                    .appFont(.callout)
                 Spacer()
                 Button {
                     model.errorMessage = nil
@@ -234,7 +309,7 @@ struct LoginView: View {
                     }
                     VStack(spacing: 8) {
                         Text("Riverview Ministry Volunteers")
-                            .font(.largeTitle.bold())
+                            .appFont(.largeTitle, weight: .bold)
                             .multilineTextAlignment(.center)
                         Text("Volunteer placement and term records")
                             .foregroundStyle(.secondary)
@@ -291,46 +366,91 @@ struct LoginView: View {
     }
 }
 
+enum AppTab: Hashable {
+    case assign
+    case ministries
+    case people
+    case focus
+    case votes
+    case reports
+    case manage
+    case settings
+}
+
+struct AssignmentRoute: Equatable, Identifiable {
+    let id = UUID()
+    var personId: UUID?
+    var roleId: UUID?
+    var subRoleId: UUID?
+}
+
 struct MainShellView: View {
     @EnvironmentObject private var model: AppModel
+    @State private var selectedTab: AppTab = .assign
+    @State private var assignmentRoute: AssignmentRoute?
+
+    private var ministryWatchCount: Int {
+        PlacementFocusSnapshot(
+            roles: model.roles,
+            subRoles: model.subRoles,
+            assignments: model.assignments
+        ).ministryNeeds.count
+    }
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             NavigationStack {
-                AssignmentEntryView()
+                AssignmentEntryView(route: $assignmentRoute)
             }
             .tabItem { Label("Assign", systemImage: "person.badge.plus") }
+            .tag(AppTab.assign)
 
             NavigationStack {
                 DirectoryView()
             }
             .tabItem { Label("Ministries", systemImage: "person.3") }
+            .tag(AppTab.ministries)
 
             NavigationStack {
                 PeopleDirectoryView()
             }
             .tabItem { Label("People", systemImage: "person.text.rectangle") }
+            .tag(AppTab.people)
+
+            NavigationStack {
+                FocusView { route in
+                    assignmentRoute = route
+                    selectedTab = .assign
+                }
+            }
+            .tabItem { Label("Focus", systemImage: "scope") }
+            .badge(ministryWatchCount)
+            .tag(AppTab.focus)
 
             NavigationStack {
                 VoteQueueView()
             }
             .tabItem { Label("Votes", systemImage: "checkmark.seal") }
             .badge(model.assignments.filter { $0.isCurrentPlacement && $0.voteMissing }.count)
+            .tag(AppTab.votes)
 
             NavigationStack {
                 ReportsView()
             }
             .tabItem { Label("Reports", systemImage: "doc.richtext") }
+            .tag(AppTab.reports)
 
             NavigationStack {
                 ManageView()
             }
             .tabItem { Label("Manage", systemImage: "slider.horizontal.3") }
+            .tag(AppTab.manage)
 
             NavigationStack {
                 SettingsView()
             }
             .tabItem { Label("Settings", systemImage: "gearshape") }
+            .tag(AppTab.settings)
         }
     }
 }

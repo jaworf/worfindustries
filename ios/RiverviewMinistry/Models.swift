@@ -20,11 +20,18 @@ struct Person: Codable, Identifiable, Hashable, Sendable {
     var notes: String?
     var isActive: Bool
     var isPublic: Bool
+    var sourceCreatedAt: String? = nil
+    var sourceUpdatedAt: String? = nil
+    var createdAt: String? = nil
 
     var displayName: String {
         let givenName = preferredName.nilIfBlank ?? firstName
         return ([givenName, lastName] + [suffix.nilIfBlank].compactMap { $0 })
             .joined(separator: " ")
+    }
+
+    var addedDate: Date? {
+        AppDate.parseTimestamp(sourceCreatedAt ?? createdAt ?? "")
     }
 }
 
@@ -309,6 +316,11 @@ enum AppDate {
     }
 
     static func displayTimestamp(_ value: String) -> String? {
+        guard let date = parseTimestamp(value) else { return nil }
+        return displayFormatter.string(from: date)
+    }
+
+    static func parseTimestamp(_ value: String) -> Date? {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         var date = formatter.date(from: value)
@@ -316,8 +328,7 @@ enum AppDate {
             formatter.formatOptions = [.withInternetDateTime]
             date = formatter.date(from: value)
         }
-        guard let date else { return nil }
-        return displayFormatter.string(from: date)
+        return date
     }
 }
 

@@ -18,15 +18,26 @@ This repository contains:
 - Give each ministry and each ministry-specific position its own church-vote rule.
 - Correct or clear vote dates from the Ministry or People Directory.
 - Use the Votes work queue or report filter to find every required vote still missing.
+- Use Placement Focus to see empty ministries, unfilled expired positions, and
+  active people who do not yet have a ministry assignment.
+- Hand an empty ministry, open position, or unassigned person directly to the
+  Assign screen with the relevant record already selected.
+- Prioritize unassigned Riverview Members in the volunteer activation list,
+  while retaining New, Local, All, membership, and search filters.
 - Add terms and ministries, or rename a ministry without breaking old assignments.
 - Search the People Directory to see current assignments and archived history.
 - Reversibly archive assignments and ministries without deleting their history.
+- Automatically archive active assignments each day after their term ends.
 - Filter by role or by terms ending within 6 or 12 months.
 - Sort ministry rosters with leadership first, then last and first name.
 - Preview, export, and print a landscape PDF report.
 - Import the supplied Members and Assignments CSV exports.
 - Pull Planning Center People through a server-side sync and signed webhooks.
+- Preserve Planning Center's original person-created date so genuinely new
+  people can be highlighted without confusing them with an older bulk import.
 - Publish only approved names and role information to the public web directory.
+- Resize all app typography with working S, M, L, and XL settings on both macOS
+  and iOS/iPadOS.
 
 ## Project map
 
@@ -219,6 +230,9 @@ browser printing/saving as PDF.
 - macOS unit tests: 2 passed, 0 failed.
 - PDF runtime smoke test: passed and rendered page visually checked.
 - Production migrations: applied successfully.
+- Supabase Cron runs the expired-term archive at 08:10 GMT daily (12:10 AM
+  Pacific Standard Time or 1:10 AM Pacific Daylight Time). The initial run
+  archived Nathan Lull's completed 2024-2026 school-board assignment.
 - Supabase database security: Row Level Security is enabled on every public
   table. The Auth advisor currently recommends enabling leaked-password
   protection in the Supabase dashboard.

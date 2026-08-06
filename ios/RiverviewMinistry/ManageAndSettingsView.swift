@@ -49,12 +49,12 @@ struct ManageView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(term.name)
                             Text(term.dateRangeLabel)
-                                .font(.caption)
+                                .appFont(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
                         Text(term.termType.capitalized)
-                            .font(.caption)
+                            .appFont(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -111,13 +111,13 @@ struct ManageView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(role.name)
-                        .font(.headline)
+                        .appFont(.headline, weight: .semibold)
                         .foregroundStyle(.primary)
                     Text(
                         "\(positions(for: role).count) " +
                         (positions(for: role).count == 1 ? "position" : "positions")
                     )
-                    .font(.caption)
+                    .appFont(.caption)
                     .foregroundStyle(AppTheme.riverBlue)
                     HStack(spacing: 8) {
                         if role.requiresVote {
@@ -130,7 +130,7 @@ struct ManageView: View {
                             Label("Archived", systemImage: "archivebox")
                         }
                     }
-                    .font(.caption)
+                    .appFont(.caption)
                     .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -180,7 +180,7 @@ private struct EditRoleSheet: View {
                                     Text(position.name)
                                         .foregroundStyle(.primary)
                                     Text("Sort priority \(position.leadershipRank)")
-                                        .font(.caption)
+                                        .appFont(.caption)
                                         .foregroundStyle(.secondary)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)

@@ -41,6 +41,7 @@ export type MinistryPersonRecord = {
   country_code?: string | null;
   membership_status?: string | null;
   is_active: boolean;
+  source_created_at?: string | null;
   source_updated_at?: string | null;
 };
 
@@ -261,6 +262,10 @@ export function personRecordFromResponse(
         ? person.attributes.membership.trim() || null
         : null,
     is_active: status === "active" && !person.attributes.inactivated_at,
+    source_created_at:
+      typeof person.attributes.created_at === "string"
+        ? person.attributes.created_at
+        : null,
     source_updated_at:
       typeof person.attributes.updated_at === "string"
         ? person.attributes.updated_at
