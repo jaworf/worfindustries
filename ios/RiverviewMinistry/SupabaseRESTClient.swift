@@ -247,7 +247,7 @@ actor SupabaseRESTClient {
         )
     }
 
-    func createSubRole(_ draft: SubRoleDraft) async throws {
+    func createSubRole(_ draft: SubRoleDraft) async throws -> MinistrySubRole {
         let payload = SubRoleWrite(
             roleId: draft.roleId,
             name: draft.name,
@@ -255,11 +255,15 @@ actor SupabaseRESTClient {
             requiresVote: draft.requiresVote,
             isActive: draft.isActive
         )
-        let _: [MinistrySubRole] = try await restWrite(
+        let rows: [MinistrySubRole] = try await restWrite(
             "POST",
             table: "sub_roles",
             body: payload
         )
+        guard let position = rows.first else {
+            throw SupabaseClientError.emptyResponse
+        }
+        return position
     }
 
     func updateSubRole(_ subRole: MinistrySubRole) async throws {

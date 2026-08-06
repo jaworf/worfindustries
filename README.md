@@ -15,6 +15,8 @@ This repository contains:
 - Find an existing person or add a new person.
 - Assign a ministry role, position/sub-role, two-year term, church vote date,
   notes, and public/private status.
+- Add a ministry-specific position from the Assign screen and select it
+  immediately for the current placement.
 - Give each ministry and each ministry-specific position its own church-vote rule.
 - Correct or clear vote dates from the Ministry or People Directory.
 - Use the Votes work queue or report filter to find every required vote still missing.

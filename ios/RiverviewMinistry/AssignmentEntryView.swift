@@ -7,6 +7,12 @@ private enum PersonEntryMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+private enum PositionPickerChoice: Hashable {
+    case none
+    case position(UUID)
+    case add
+}
+
 struct AssignmentEntryView: View {
     @EnvironmentObject private var model: AppModel
     @Binding private var route: AssignmentRoute?
@@ -16,6 +22,7 @@ struct AssignmentEntryView: View {
     @State private var newPerson = PersonDraft()
     @State private var includeVoteDate = false
     @State private var selectedVoteDate = Date()
+    @State private var roleForNewPosition: MinistryRole?
 
     init(route: Binding<AssignmentRoute?> = .constant(nil)) {
         _route = route
@@ -56,6 +63,29 @@ struct AssignmentEntryView: View {
         }
     }
 
+    private var positionPickerChoice: Binding<PositionPickerChoice> {
+        Binding(
+            get: {
+                assignment.subRoleId.map(PositionPickerChoice.position) ?? .none
+            },
+            set: { choice in
+                switch choice {
+                case .none:
+                    assignment.subRoleId = nil
+                case let .position(id):
+                    assignment.subRoleId = id
+                case .add:
+                    assignment.subRoleId = nil
+                    guard let selectedRole else {
+                        model.errorMessage = "Choose a ministry before adding a position."
+                        return
+                    }
+                    roleForNewPosition = selectedRole
+                }
+            }
+        )
+    }
+
     var body: some View {
         Form {
             Section("Volunteer") {
@@ -86,11 +116,14 @@ struct AssignmentEntryView: View {
                     }
                 }
 
-                Picker("Position", selection: $assignment.subRoleId) {
-                    Text("Choose a position").tag(UUID?.none)
+                Picker("Position", selection: positionPickerChoice) {
+                    Text("Choose a position").tag(PositionPickerChoice.none)
                     ForEach(availableSubRoles) { subRole in
-                        Text(subRole.name).tag(Optional(subRole.id))
+                        Text(subRole.name)
+                            .tag(PositionPickerChoice.position(subRole.id))
                     }
+                    Label("Add a position…", systemImage: "plus.circle")
+                        .tag(PositionPickerChoice.add)
                 }
 
                 Picker("Term", selection: $assignment.termId) {
@@ -212,6 +245,12 @@ struct AssignmentEntryView: View {
         }
         .onChange(of: route) { _, newRoute in
             applyRouteIfNeeded(newRoute)
+        }
+        .sheet(item: $roleForNewPosition) { role in
+            NewSubRoleSheet(role: role) { createdPosition in
+                assignment.subRoleId = createdPosition.id
+            }
+            .environmentObject(model)
         }
     }
 

@@ -381,14 +381,19 @@ private struct EditSubRoleSheet: View {
     }
 }
 
-private struct NewSubRoleSheet: View {
+struct NewSubRoleSheet: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
     let role: MinistryRole
+    let onCreated: (MinistrySubRole) -> Void
     @State private var draft: SubRoleDraft
 
-    init(role: MinistryRole) {
+    init(
+        role: MinistryRole,
+        onCreated: @escaping (MinistrySubRole) -> Void = { _ in }
+    ) {
         self.role = role
+        self.onCreated = onCreated
         _draft = State(initialValue: SubRoleDraft(roleId: role.id))
     }
 
@@ -421,7 +426,8 @@ private struct NewSubRoleSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
                         Task {
-                            if await model.addSubRole(draft) {
+                            if let position = await model.addSubRole(draft) {
+                                onCreated(position)
                                 dismiss()
                             }
                         }

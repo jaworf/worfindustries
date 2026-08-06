@@ -18,6 +18,11 @@ final class AppModel: ObservableObject {
     private let configurationKey = "supabase-configuration"
     private let sessionAccount = "supabase-session"
 
+    private static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || NSClassFromString("XCTestCase") != nil
+    }
+
     var isConfigured: Bool { configuration.isValid }
     var isSignedIn: Bool { session != nil }
 
@@ -32,10 +37,15 @@ final class AppModel: ObservableObject {
         }
 
         if configuration.isValid {
-            let restored = try? KeychainStore.load(
-                SupabaseSession.self,
-                account: sessionAccount
-            )
+            let restored: SupabaseSession?
+            if Self.isRunningTests {
+                restored = nil
+            } else {
+                restored = try? KeychainStore.load(
+                    SupabaseSession.self,
+                    account: sessionAccount
+                )
+            }
             session = restored ?? nil
             client = SupabaseRESTClient(configuration: configuration, session: session)
         }
@@ -273,8 +283,8 @@ final class AppModel: ObservableObject {
         return succeeded
     }
 
-    func addSubRole(_ draft: SubRoleDraft) async -> Bool {
-        var succeeded = false
+    func addSubRole(_ draft: SubRoleDraft) async -> MinistrySubRole? {
+        var createdPosition: MinistrySubRole?
         await perform {
             guard draft.name.nilIfBlank != nil else {
                 throw SupabaseClientError.invalidRequest("Enter a position name.")
@@ -282,12 +292,15 @@ final class AppModel: ObservableObject {
             var clean = draft
             clean.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
             let client = try requireClient()
-            try await client.createSubRole(clean)
+            let created = try await client.createSubRole(clean)
             try await reload(using: client)
+            guard let reloaded = subRoles.first(where: { $0.id == created.id }) else {
+                throw SupabaseClientError.emptyResponse
+            }
             noticeMessage = "Ministry position added."
-            succeeded = true
+            createdPosition = reloaded
         }
-        return succeeded
+        return createdPosition
     }
 
     func updateSubRole(_ subRole: MinistrySubRole) async -> Bool {
