@@ -40,8 +40,10 @@ targets:
         PRODUCT_MODULE_NAME: RiverviewMinistry
         INFOPLIST_KEY_CFBundleDisplayName: Riverview Ministry Volunteers
         PRODUCT_BUNDLE_IDENTIFIER: org.riverviewadventist.ministry
-        "CODE_SIGN_STYLE[sdk=macosx*]": Manual
-        "CODE_SIGN_IDENTITY[sdk=macosx*]": "-"
+        # A stable signing identity lets macOS recognize rebuilt versions of the
+        # app as the same trusted Keychain client.
+        "CODE_SIGN_STYLE[sdk=macosx*]": Automatic
+        "CODE_SIGN_IDENTITY[sdk=macosx*]": "Apple Development"
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: false
         MACOSX_DEPLOYMENT_TARGET: "14.0"
