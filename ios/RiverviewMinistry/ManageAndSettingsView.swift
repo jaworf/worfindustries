@@ -533,6 +533,8 @@ struct SettingsView: View {
     @State private var importKind: CSVImportKind = .members
     @State private var showingImporter = false
     @State private var showingConnection = false
+    @State private var inviteEmail = ""
+    @State private var inviteRole: AppUserRole = .editor
 
     var body: some View {
         Form {
@@ -576,6 +578,49 @@ struct SettingsView: View {
                     "writes changes back to Planning Center. Webhooks can keep people " +
                     "synchronized; this button provides a full reconciliation."
                 )
+            }
+
+            if model.isAdministrator {
+                Section {
+                    TextField("Email address", text: $inviteEmail)
+                        .textContentType(.emailAddress)
+                        .withoutAutocapitalization()
+                        .autocorrectionDisabled()
+
+                    Picker("Access level", selection: $inviteRole) {
+                        ForEach(AppUserRole.invitationChoices) { role in
+                            Text(role.label).tag(role)
+                        }
+                    }
+
+                    Text(inviteRole.invitationDescription)
+                        .foregroundStyle(.secondary)
+
+                    Button {
+                        Task {
+                            if await model.inviteAppUser(
+                                email: inviteEmail,
+                                role: inviteRole
+                            ) {
+                                inviteEmail = ""
+                            }
+                        }
+                    } label: {
+                        Label(
+                            "Create User & Send Setup Email",
+                            systemImage: "person.badge.plus"
+                        )
+                    }
+                    .disabled(inviteEmail.nilIfBlank == nil || model.isBusy)
+                } header: {
+                    Text("Team Access")
+                } footer: {
+                    Text(
+                        "Administrator only. The new user receives a secure email link " +
+                        "to choose their own password. Editor and Viewer accounts cannot " +
+                        "see this section or create users."
+                    )
+                }
             }
 
             Section {

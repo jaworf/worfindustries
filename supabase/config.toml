@@ -380,6 +380,9 @@ deno_version = 2
 [functions.planning-center-sync]
 verify_jwt = true
 
+[functions.admin-users]
+verify_jwt = true
+
 [functions.planning-center-webhook]
 # Planning Center cannot present a Supabase user JWT. This endpoint instead
 # verifies the signed X-PCO-Webhooks-Authenticity header before processing.

@@ -69,25 +69,43 @@ enum ReportGeneratorSmoke {
             filterDescription: "All active assignments",
             groupByRole: true
         )
-        guard
-            let document = PDFDocument(data: data),
-            document.pageCount == 2,
-            let text = document.string,
-            text.contains("Deacon"),
-            text.contains("Deacon (continued)"),
-            text.contains("Elder"),
-            text.contains("Welcome Team"),
-            text.contains("Coordinates the deacon schedule"),
-            text.occurrences(of: "Deacon") == 2,
-            text.occurrences(of: "Welcome Team") == 1
-        else {
+        guard let document = PDFDocument(data: data), let text = document.string else {
             throw SmokeError.invalidPDF
         }
 
-        try data.write(to: URL(fileURLWithPath: "/private/tmp/Riverview-report-smoke.pdf"))
+        let outputPath = ProcessInfo.processInfo.environment["REPORT_OUTPUT_PATH"]
+            ?? "/private/tmp/Riverview-report-smoke.pdf"
+        try data.write(to: URL(fileURLWithPath: outputPath))
+
+        let checks: [(String, Bool)] = [
+            ("at least two pages", document.pageCount >= 2),
+            ("Deacon heading", text.contains("Deacon")),
+            ("continued heading", text.contains("Deacon (continued)")),
+            ("Elder heading", text.contains("Elder")),
+            ("Welcome Team heading", text.contains("Welcome Team")),
+            ("public note", text.contains("Coordinates the deacon schedule")),
+            ("first page total", text.contains("1 of \(document.pageCount)")),
+            (
+                "last page total",
+                text.contains("\(document.pageCount) of \(document.pageCount)")
+            ),
+            ("Term column removed", !text.contains("July 26 - June 28")),
+            ("continued group count", text.occurrences(of: "Deacon") == 2),
+            ("single Welcome Team heading", text.occurrences(of: "Welcome Team") == 1)
+        ]
+        let failures = checks.filter { !$0.1 }.map(\.0)
+        guard failures.isEmpty else {
+            let diagnostics =
+                "PDF smoke failures: \(failures.joined(separator: ", "))\n" +
+                "Extracted PDF text:\n\(text)\n"
+            FileHandle.standardError.write(Data(diagnostics.utf8))
+            throw SmokeError.invalidPDF
+        }
+
         print(
             "Grouped PDF smoke test passed: \(data.count) bytes, " +
-            "\(document.pageCount) pages, \(assignments.count) assignments"
+            "\(document.pageCount) pages, \(assignments.count) assignments, " +
+            "written to \(outputPath)"
         )
     }
 

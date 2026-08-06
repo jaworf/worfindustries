@@ -57,7 +57,7 @@ test("provides a compact iframe route", async () => {
   assert.match(html, /Volunteer ministry directory/i);
 });
 
-test("provides a password recovery page", async () => {
+test("provides a password setup and recovery page", async () => {
   const response = await render("/reset-password");
   assert.equal(response.status, 200);
   const html = await response.text();
@@ -76,13 +76,24 @@ test("keeps public data limited to approved directory fields", async () => {
   assert.doesNotMatch(client, /mobile_phone|home_phone|address_line|Home Email/);
   assert.match(client, /entry\.note/);
   assert.match(client, /<th>Note<\/th>/);
+  assert.match(client, /<th>Term end<\/th>/);
+  assert.doesNotMatch(client, /<th>Term<\/th>/);
+  assert.doesNotMatch(client, /data-label="Term"/);
   const page = await readFile(new URL("app/page.tsx", root), "utf8");
   assert.match(page, /SUPABASE_PUBLISHABLE_KEY/);
   assert.doesNotMatch(client, /service[_-]?role/i);
   assert.match(layout, /\/og-blue\.png/);
 });
 
-test("updates passwords with the recovery token without privileged keys", async () => {
+test("prints with comfortable margins and page totals", async () => {
+  const styles = await readFile(new URL("app/globals.css", root), "utf8");
+
+  assert.match(styles, /@page\s*{[\s\S]*margin:\s*0\.65in/);
+  assert.match(styles, /@bottom-right/);
+  assert.match(styles, /counter\(page\)[\s\S]*counter\(pages\)/);
+});
+
+test("updates passwords with invitation or recovery tokens without privileged keys", async () => {
   const resetClient = await readFile(
     new URL("app/reset-password/password-reset-client.tsx", root),
     "utf8",
@@ -90,7 +101,29 @@ test("updates passwords with the recovery token without privileged keys", async 
 
   assert.match(resetClient, /window\.location\.hash/);
   assert.match(resetClient, /\/auth\/v1\/user/);
-  assert.match(resetClient, /parameters\.get\("type"\) !== "recovery"/);
+  assert.match(resetClient, /type !== "recovery" && type !== "invite"/);
   assert.match(resetClient, /Bearer \$\{accessToken\}/);
   assert.doesNotMatch(resetClient, /service[_-]?role/i);
+});
+
+test("keeps user creation administrator-only and server-side", async () => {
+  const settings = await readFile(
+    new URL("ios/RiverviewMinistry/ManageAndSettingsView.swift", root),
+    "utf8",
+  );
+  const client = await readFile(
+    new URL("ios/RiverviewMinistry/SupabaseRESTClient.swift", root),
+    "utf8",
+  );
+  const edgeFunction = await readFile(
+    new URL("supabase/functions/admin-users/index.ts", root),
+    "utf8",
+  );
+
+  assert.match(settings, /if model\.isAdministrator/);
+  assert.match(settings, /Create User & Send Setup Email/);
+  assert.doesNotMatch(client, /SUPABASE_(?:SERVICE_ROLE|SECRET)_KEY/);
+  assert.match(edgeFunction, /profile\?\.app_role !== "admin"/);
+  assert.match(edgeFunction, /role !== "editor" && role !== "viewer"/);
+  assert.match(edgeFunction, /inviteUserByEmail/);
 });

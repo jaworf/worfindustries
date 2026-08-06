@@ -130,6 +130,38 @@ actor SupabaseRESTClient {
         )
     }
 
+    func loadCurrentProfile() async throws -> AppProfile {
+        guard let userId = session?.user.id else {
+            throw SupabaseClientError.notSignedIn
+        }
+        let profiles: [AppProfile] = try await send(
+            method: "GET",
+            path: "rest/v1/profiles",
+            query: [
+                .init(name: "select", value: "user_id,display_name,app_role"),
+                .init(name: "user_id", value: "eq.\(userId.uuidString)")
+            ]
+        )
+        guard let profile = profiles.first else {
+            throw SupabaseClientError.invalidRequest(
+                "Your app account does not have an access profile. Contact an administrator."
+            )
+        }
+        return profile
+    }
+
+    func inviteAppUser(
+        email: String,
+        role: AppUserRole
+    ) async throws -> AppUserInvitationResult {
+        let body = try encoder.encode(AppUserInvitationRequest(email: email, role: role))
+        return try await send(
+            method: "POST",
+            path: "functions/v1/admin-users",
+            body: body
+        )
+    }
+
     func createPerson(_ draft: PersonDraft) async throws -> Person {
         let payload = PersonWrite(
             firstName: draft.firstName,
@@ -649,6 +681,11 @@ private struct SignInRequest: Encodable {
 
 private struct PasswordResetRequest: Encodable {
     let email: String
+}
+
+private struct AppUserInvitationRequest: Encodable {
+    let email: String
+    let role: AppUserRole
 }
 
 private struct RefreshRequest: Encodable {

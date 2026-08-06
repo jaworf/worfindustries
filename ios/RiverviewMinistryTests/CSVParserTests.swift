@@ -41,6 +41,11 @@ final class CSVParserTests: XCTestCase {
         )
     }
 
+    func testOnlyNonAdministratorRolesAreAvailableForInvitations() {
+        XCTAssertEqual(AppUserRole.invitationChoices, [.editor, .viewer])
+        XCTAssertFalse(AppUserRole.invitationChoices.contains(.admin))
+    }
+
     func testPlacementFocusFindsEmptyMinistryAndUnfilledExpiredPosition() throws {
         let emptyRole = makeRole(name: "Empty Ministry")
         let gapRole = makeRole(name: "Needs Replacement")

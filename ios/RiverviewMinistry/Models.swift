@@ -281,6 +281,48 @@ struct SupabaseUser: Codable, Sendable {
     let email: String?
 }
 
+enum AppUserRole: String, Codable, CaseIterable, Identifiable, Sendable {
+    case admin
+    case editor
+    case viewer
+
+    var id: String { rawValue }
+
+    static let invitationChoices: [AppUserRole] = [.editor, .viewer]
+
+    var label: String {
+        switch self {
+        case .admin: "Administrator"
+        case .editor: "Editor"
+        case .viewer: "Viewer"
+        }
+    }
+
+    var invitationDescription: String {
+        switch self {
+        case .admin:
+            "Can manage users and all ministry data."
+        case .editor:
+            "Can add and edit people, ministries, terms, and assignments."
+        case .viewer:
+            "Can view the signed-in app but cannot change ministry data."
+        }
+    }
+}
+
+struct AppProfile: Codable, Sendable {
+    let userId: UUID
+    let displayName: String?
+    let appRole: AppUserRole
+}
+
+struct AppUserInvitationResult: Codable, Sendable {
+    let userId: UUID
+    let email: String
+    let role: AppUserRole
+    let message: String
+}
+
 enum AppDate {
     private static let storageFormatter: DateFormatter = {
         let formatter = DateFormatter()

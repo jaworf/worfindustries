@@ -4,8 +4,8 @@ import { PasswordReset } from "./password-reset-client";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Reset Password | Riverview Ministry Volunteers",
-  description: "Choose a new password for the Riverview Ministry Volunteers app.",
+  title: "Set Up Password | Riverview Ministry Volunteers",
+  description: "Choose a password for the Riverview Ministry Volunteers app.",
 };
 
 export default function ResetPasswordPage() {

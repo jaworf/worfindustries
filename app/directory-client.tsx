@@ -383,7 +383,6 @@ export function VolunteerDirectory({
                     <tr>
                       <th>Volunteer</th>
                       <th>Position</th>
-                      <th>Term</th>
                       <th>Term end</th>
                       <th>Vote date</th>
                       <th>Note</th>
@@ -398,7 +397,6 @@ export function VolunteerDirectory({
                         <td data-label="Position">
                           <PositionBadge entry={entry} />
                         </td>
-                        <td data-label="Term">{entry.term_name ?? "No term"}</td>
                         <td data-label="Term end">
                           {formatDate(entry.end_date)}
                         </td>

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 
 type ResetState = "loading" | "ready" | "saving" | "complete" | "error";
+type LinkKind = "recovery" | "invite";
 
 type PasswordResetProps = {
   projectUrl?: string;
@@ -12,46 +13,57 @@ type PasswordResetProps = {
 function linkErrorMessage(errorCode: string | null, description: string | null) {
   if (errorCode === "otp_expired") {
     return (
-      "This recovery link is invalid or has expired. Return to the app, request " +
-      "a new email, and use the link in the newest message."
+      "This setup or recovery link is invalid or has expired. Return to the app, " +
+      "request a new email, and use the link in the newest message."
     );
   }
 
   return (
     description ??
-    "This recovery link is not valid. Return to the app and request a new email."
+    "This setup or recovery link is not valid. Return to the app and request a new email."
   );
 }
 
 export function PasswordReset({ projectUrl, publishableKey }: PasswordResetProps) {
   const [state, setState] = useState<ResetState>("loading");
+  const [linkKind, setLinkKind] = useState<LinkKind>("recovery");
   const [accessToken, setAccessToken] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const parameters = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    const errorCode = parameters.get("error_code");
-    const error = parameters.get("error");
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      const parameters = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const errorCode = parameters.get("error_code");
+      const error = parameters.get("error");
 
-    if (error || errorCode) {
-      setMessage(linkErrorMessage(errorCode, parameters.get("error_description")));
-      setState("error");
-      return;
-    }
+      if (error || errorCode) {
+        setMessage(linkErrorMessage(errorCode, parameters.get("error_description")));
+        setState("error");
+        return;
+      }
 
-    const token = parameters.get("access_token");
-    if (parameters.get("type") !== "recovery" || !token) {
-      setMessage(
-        "Open this page from the link in a password recovery email sent by the app.",
-      );
-      setState("error");
-      return;
-    }
+      const token = parameters.get("access_token");
+      const type = parameters.get("type");
+      if ((type !== "recovery" && type !== "invite") || !token) {
+        setMessage(
+          "Open this page from the newest setup or password recovery email sent by the app.",
+        );
+        setState("error");
+        return;
+      }
 
-    setAccessToken(token);
-    setState("ready");
+      setAccessToken(token);
+      setLinkKind(type);
+      setState("ready");
+    });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function updatePassword(event: FormEvent<HTMLFormElement>) {
@@ -67,7 +79,7 @@ export function PasswordReset({ projectUrl, publishableKey }: PasswordResetProps
       return;
     }
     if (!projectUrl || !publishableKey) {
-      setMessage("Password recovery is not configured. Please contact the app administrator.");
+      setMessage("Password setup is not configured. Please contact the app administrator.");
       setState("error");
       return;
     }
@@ -119,13 +131,19 @@ export function PasswordReset({ projectUrl, publishableKey }: PasswordResetProps
       <section className="auth-card" aria-live="polite">
         <img className="auth-mark" src="/favicon.svg" alt="" />
         <p className="eyebrow">Pasco Riverview Adventist Church</p>
-        <h1>Reset your app password</h1>
+        <h1>
+          {linkKind === "invite"
+            ? "Set up your app password"
+            : "Reset your app password"}
+        </h1>
         <p className="auth-intro">
-          Choose a new password for Riverview Ministry Volunteers. This does not
-          change the Supabase project or database password.
+          {linkKind === "invite"
+            ? "Choose a password for your new Riverview Ministry Volunteers account."
+            : "Choose a new password for Riverview Ministry Volunteers."}{" "}
+          This does not change the Supabase project or database password.
         </p>
 
-        {state === "loading" && <p className="auth-status">Checking recovery link…</p>}
+        {state === "loading" && <p className="auth-status">Checking secure link…</p>}
 
         {state === "error" && (
           <div className="auth-status error" role="alert">

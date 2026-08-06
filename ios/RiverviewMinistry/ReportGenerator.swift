@@ -13,8 +13,9 @@ import AppKit
 
 enum ReportGenerator {
     private static let pageSize = CGSize(width: 792, height: 612)
-    private static let margin: CGFloat = 36
-    private static let headerHeight: CGFloat = 82
+    private static let margin: CGFloat = 48
+    private static let headerHeight: CGFloat = 94
+    private static let footerHeight: CGFloat = 24
     private static let rowHeight: CGFloat = 31
     private static let roleHeaderHeight: CGFloat = 27
     private static let noteBlockHeight: CGFloat = 36
@@ -37,19 +38,17 @@ enum ReportGenerator {
         alpha: 1
     )
     private static let flatColumns: [(title: String, width: CGFloat)] = [
-        ("Ministry", 190),
-        ("Volunteer", 145),
-        ("Position", 95),
-        ("Term", 150),
-        ("Ends", 70),
-        ("Voted", 70)
+        ("Ministry", 210),
+        ("Volunteer", 170),
+        ("Position", 120),
+        ("Term End", 100),
+        ("Voted", 96)
     ]
     private static let groupedColumns: [(title: String, width: CGFloat)] = [
-        ("Volunteer", 225),
-        ("Position", 110),
-        ("Term", 175),
-        ("Ends", 105),
-        ("Voted", 105)
+        ("Volunteer", 260),
+        ("Position", 150),
+        ("Term End", 145),
+        ("Voted", 141)
     ]
 
     static func makePDF(
@@ -100,8 +99,6 @@ enum ReportGenerator {
             drawPageHeader(
                 context,
                 filterDescription: filterDescription,
-                pageNumber: pageIndex + 1,
-                pageCount: pageCount,
                 totalRows: assignments.count
             )
             drawColumnHeaders(context, columns: flatColumns)
@@ -129,6 +126,11 @@ enum ReportGenerator {
                     }
                 }
             }
+            drawPageFooter(
+                context,
+                pageNumber: pageIndex + 1,
+                pageCount: pageCount
+            )
             context.endPDFPage()
         }
     }
@@ -138,7 +140,11 @@ enum ReportGenerator {
     ) -> [[AssignmentDetail]] {
         guard !assignments.isEmpty else { return [[]] }
 
-        let availableHeight = pageSize.height - margin * 2 - headerHeight - rowHeight
+        let availableHeight = pageSize.height
+            - margin * 2
+            - headerHeight
+            - rowHeight
+            - footerHeight
         var pages: [[AssignmentDetail]] = [[]]
         var remainingHeight = availableHeight
 
@@ -167,8 +173,6 @@ enum ReportGenerator {
             drawPageHeader(
                 context,
                 filterDescription: filterDescription,
-                pageNumber: pageIndex + 1,
-                pageCount: pageCount,
                 totalRows: assignments.count
             )
             drawColumnHeaders(context, columns: groupedColumns)
@@ -178,6 +182,11 @@ enum ReportGenerator {
             } else {
                 drawGroupedItems(context, items: items)
             }
+            drawPageFooter(
+                context,
+                pageNumber: pageIndex + 1,
+                pageCount: pageCount
+            )
             context.endPDFPage()
         }
     }
@@ -201,18 +210,28 @@ enum ReportGenerator {
     private static func drawPageHeader(
         _ context: CGContext,
         filterDescription: String,
-        pageNumber: Int,
-        pageCount: Int,
         totalRows: Int
     ) {
+        let bannerHeight: CGFloat = 64
+        let bannerY = pageSize.height - margin - bannerHeight
         context.setFillColor(riverBlue)
         context.fill(
-            CGRect(x: 0, y: pageSize.height - 98, width: pageSize.width, height: 98)
+            CGRect(
+                x: margin,
+                y: bannerY,
+                width: pageSize.width - margin * 2,
+                height: bannerHeight
+            )
         )
         drawText(
             context,
             "Pasco Riverview Adventist Church",
-            in: CGRect(x: margin, y: pageSize.height - 57, width: 500, height: 24),
+            in: CGRect(
+                x: margin + 16,
+                y: bannerY + 35,
+                width: pageSize.width - margin * 2 - 32,
+                height: 24
+            ),
             fontSize: 18,
             color: CGColor(gray: 1, alpha: 1),
             bold: true
@@ -220,24 +239,53 @@ enum ReportGenerator {
         drawText(
             context,
             "Volunteer Ministry Directory",
-            in: CGRect(x: margin, y: pageSize.height - 80, width: 500, height: 18),
+            in: CGRect(
+                x: margin + 16,
+                y: bannerY + 16,
+                width: pageSize.width - margin * 2 - 32,
+                height: 18
+            ),
             fontSize: 11,
             color: CGColor(red: 0.86, green: 0.94, blue: 0.98, alpha: 1)
         )
         drawText(
             context,
-            "Page \(pageNumber) of \(pageCount)",
-            in: CGRect(x: pageSize.width - 150, y: pageSize.height - 58, width: 114, height: 18),
-            fontSize: 9,
-            color: CGColor(gray: 1, alpha: 1),
-            alignment: .right
-        )
-        drawText(
-            context,
-            "\(filterDescription)  •  \(totalRows) assignment\(totalRows == 1 ? "" : "s")",
-            in: CGRect(x: margin, y: pageSize.height - 116, width: pageSize.width - margin * 2, height: 14),
+            "\(filterDescription)  -  \(totalRows) assignment\(totalRows == 1 ? "" : "s")",
+            in: CGRect(
+                x: margin,
+                y: bannerY - 21,
+                width: pageSize.width - margin * 2,
+                height: 14
+            ),
             fontSize: 8,
             color: CGColor(gray: 0.35, alpha: 1)
+        )
+    }
+
+    private static func drawPageFooter(
+        _ context: CGContext,
+        pageNumber: Int,
+        pageCount: Int
+    ) {
+        let ruleY = margin - 4
+        context.setStrokeColor(CGColor(gray: 0.82, alpha: 1))
+        context.setLineWidth(0.5)
+        context.move(to: CGPoint(x: margin, y: ruleY))
+        context.addLine(to: CGPoint(x: pageSize.width - margin, y: ruleY))
+        context.strokePath()
+
+        drawText(
+            context,
+            "\(pageNumber) of \(pageCount)",
+            in: CGRect(
+                x: margin,
+                y: margin - 25,
+                width: pageSize.width - margin * 2,
+                height: 14
+            ),
+            fontSize: 8,
+            color: CGColor(gray: 0.38, alpha: 1),
+            alignment: .right
         )
     }
 
@@ -293,7 +341,6 @@ enum ReportGenerator {
             assignment.roleName,
             assignment.personName,
             assignment.subRoleName ?? "Volunteer",
-            assignment.termName ?? "No term",
             assignment.endDate.flatMap(AppDate.parse).map(AppDate.display) ?? "—",
             assignment.voteDate.flatMap(AppDate.parse).map(AppDate.display) ?? "—"
         ]
@@ -315,7 +362,11 @@ enum ReportGenerator {
     ) -> [[GroupedItem]] {
         guard !assignments.isEmpty else { return [[]] }
 
-        let availableHeight = pageSize.height - margin * 2 - headerHeight - rowHeight
+        let availableHeight = pageSize.height
+            - margin * 2
+            - headerHeight
+            - rowHeight
+            - footerHeight
         let groups = Dictionary(grouping: assignments, by: \.roleName)
             .map { roleName, assignments in
                 (
@@ -331,6 +382,18 @@ enum ReportGenerator {
         var remainingHeight = availableHeight
 
         for (roleName, roleAssignments) in groups {
+            let completeGroupHeight = roleHeaderHeight + roleAssignments.reduce(0) {
+                $0 + assignmentHeight($1)
+            }
+            if
+                !pages[pages.count - 1].isEmpty,
+                completeGroupHeight <= availableHeight,
+                remainingHeight < completeGroupHeight
+            {
+                pages.append([])
+                remainingHeight = availableHeight
+            }
+
             var assignmentIndex = 0
             var continued = false
 
@@ -468,7 +531,6 @@ enum ReportGenerator {
         let values = [
             assignment.personName,
             assignment.subRoleName ?? "Volunteer",
-            assignment.termName ?? "No term",
             assignment.endDate.flatMap(AppDate.parse).map(AppDate.display) ?? "—",
             assignment.voteDate.flatMap(AppDate.parse).map(AppDate.display) ?? "—"
         ]

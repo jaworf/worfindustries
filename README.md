@@ -62,25 +62,20 @@ been imported without committing member contact data to this repository.
 For a clean database, apply every file in `supabase/migrations` in filename
 order, then run `supabase/seed.sql`.
 
-To create an editor account:
+To create a staff account without SQL:
 
-1. In Supabase Authentication, create the staff user.
-2. Promote that user to editor in the SQL editor:
+1. Sign in with an administrator account.
+2. Open **Settings & Import** and find **Team Access**.
+3. Enter the person's email and choose **Editor** or **Viewer**.
+4. Select **Create User & Send Setup Email**.
+5. The new user opens the newest email, chooses a password, and signs in.
 
-```sql
-update public.profiles
-set app_role = 'editor'
-where user_id = (
-  select id
-  from auth.users
-  where lower(email) = lower('YOUR-EMAIL@example.com')
-);
-```
-
-New accounts start as `viewer`. An administrator can set `app_role` to
-`admin`, `editor`, or `viewer`; use `admin` instead of `editor` in the SQL above
-only for a person who should manage other staff access. Editors can manage
-ministry data; viewers have read-only access.
+Only an administrator sees Team Access. The `admin-users` Edge Function checks
+the administrator role again on the server before using Supabase's invitation
+API, so an editor or viewer cannot bypass the hidden interface. The app does not
+offer `admin` as a new-user choice; grant that higher access directly in Supabase
+only when another person genuinely needs to manage staff accounts. Editors can
+manage ministry data, while viewers have read-only access.
 
 The schema deliberately enables Row Level Security on every public table and
 uses explicit grants. Contact data is available only to signed-in staff.
@@ -126,6 +121,8 @@ automatic event delivery is active.
 
 Function configuration:
 
+- `admin-users` with Supabase JWT verification enabled and an additional
+  administrator-role check inside the function;
 - `planning-center-sync` with Supabase JWT verification enabled;
 - `planning-center-webhook` with Supabase JWT verification disabled, because
   the function verifies Planning Center's HMAC signature itself.
@@ -198,20 +195,20 @@ SUPABASE_URL
 SUPABASE_PUBLISHABLE_KEY
 ```
 
-The hosted private preview is connected to the production Supabase project.
-Keep the site private until the directory names and roles have been reviewed
-and public iframe deployment has been explicitly approved.
+The hosted directory is connected to the production Supabase project. The
+directory route is intentionally public; access control for the church's copy is
+handled by the members-only page that contains the iframe.
 
 After the public site is deployed, embed the compact route on
 `riverviewadventist.org`:
 
 ```html
 <iframe
-  src="https://YOUR-DIRECTORY-DOMAIN/embed"
+  src="https://riverview-ministry-directory.jaworf.chatgpt.site/embed"
   title="Riverview volunteer ministry directory"
   width="100%"
-  height="900"
-  style="border:0"
+  height="1100"
+  style="width:100%;min-height:1100px;border:0"
   loading="lazy"
 ></iframe>
 ```
@@ -219,18 +216,50 @@ After the public site is deployed, embed the compact route on
 The web view supports search, role and term-ending filters, CSV export, and
 browser printing/saving as PDF.
 
+## 6. Move the web routes to church-controlled hosting
+
+The web code already builds as a Cloudflare Worker. Moving it changes where the
+iframe and password setup page run; staff passwords themselves remain securely
+managed by Supabase Auth and are not stored by either web host.
+
+1. In Cloudflare **Workers & Pages**, create a Worker and connect the GitHub
+   repository.
+2. Use `pnpm run build` as the build command and
+   `pnpm exec wrangler deploy --config dist/server/wrangler.json` as the deploy
+   command.
+3. Add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` under the Worker's
+   **Settings > Variables and Secrets**. Never add a Supabase secret/service-role
+   key to this web app.
+4. Verify the temporary `workers.dev` address, including `/embed` and
+   `/reset-password`.
+5. If `riverviewadventist.org` is an active Cloudflare DNS zone, attach a custom
+   domain such as `directory.riverviewadventist.org`. Otherwise use the
+   `workers.dev` address until the church decides whether to move DNS to
+   Cloudflare.
+6. In Supabase **Authentication > URL Configuration**, set the production Site
+   URL and add the exact new `/reset-password` URL to Redirect URLs.
+7. Set the Supabase Edge Function secret `APP_PASSWORD_RESET_URL` to that exact
+   new URL, update the Apple app's `passwordResetURL`, rebuild the Apple app, and
+   replace the iframe `src` above.
+8. Test one invitation and one forgot-password email before retiring the old
+   hosted site.
+
 ## Verification performed
 
 - Web production build: passed.
-- Web compiler/type build: passed. The full ESLint process did not terminate in
-  this environment and was stopped after the production build and route tests passed.
-- Web route and privacy tests: 3 passed.
+- Web compiler/type build: passed.
+- ESLint: passed with 0 errors (one non-blocking SVG image optimization warning).
+- Web route, privacy, print, password, and administrator-security tests: 7 passed.
 - macOS Swift type-check against Xcode 26.6 SDK: passed.
 - iOS Swift type-check against Xcode 26.6 SDK: passed.
 - Clean macOS app build in Xcode 26.6: passed.
 - Clean generic iOS Simulator app build in Xcode 26.6: passed.
-- macOS unit tests: 2 passed, 0 failed.
-- PDF runtime smoke test: passed and rendered page visually checked.
+- macOS unit tests: passed with 0 failures.
+- Native PDF runtime smoke test: passed; all three rendered pages were visually checked.
+- Browser PDF: rendered and visually checked with the wider margins, Term End-only
+  table, and `1 of 1` footer.
+- Administrator user endpoint: deployed with JWT verification; an unauthenticated
+  creation request was rejected with HTTP 401.
 - Production migrations: applied successfully.
 - Supabase Cron runs the expired-term archive at 08:10 GMT daily (12:10 AM
   Pacific Standard Time or 1:10 AM Pacific Daylight Time). The initial run

@@ -9,6 +9,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var terms: [MinistryTerm] = []
     @Published private(set) var assignments: [AssignmentDetail] = []
     @Published private(set) var session: SupabaseSession?
+    @Published private(set) var currentProfile: AppProfile?
     @Published var configuration: SupabaseConfiguration
     @Published var isBusy = false
     @Published var errorMessage: String?
@@ -28,6 +29,7 @@ final class AppModel: ObservableObject {
 
     var isConfigured: Bool { configuration.isValid }
     var isSignedIn: Bool { session != nil }
+    var isAdministrator: Bool { currentProfile?.appRole == .admin }
 
     init() {
         if
@@ -73,6 +75,7 @@ final class AppModel: ObservableObject {
                 forKey: configurationKey
             )
             session = nil
+            currentProfile = nil
             KeychainStore.delete(account: sessionAccount)
             client = SupabaseRESTClient(configuration: configuration)
             noticeMessage = "Supabase connection settings saved."
@@ -117,6 +120,7 @@ final class AppModel: ObservableObject {
 
     func signOut() {
         session = nil
+        currentProfile = nil
         people = []
         roles = []
         subRoles = []
@@ -132,6 +136,37 @@ final class AppModel: ObservableObject {
         await perform {
             try await reload(using: requireClient())
         }
+    }
+
+    func inviteAppUser(email: String, role: AppUserRole) async -> Bool {
+        var succeeded = false
+        await perform {
+            guard isAdministrator else {
+                throw SupabaseClientError.invalidRequest(
+                    "Only an administrator can create app users."
+                )
+            }
+            guard role != .admin else {
+                throw SupabaseClientError.invalidRequest(
+                    "New administrator access must be granted directly in Supabase."
+                )
+            }
+            guard
+                let normalizedEmail = email.nilIfBlank?.lowercased(),
+                normalizedEmail.contains("@")
+            else {
+                throw SupabaseClientError.invalidRequest("Enter a valid email address.")
+            }
+
+            let invitation = try await requireClient().inviteAppUser(
+                email: normalizedEmail,
+                role: role
+            )
+            noticeMessage =
+                "Setup email sent to \(invitation.email) with \(invitation.role.label) access."
+            succeeded = true
+        }
+        return succeeded
     }
 
     func saveAssignment(
@@ -399,12 +434,15 @@ final class AppModel: ObservableObject {
     }
 
     private func reload(using client: SupabaseRESTClient) async throws {
-        let snapshot = try await client.loadSnapshot()
+        async let snapshotRequest = client.loadSnapshot()
+        async let profileRequest = client.loadCurrentProfile()
+        let (snapshot, profile) = try await (snapshotRequest, profileRequest)
         people = snapshot.people
         roles = snapshot.roles
         subRoles = snapshot.subRoles
         terms = snapshot.terms
         assignments = snapshot.assignments
+        currentProfile = profile
         if let currentSession = await client.currentSession(),
            currentSession.accessToken != session?.accessToken
         {
