@@ -256,8 +256,9 @@ managed by Supabase Auth and are not stored by either web host.
 - Clean generic iOS Simulator app build in Xcode 26.6: passed.
 - macOS unit tests: passed with 0 failures.
 - Native PDF runtime smoke test: passed; all three rendered pages were visually checked.
-- Browser PDF: rendered and visually checked with the wider margins, Term End-only
-  table, and `1 of 1` footer.
+- Live browser PDF: all 18 pages rendered; the first and last pages were visually
+  checked with the wider margins, Term End-only table, and `1 of 18` / `18 of 18`
+  footers.
 - Administrator user endpoint: deployed with JWT verification; an unauthenticated
   creation request was rejected with HTTP 401.
 - Production migrations: applied successfully.
