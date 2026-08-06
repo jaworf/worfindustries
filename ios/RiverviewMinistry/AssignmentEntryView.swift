@@ -23,6 +23,7 @@ struct AssignmentEntryView: View {
     @State private var includeVoteDate = false
     @State private var selectedVoteDate = Date()
     @State private var roleForNewPosition: MinistryRole?
+    @State private var showSaveRequirements = false
 
     init(route: Binding<AssignmentRoute?> = .constant(nil)) {
         _route = route
@@ -190,7 +191,7 @@ struct AssignmentEntryView: View {
 
             Section {
                 Button {
-                    Task { await save() }
+                    attemptSave()
                 } label: {
                     if model.isBusy {
                         ProgressView()
@@ -201,7 +202,15 @@ struct AssignmentEntryView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!canSave || model.isBusy)
+                .disabled(model.isBusy)
+
+                if showSaveRequirements, let saveRequirementMessage {
+                    Label(saveRequirementMessage, systemImage: "exclamationmark.circle.fill")
+                        .appFont(.footnote, weight: .semibold)
+                        .foregroundStyle(.orange)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("assignmentSaveRequirement")
+                }
             } footer: {
                 Text(
                     "Changing a ministry or position name later updates every assignment " +
@@ -359,14 +368,36 @@ struct AssignmentEntryView: View {
         }
     }
 
-    private var canSave: Bool {
-        let hasPerson = mode == .existing
-            ? assignment.personId != nil
-            : (newPerson.firstName.nilIfBlank != nil && newPerson.lastName.nilIfBlank != nil)
-        return hasPerson
-            && assignment.roleId != nil
-            && assignment.subRoleId != nil
-            && assignment.termId != nil
+    private var saveRequirementMessage: String? {
+        if mode == .existing, assignment.personId == nil {
+            return "Choose a volunteer before saving."
+        }
+        if mode == .new, newPerson.firstName.nilIfBlank == nil {
+            return "Enter the volunteer's first name before saving."
+        }
+        if mode == .new, newPerson.lastName.nilIfBlank == nil {
+            return "Enter the volunteer's last name before saving."
+        }
+        if assignment.roleId == nil {
+            return "Choose a ministry before saving."
+        }
+        if assignment.subRoleId == nil {
+            return "Choose a position before saving."
+        }
+        if assignment.termId == nil {
+            return "Choose a term before saving."
+        }
+        return nil
+    }
+
+    private func attemptSave() {
+        guard saveRequirementMessage == nil else {
+            showSaveRequirements = true
+            return
+        }
+
+        showSaveRequirements = false
+        Task { await save() }
     }
 
     private func save() async {
@@ -379,6 +410,7 @@ struct AssignmentEntryView: View {
             assignment = AssignmentDraft()
             newPerson = PersonDraft()
             personSearch = ""
+            showSaveRequirements = false
             includeVoteDate = false
             selectedVoteDate = Date()
             mode = .existing
