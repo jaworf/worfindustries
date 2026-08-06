@@ -39,6 +39,7 @@ export type MinistryPersonRecord = {
   state_region?: string | null;
   postal_code?: string | null;
   country_code?: string | null;
+  membership_status?: string | null;
   is_active: boolean;
   source_updated_at?: string | null;
 };
@@ -147,6 +148,8 @@ function planningCenterHeaders(): HeadersInit {
   return {
     Accept: "application/json",
     Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+    "User-Agent":
+      "Riverview Ministry Volunteers (jason.worf@riverviewadventist.org)",
     "X-PCO-API-Version": planningCenterApiVersion,
   };
 }
@@ -253,6 +256,10 @@ export function personRecordFromResponse(
     state_region: stringAttribute(address, "state"),
     postal_code: stringAttribute(address, "zip"),
     country_code: stringAttribute(address, "country_code"),
+    membership_status:
+      typeof person.attributes.membership === "string"
+        ? person.attributes.membership.trim() || null
+        : null,
     is_active: status === "active" && !person.attributes.inactivated_at,
     source_updated_at:
       typeof person.attributes.updated_at === "string"
@@ -310,8 +317,7 @@ export async function mergePlanningCenterPerson(
   person: { externalId: string; record: MinistryPersonRecord },
   importRunId: string | null,
 ): Promise<{ outcome: string; person_id?: string; message?: string }> {
-  const { data, error } = await supabase.rpc("merge_person_from_source", {
-    p_source_system: "planning_center",
+  const { data, error } = await supabase.rpc("sync_planning_center_person", {
     p_external_id: person.externalId,
     p_record: person.record,
     p_import_run_id: importRunId,

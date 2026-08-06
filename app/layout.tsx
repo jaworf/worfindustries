@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
       type: "website",
       images: [
         {
-          url: `${origin}/og.png`,
+          url: `${origin}/og-blue.png`,
           width: 1730,
           height: 909,
           alt: "Pasco Riverview volunteer ministry directory",
@@ -40,7 +40,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   colorScheme: "light",
-  themeColor: "#0e4b3c",
+  themeColor: "#1f5f8b",
 };
 
 export default function RootLayout({

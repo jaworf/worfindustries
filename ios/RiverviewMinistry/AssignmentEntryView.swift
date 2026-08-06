@@ -24,19 +24,30 @@ struct AssignmentEntryView: View {
         model.roles.first(where: { $0.id == assignment.roleId })
     }
 
+    private var selectedPosition: MinistrySubRole? {
+        model.subRoles.first(where: { $0.id == assignment.subRoleId })
+    }
+
+    private var placementRequiresVote: Bool {
+        selectedRole?.requiresVote == true || selectedPosition?.requiresVote == true
+    }
+
     private var matchingPeople: [Person] {
         let query = personSearch.trimmingCharacters(in: .whitespacesAndNewlines)
-        let source = query.isEmpty ? model.people : model.people.filter {
-            $0.displayName.localizedCaseInsensitiveContains(query)
+        guard !query.isEmpty else { return [] }
+        let source = model.people.filter {
+            $0.isActive && (
+                $0.displayName.localizedCaseInsensitiveContains(query)
                 || ($0.email?.localizedCaseInsensitiveContains(query) ?? false)
                 || ($0.mobilePhone?.localizedCaseInsensitiveContains(query) ?? false)
+            )
         }
         return Array(source.prefix(12))
     }
 
     private var availableSubRoles: [MinistrySubRole] {
         model.subRoles.filter {
-            $0.isActive && ($0.roleId == nil || $0.roleId == assignment.roleId)
+            $0.isActive && $0.roleId == assignment.roleId
         }
     }
 
@@ -63,15 +74,15 @@ struct AssignmentEntryView: View {
             }
 
             Section("Ministry placement") {
-                Picker("Ministry role", selection: $assignment.roleId) {
-                    Text("Choose a role").tag(UUID?.none)
+                Picker("Ministry", selection: $assignment.roleId) {
+                    Text("Choose a ministry").tag(UUID?.none)
                     ForEach(model.roles.filter(\.isActive)) { role in
                         Text(role.name).tag(Optional(role.id))
                     }
                 }
 
-                Picker("Position / sub-role", selection: $assignment.subRoleId) {
-                    Text("Volunteer").tag(UUID?.none)
+                Picker("Position", selection: $assignment.subRoleId) {
+                    Text("Choose a position").tag(UUID?.none)
                     ForEach(availableSubRoles) { subRole in
                         Text(subRole.name).tag(Optional(subRole.id))
                     }
@@ -87,11 +98,14 @@ struct AssignmentEntryView: View {
             }
 
             Section("Record details") {
-                if selectedRole?.requiresVote == true {
+                if placementRequiresVote {
                     LabeledContent("Church vote") {
                         Text("Required")
                             .foregroundStyle(.orange)
                     }
+                    Text(voteRequirementDescription)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                     DatePicker(
                         "Vote date",
                         selection: $selectedVoteDate,
@@ -109,8 +123,30 @@ struct AssignmentEntryView: View {
                     }
                 }
 
-                TextField("Notes (optional)", text: $assignment.notes, axis: .vertical)
-                    .lineLimit(2...5)
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Note", systemImage: "note.text")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.riverBlueDark)
+                    TextField(
+                        "Add context for this assignment (optional)",
+                        text: $assignment.notes,
+                        axis: .vertical
+                    )
+                    .lineLimit(3...7)
+                    .padding(10)
+                    .background(
+                        AppTheme.riverBlueSoft.opacity(0.62),
+                        in: RoundedRectangle(cornerRadius: 10)
+                    )
+                }
+                Toggle(
+                    "Include this note in reports and the public web directory",
+                    isOn: $assignment.noteIsPublic
+                )
+                .disabled(assignment.notes.nilIfBlank == nil)
+                Text("Notes remain staff-only unless this option is enabled.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 Toggle("Show this assignment in the public directory", isOn: $assignment.isPublic)
             }
 
@@ -130,12 +166,16 @@ struct AssignmentEntryView: View {
                 .disabled(!canSave || model.isBusy)
             } footer: {
                 Text(
-                    "Changing a role name later updates every assignment because " +
-                    "assignments reference the role record, not a copied name."
+                    "Changing a ministry or position name later updates every assignment " +
+                    "because placements reference records, not copied names."
                 )
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .frame(maxWidth: 960)
+        .frame(maxWidth: .infinity)
+        .background(AppTheme.pageBackground)
         .navigationTitle("Assign a Volunteer")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -152,7 +192,28 @@ struct AssignmentEntryView: View {
             if !availableSubRoles.contains(where: { $0.id == assignment.subRoleId }) {
                 assignment.subRoleId = nil
             }
-            includeVoteDate = selectedRole?.requiresVote == true
+            includeVoteDate = placementRequiresVote
+        }
+        .onChange(of: assignment.subRoleId) { _, _ in
+            includeVoteDate = placementRequiresVote
+        }
+        .onChange(of: assignment.notes) { _, notes in
+            if notes.nilIfBlank == nil {
+                assignment.noteIsPublic = false
+            }
+        }
+    }
+
+    private var voteRequirementDescription: String {
+        switch (selectedRole?.requiresVote == true, selectedPosition?.requiresVote == true) {
+        case (true, true):
+            "Both this ministry and this position require a church vote."
+        case (true, false):
+            "This ministry requires a church vote."
+        case (false, true):
+            "This position requires a church vote."
+        case (false, false):
+            ""
         }
     }
 
@@ -175,6 +236,11 @@ struct AssignmentEntryView: View {
                         )
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        if let membership = selectedPerson.membershipStatus.nilIfBlank {
+                            Text("Membership: \(membership)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     Spacer()
                     Button("Change") {
@@ -182,7 +248,19 @@ struct AssignmentEntryView: View {
                     }
                 }
                 .padding(10)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                .background(AppTheme.riverBlueSoft, in: RoundedRectangle(cornerRadius: 12))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(AppTheme.riverBlue.opacity(0.25))
+                }
+            } else if personSearch.nilIfBlank == nil {
+                Label(
+                    "Start typing to find a volunteer by name, email, or phone.",
+                    systemImage: "magnifyingglass"
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .padding(.vertical, 6)
             } else {
                 ForEach(matchingPeople) { person in
                     Button {
@@ -196,6 +274,11 @@ struct AssignmentEntryView: View {
                                 Text(person.email ?? person.mobilePhone ?? "No contact detail")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
+                                if let membership = person.membershipStatus.nilIfBlank {
+                                    Text("Membership: \(membership)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
@@ -230,7 +313,10 @@ struct AssignmentEntryView: View {
         let hasPerson = mode == .existing
             ? assignment.personId != nil
             : (newPerson.firstName.nilIfBlank != nil && newPerson.lastName.nilIfBlank != nil)
-        return hasPerson && assignment.roleId != nil && assignment.termId != nil
+        return hasPerson
+            && assignment.roleId != nil
+            && assignment.subRoleId != nil
+            && assignment.termId != nil
     }
 
     private func save() async {

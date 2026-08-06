@@ -73,7 +73,6 @@ actor SupabaseRESTClient {
             "people",
             query: [
                 .init(name: "select", value: "*"),
-                .init(name: "is_active", value: "eq.true"),
                 .init(name: "order", value: "last_name.asc,first_name.asc")
             ]
         )
@@ -135,7 +134,7 @@ actor SupabaseRESTClient {
 
     func createAssignment(_ draft: AssignmentDraft) async throws {
         guard let personId = draft.personId, let roleId = draft.roleId else {
-            throw SupabaseClientError.invalidRequest("A person and ministry role are required.")
+            throw SupabaseClientError.invalidRequest("A person and ministry are required.")
         }
         let payload = AssignmentWrite(
             personId: personId,
@@ -144,12 +143,77 @@ actor SupabaseRESTClient {
             termId: draft.termId,
             voteDate: draft.voteDate.map(AppDate.storage),
             notes: draft.notes.nilIfBlank,
+            noteIsPublic: draft.noteIsPublic && draft.notes.nilIfBlank != nil,
             status: "active",
             isPublic: draft.isPublic
         )
         let _: [AssignmentWriteResult] = try await restWrite(
             "POST",
             table: "assignments",
+            body: payload
+        )
+    }
+
+    func updateAssignmentNote(
+        assignmentId: UUID,
+        notes: String?,
+        noteIsPublic: Bool
+    ) async throws {
+        let cleanNotes = notes.nilIfBlank
+        let payload = AssignmentNoteWrite(
+            notes: cleanNotes,
+            noteIsPublic: noteIsPublic && cleanNotes != nil
+        )
+        let _: [AssignmentWriteResult] = try await restWrite(
+            "PATCH",
+            table: "assignments",
+            query: [.init(name: "id", value: "eq.\(assignmentId.uuidString)")],
+            body: payload
+        )
+    }
+
+    func updateAssignmentVoteDate(
+        assignmentId: UUID,
+        voteDate: Date?
+    ) async throws {
+        let payload = AssignmentVoteWrite(voteDate: voteDate.map(AppDate.storage))
+        let _: [AssignmentWriteResult] = try await restWrite(
+            "PATCH",
+            table: "assignments",
+            query: [.init(name: "id", value: "eq.\(assignmentId.uuidString)")],
+            body: payload
+        )
+    }
+
+    func updateAssignmentDetails(
+        assignmentId: UUID,
+        notes: String?,
+        noteIsPublic: Bool,
+        voteDate: Date?
+    ) async throws {
+        let cleanNotes = notes.nilIfBlank
+        let payload = AssignmentDetailsWrite(
+            notes: cleanNotes,
+            noteIsPublic: noteIsPublic && cleanNotes != nil,
+            voteDate: voteDate.map(AppDate.storage)
+        )
+        let _: [AssignmentWriteResult] = try await restWrite(
+            "PATCH",
+            table: "assignments",
+            query: [.init(name: "id", value: "eq.\(assignmentId.uuidString)")],
+            body: payload
+        )
+    }
+
+    func setAssignmentArchived(
+        assignmentId: UUID,
+        archived: Bool
+    ) async throws {
+        let payload = AssignmentStatusWrite(status: archived ? "completed" : "active")
+        let _: [AssignmentWriteResult] = try await restWrite(
+            "PATCH",
+            table: "assignments",
+            query: [.init(name: "id", value: "eq.\(assignmentId.uuidString)")],
             body: payload
         )
     }
@@ -179,6 +243,42 @@ actor SupabaseRESTClient {
             "PATCH",
             table: "roles",
             query: [.init(name: "id", value: "eq.\(role.id.uuidString)")],
+            body: payload
+        )
+    }
+
+    func createSubRole(_ draft: SubRoleDraft) async throws {
+        let payload = SubRoleWrite(
+            roleId: draft.roleId,
+            name: draft.name,
+            leadershipRank: draft.leadershipRank,
+            requiresVote: draft.requiresVote,
+            isActive: draft.isActive
+        )
+        let _: [MinistrySubRole] = try await restWrite(
+            "POST",
+            table: "sub_roles",
+            body: payload
+        )
+    }
+
+    func updateSubRole(_ subRole: MinistrySubRole) async throws {
+        guard let roleId = subRole.roleId else {
+            throw SupabaseClientError.invalidRequest(
+                "This imported position must be assigned to a ministry before it can be edited."
+            )
+        }
+        let payload = SubRoleWrite(
+            roleId: roleId,
+            name: subRole.name,
+            leadershipRank: subRole.leadershipRank,
+            requiresVote: subRole.requiresVote,
+            isActive: subRole.isActive
+        )
+        let _: [MinistrySubRole] = try await restWrite(
+            "PATCH",
+            table: "sub_roles",
+            query: [.init(name: "id", value: "eq.\(subRole.id.uuidString)")],
             body: payload
         )
     }
@@ -447,7 +547,18 @@ actor SupabaseRESTClient {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
 
-        let (data, response) = try await urlSession.data(for: request)
+        var result = try await urlSession.data(for: request)
+        if
+            let http = result.1 as? HTTPURLResponse,
+            http.statusCode == 401,
+            String(data: result.0, encoding: .utf8)?
+                .localizedCaseInsensitiveContains("JWT issued at future") == true
+        {
+            try await Task.sleep(nanoseconds: 2_000_000_000)
+            result = try await urlSession.data(for: request)
+        }
+
+        let (data, response) = result
         guard let http = response as? HTTPURLResponse else {
             throw SupabaseClientError.invalidResponse
         }
@@ -531,8 +642,28 @@ private struct AssignmentWrite: Encodable {
     let termId: UUID?
     let voteDate: String?
     let notes: String?
+    let noteIsPublic: Bool
     let status: String
     let isPublic: Bool
+}
+
+private struct AssignmentNoteWrite: Encodable {
+    let notes: String?
+    let noteIsPublic: Bool
+}
+
+private struct AssignmentVoteWrite: Encodable {
+    let voteDate: String?
+}
+
+private struct AssignmentDetailsWrite: Encodable {
+    let notes: String?
+    let noteIsPublic: Bool
+    let voteDate: String?
+}
+
+private struct AssignmentStatusWrite: Encodable {
+    let status: String
 }
 
 private struct AssignmentWriteResult: Decodable {
@@ -546,6 +677,14 @@ private struct RoleWrite: Encodable {
     let isActive: Bool
     let isPublic: Bool
     let displayOrder: Int
+}
+
+private struct SubRoleWrite: Encodable {
+    let roleId: UUID
+    let name: String
+    let leadershipRank: Int
+    let requiresVote: Bool
+    let isActive: Bool
 }
 
 private struct TermWrite: Encodable {

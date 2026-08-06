@@ -14,6 +14,7 @@ export type DirectoryEntry = {
   start_date: string | null;
   end_date: string | null;
   vote_date: string | null;
+  note: string | null;
 };
 
 type EndingWindow = "all" | "6" | "12";
@@ -31,6 +32,7 @@ const previewEntries: DirectoryEntry[] = [
     start_date: "2026-07-01",
     end_date: "2028-06-30",
     vote_date: "2026-06-20",
+    note: "Coordinates the monthly team schedule.",
   },
   {
     id: "preview-2",
@@ -44,6 +46,7 @@ const previewEntries: DirectoryEntry[] = [
     start_date: "2026-07-01",
     end_date: "2028-06-30",
     vote_date: "2026-06-20",
+    note: null,
   },
   {
     id: "preview-3",
@@ -57,6 +60,7 @@ const previewEntries: DirectoryEntry[] = [
     start_date: "2026-07-01",
     end_date: "2028-06-30",
     vote_date: null,
+    note: null,
   },
   {
     id: "preview-4",
@@ -70,6 +74,7 @@ const previewEntries: DirectoryEntry[] = [
     start_date: "2026-01-01",
     end_date: "2027-12-31",
     vote_date: null,
+    note: "Greets guests and supports Sabbath welcome coverage.",
   },
   {
     id: "preview-5",
@@ -83,6 +88,7 @@ const previewEntries: DirectoryEntry[] = [
     start_date: "2026-01-01",
     end_date: "2027-12-31",
     vote_date: null,
+    note: null,
   },
 ];
 
@@ -188,6 +194,7 @@ export function VolunteerDirectory({
             entry.role_name,
             entry.sub_role_name ?? "",
             entry.term_name ?? "",
+            entry.note ?? "",
           ].some((value) =>
             value.toLocaleLowerCase().includes(normalizedSearch),
           )
@@ -229,6 +236,7 @@ export function VolunteerDirectory({
       "Term Start",
       "Term End",
       "Vote Date",
+      "Note",
     ];
     const rows = filtered.map((entry) => [
       entry.role_name,
@@ -238,6 +246,7 @@ export function VolunteerDirectory({
       entry.start_date ?? "",
       entry.end_date ?? "",
       entry.vote_date ?? "",
+      entry.note ?? "",
     ]);
     const csv = [headers, ...rows]
       .map((row) => row.map(csvCell).join(","))
@@ -279,7 +288,7 @@ export function VolunteerDirectory({
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Person, role, position, or term"
+              placeholder="Person, role, position, term, or note"
             />
           </span>
         </label>
@@ -377,6 +386,7 @@ export function VolunteerDirectory({
                       <th>Term</th>
                       <th>Term end</th>
                       <th>Vote date</th>
+                      <th>Note</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -395,6 +405,9 @@ export function VolunteerDirectory({
                         <td data-label="Vote date">
                           {formatDate(entry.vote_date)}
                         </td>
+                        <td data-label="Note" className="note-cell">
+                          {entry.note ?? "—"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -407,8 +420,9 @@ export function VolunteerDirectory({
 
       <footer>
         <p>
-          Public directory records include names and ministry assignments only.
-          Contact information remains private in the staff app.
+          Public directory records include names, ministry assignments, and only
+          notes explicitly approved for reports and the web. Contact information
+          and staff-only notes remain private in the app.
         </p>
         <p className="print-generated">
           Printed {new Intl.DateTimeFormat("en-US", { dateStyle: "long" }).format(new Date())}
@@ -449,7 +463,7 @@ function BrandMark() {
       role="img"
       aria-label="Riverview ministry mark"
     >
-      <path d="M28 4a24 24 0 1 0 24 24A24 24 0 0 0 28 4Z" fill="#0e4b3c" />
+      <path d="M28 4a24 24 0 1 0 24 24A24 24 0 0 0 28 4Z" fill="#1f5f8b" />
       <path
         d="M17 35c5-8 12-13 22-16-3 5-5 10-5 17"
         fill="none"

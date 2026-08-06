@@ -16,6 +16,7 @@ struct Person: Codable, Identifiable, Hashable, Sendable {
     var stateRegion: String?
     var postalCode: String?
     var countryCode: String?
+    var membershipStatus: String? = nil
     var notes: String?
     var isActive: Bool
     var isPublic: Bool
@@ -35,6 +36,7 @@ struct MinistryRole: Codable, Identifiable, Hashable, Sendable {
     var isActive: Bool
     var isPublic: Bool
     var displayOrder: Int
+    var archivedAt: String? = nil
 }
 
 struct MinistrySubRole: Codable, Identifiable, Hashable, Sendable {
@@ -42,6 +44,7 @@ struct MinistrySubRole: Codable, Identifiable, Hashable, Sendable {
     var roleId: UUID?
     var name: String
     var leadershipRank: Int
+    var requiresVote: Bool
     var isActive: Bool
 }
 
@@ -87,14 +90,28 @@ struct AssignmentDetail: Codable, Identifiable, Hashable, Sendable {
     let endDate: String?
     let termType: String?
     let voteDate: String?
+    let ministryRequiresVote: Bool
+    let positionRequiresVote: Bool
     let requiresVote: Bool
     let voteMissing: Bool
     let status: String
     let isPublic: Bool
     let notes: String?
+    let noteIsPublic: Bool
+    var archivedAt: String? = nil
+    var ministryIsActive: Bool = true
+    var ministryArchivedAt: String? = nil
 
     var endDateValue: Date? {
         endDate.flatMap(AppDate.parse)
+    }
+
+    var publishedNote: String? {
+        noteIsPublic ? notes.nilIfBlank : nil
+    }
+
+    var isCurrentPlacement: Bool {
+        status == "active" && ministryIsActive
     }
 }
 
@@ -139,6 +156,7 @@ struct AssignmentDraft: Sendable {
     var termId: UUID?
     var voteDate: Date?
     var notes = ""
+    var noteIsPublic = false
     var isPublic = true
 }
 
@@ -147,6 +165,14 @@ struct RoleDraft: Sendable {
     var description = ""
     var requiresVote = false
     var isPublic = true
+}
+
+struct SubRoleDraft: Sendable {
+    var roleId: UUID
+    var name = ""
+    var leadershipRank = 100
+    var requiresVote = false
+    var isActive = true
 }
 
 struct TermDraft: Sendable {
@@ -188,6 +214,13 @@ struct ImportRPCResult: Decodable, Sendable {
 enum CSVImportKind: String, CaseIterable, Identifiable, Sendable {
     case members = "Members"
     case assignments = "Assignments"
+
+    var id: String { rawValue }
+}
+
+enum VoteStatusFilter: String, CaseIterable, Identifiable, Sendable {
+    case all = "All vote statuses"
+    case awaiting = "Awaiting church vote"
 
     var id: String { rawValue }
 }
@@ -246,7 +279,9 @@ enum AppDate {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        // These are calendar dates, not moments in time. Using UTC caused a late-evening
+        // vote recorded on the West Coast to be stored as the following day.
+        formatter.timeZone = .autoupdatingCurrent
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()
@@ -255,7 +290,7 @@ enum AppDate {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.timeZone = .autoupdatingCurrent
         formatter.dateStyle = .medium
         formatter.timeStyle = .none
         return formatter
@@ -271,6 +306,18 @@ enum AppDate {
 
     static func display(_ date: Date) -> String {
         displayFormatter.string(from: date)
+    }
+
+    static func displayTimestamp(_ value: String) -> String? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        var date = formatter.date(from: value)
+        if date == nil {
+            formatter.formatOptions = [.withInternetDateTime]
+            date = formatter.date(from: value)
+        }
+        guard let date else { return nil }
+        return displayFormatter.string(from: date)
     }
 }
 

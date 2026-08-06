@@ -12,6 +12,7 @@ struct AssignmentFilter: Sendable {
     var search = ""
     var roleId: UUID?
     var endingWindow: EndingWindow = .all
+    var voteStatus: VoteStatusFilter = .all
 
     func apply(
         to assignments: [AssignmentDetail],
@@ -26,14 +27,16 @@ struct AssignmentFilter: Sendable {
 
         return assignments
             .filter { assignment in
-                guard assignment.status == "active" else { return false }
+                guard assignment.isCurrentPlacement else { return false }
                 if let roleId, assignment.roleId != roleId { return false }
+                if voteStatus == .awaiting, !assignment.voteMissing { return false }
                 if !query.isEmpty {
                     let values = [
                         assignment.personName,
                         assignment.roleName,
                         assignment.subRoleName ?? "",
-                        assignment.termName ?? ""
+                        assignment.termName ?? "",
+                        assignment.notes ?? ""
                     ]
                     guard values.contains(where: {
                         $0.localizedCaseInsensitiveContains(query)
@@ -58,13 +61,16 @@ struct AssignmentFilter: Sendable {
     func description(roles: [MinistryRole]) -> String {
         var parts: [String] = []
         if let roleId, let role = roles.first(where: { $0.id == roleId }) {
-            parts.append("Role: \(role.name)")
+            parts.append("Ministry: \(role.name)")
         }
         if let query = search.nilIfBlank {
             parts.append("Search: \(query)")
         }
         if endingWindow != .all {
             parts.append(endingWindow.rawValue)
+        }
+        if voteStatus != .all {
+            parts.append(voteStatus.rawValue)
         }
         return parts.isEmpty ? "All active assignments" : parts.joined(separator: " • ")
     }
@@ -88,31 +94,49 @@ struct AssignmentFilter: Sendable {
 struct AssignmentFilterControls: View {
     @Binding var filter: AssignmentFilter
     let roles: [MinistryRole]
+    var includeVoteFilter = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            TextField("Search person, role, position, or term", text: $filter.search)
+            TextField("Search person, role, position, term, or note", text: $filter.search)
                 .textFieldStyle(.roundedBorder)
 
-            HStack {
-                Picker("Role", selection: $filter.roleId) {
-                    Text("All roles").tag(UUID?.none)
-                    ForEach(roles.filter(\.isActive)) { role in
-                        Text(role.name).tag(Optional(role.id))
-                    }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    pickerControls
                 }
-                Picker("Term ending", selection: $filter.endingWindow) {
-                    ForEach(EndingWindow.allCases) { window in
-                        Text(window.rawValue).tag(window)
-                    }
+                VStack(alignment: .leading, spacing: 10) {
+                    pickerControls
                 }
-                if filter.roleId != nil || filter.search.nilIfBlank != nil
-                    || filter.endingWindow != .all
-                {
-                    Button("Clear") {
-                        filter = AssignmentFilter()
-                    }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var pickerControls: some View {
+        Picker("Ministry", selection: $filter.roleId) {
+            Text("All ministries").tag(UUID?.none)
+            ForEach(roles.filter(\.isActive)) { role in
+                Text(role.name).tag(Optional(role.id))
+            }
+        }
+        Picker("Term ending", selection: $filter.endingWindow) {
+            ForEach(EndingWindow.allCases) { window in
+                Text(window.rawValue).tag(window)
+            }
+        }
+        if includeVoteFilter {
+            Picker("Church vote", selection: $filter.voteStatus) {
+                ForEach(VoteStatusFilter.allCases) { status in
+                    Text(status.rawValue).tag(status)
                 }
+            }
+        }
+        if filter.roleId != nil || filter.search.nilIfBlank != nil
+            || filter.endingWindow != .all || filter.voteStatus != .all
+        {
+            Button("Clear") {
+                filter = AssignmentFilter()
             }
         }
     }
@@ -121,6 +145,7 @@ struct AssignmentFilterControls: View {
 struct DirectoryView: View {
     @EnvironmentObject private var model: AppModel
     @State private var filter = AssignmentFilter()
+    @State private var editingAssignment: AssignmentDetail?
 
     private var filtered: [AssignmentDetail] {
         filter.apply(to: model.assignments)
@@ -135,39 +160,551 @@ struct DirectoryView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            AssignmentFilterControls(filter: $filter, roles: model.roles)
-                .padding()
-                .background(.bar)
+        Form {
+            Section {
+                AssignmentFilterControls(filter: $filter, roles: model.roles)
+            } header: {
+                Text("Find assignments")
+            } footer: {
+                Text("Search names, ministries, positions, terms, or assignment notes.")
+            }
 
             if grouped.isEmpty {
-                ContentUnavailableView(
-                    "No matching assignments",
-                    systemImage: "person.3",
-                    description: Text("Try clearing one or more filters.")
-                )
+                Section {
+                    ContentUnavailableView(
+                        "No matching assignments",
+                        systemImage: "person.3",
+                        description: Text("Try clearing one or more filters.")
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 32)
+                }
             } else {
-                List {
-                    ForEach(grouped, id: \.0) { roleName, assignments in
-                        Section(roleName) {
-                            ForEach(assignments) { assignment in
+                ForEach(grouped, id: \.0) { roleName, assignments in
+                    Section {
+                        ForEach(assignments) { assignment in
+                            Button {
+                                editingAssignment = assignment
+                            } label: {
                                 AssignmentDirectoryRow(assignment: assignment)
+                                    .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(
+                                "Edit assignment for \(assignment.personName), \(assignment.roleName)"
+                            )
                         }
+                    } header: {
+                        Text(roleName)
+                            .font(.title.weight(.bold))
+                            .foregroundStyle(AppTheme.riverBlueDark)
+                            .textCase(nil)
+                            .padding(.top, 12)
+                            .padding(.bottom, 4)
                     }
                 }
-                .listStyle(.inset)
             }
         }
-        .navigationTitle("Volunteer Directory")
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .frame(maxWidth: 920)
+        .frame(maxWidth: .infinity)
+        .background(AppTheme.pageBackground)
+        .navigationTitle("Ministry Directory")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Text("\(filtered.count)")
                     .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(AppTheme.riverBlueDark)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(AppTheme.riverBlueSoft, in: Capsule())
                     .accessibilityLabel("\(filtered.count) assignments")
             }
         }
+        .sheet(item: $editingAssignment) { assignment in
+            AssignmentEditor(assignment: assignment)
+                .environmentObject(model)
+        }
+    }
+}
+
+struct PeopleDirectoryView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var search = ""
+    @State private var selectedPerson: Person?
+
+    private var matchingPeople: [Person] {
+        guard let query = search.nilIfBlank else { return [] }
+        return model.people
+            .filter { person in
+                [
+                    person.displayName,
+                    person.email ?? "",
+                    person.mobilePhone ?? "",
+                    person.homePhone ?? "",
+                    person.membershipStatus ?? ""
+                ].contains { $0.localizedCaseInsensitiveContains(query) }
+            }
+            .sorted {
+                let lastOrder = $0.lastName.localizedCaseInsensitiveCompare($1.lastName)
+                if lastOrder != .orderedSame { return lastOrder == .orderedAscending }
+                return $0.firstName.localizedCaseInsensitiveCompare($1.firstName)
+                    == .orderedAscending
+            }
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                TextField(
+                    "Search name, email, phone, or membership status",
+                    text: $search
+                )
+                .textFieldStyle(.roundedBorder)
+            } header: {
+                Text("Find a person")
+            } footer: {
+                Text(
+                    "Select a person to see both current ministry placements and archived history."
+                )
+            }
+
+            if search.nilIfBlank == nil {
+                Section {
+                    ContentUnavailableView(
+                        "Search the People Directory",
+                        systemImage: "person.text.rectangle",
+                        description: Text(
+                            "Enter part of a name, email address, phone number, or membership status."
+                        )
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 32)
+                }
+            } else if matchingPeople.isEmpty {
+                Section {
+                    ContentUnavailableView(
+                        "No matching people",
+                        systemImage: "person.crop.circle.badge.questionmark",
+                        description: Text("Try a broader search.")
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 32)
+                }
+            } else {
+                Section("People") {
+                    ForEach(matchingPeople) { person in
+                        Button {
+                            selectedPerson = person
+                        } label: {
+                            PersonDirectoryRow(
+                                person: person,
+                                assignments: model.assignments.filter {
+                                    $0.personId == person.id
+                                }
+                            )
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .frame(maxWidth: 920)
+        .frame(maxWidth: .infinity)
+        .background(AppTheme.pageBackground)
+        .navigationTitle("People Directory")
+        .sheet(item: $selectedPerson) { person in
+            PersonMinistryHistory(person: person)
+                .environmentObject(model)
+        }
+    }
+}
+
+private struct PersonDirectoryRow: View {
+    let person: Person
+    let assignments: [AssignmentDetail]
+
+    private var currentCount: Int {
+        assignments.filter(\.isCurrentPlacement).count
+    }
+
+    private var historyCount: Int {
+        assignments.filter { !$0.isCurrentPlacement }.count
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(person.displayName)
+                    .font(.headline)
+                Text(person.email ?? person.mobilePhone ?? person.homePhone ?? "No contact detail")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                if let membership = person.membershipStatus.nilIfBlank {
+                    Text(membership)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if !person.isActive {
+                    Label("Inactive person record", systemImage: "archivebox")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 3) {
+                Text("\(currentCount) current")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.riverBlue)
+                if historyCount > 0 {
+                    Text("\(historyCount) archived/history")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct PersonMinistryHistory: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    let person: Person
+    @State private var editingAssignment: AssignmentDetail?
+
+    private var assignments: [AssignmentDetail] {
+        model.assignments
+            .filter { $0.personId == person.id }
+            .sorted {
+                if $0.isCurrentPlacement != $1.isCurrentPlacement {
+                    return $0.isCurrentPlacement
+                }
+                return $0.roleName.localizedCaseInsensitiveCompare($1.roleName)
+                    == .orderedAscending
+            }
+    }
+
+    private var currentAssignments: [AssignmentDetail] {
+        assignments.filter(\.isCurrentPlacement)
+    }
+
+    private var historicalAssignments: [AssignmentDetail] {
+        assignments.filter { !$0.isCurrentPlacement }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Person") {
+                    LabeledContent("Name", value: person.displayName)
+                    if let email = person.email.nilIfBlank {
+                        LabeledContent("Email", value: email)
+                    }
+                    if let phone = person.mobilePhone.nilIfBlank ?? person.homePhone.nilIfBlank {
+                        LabeledContent("Phone", value: phone)
+                    }
+                    if let membership = person.membershipStatus.nilIfBlank {
+                        LabeledContent("Membership", value: membership)
+                    }
+                }
+
+                Section("Current ministries") {
+                    if currentAssignments.isEmpty {
+                        Text("No current ministry assignments")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(currentAssignments) { assignment in
+                            historyButton(assignment)
+                        }
+                    }
+                }
+
+                Section {
+                    if historicalAssignments.isEmpty {
+                        Text("No archived ministry history")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(historicalAssignments) { assignment in
+                            historyButton(assignment)
+                        }
+                    }
+                } header: {
+                    Text("Archived & historical ministries")
+                } footer: {
+                    Text(
+                        "Archived assignments remain here permanently unless restored. " +
+                        "Assignments also appear here while their ministry is archived."
+                    )
+                }
+            }
+            .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .background(AppTheme.pageBackground)
+            .navigationTitle("Ministry History")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(minWidth: 640, minHeight: 620)
+        #endif
+        .sheet(item: $editingAssignment) { assignment in
+            AssignmentEditor(assignment: assignment)
+                .environmentObject(model)
+        }
+    }
+
+    private func historyButton(_ assignment: AssignmentDetail) -> some View {
+        Button {
+            editingAssignment = assignment
+        } label: {
+            PersonHistoryAssignmentRow(assignment: assignment)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Edit \(assignment.roleName) assignment")
+    }
+}
+
+private struct PersonHistoryAssignmentRow: View {
+    let assignment: AssignmentDetail
+
+    private var statusLabel: String {
+        if !assignment.ministryIsActive { return "Ministry archived" }
+        if assignment.status == "completed" { return "Assignment archived" }
+        return assignment.status.capitalized
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(assignment.roleName)
+                    .font(.headline)
+                Text(
+                    [assignment.subRoleName, assignment.termName]
+                        .compactMap { $0?.nilIfBlank }
+                        .joined(separator: " • ")
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+                if
+                    let storedDate = assignment.voteDate,
+                    let date = AppDate.parse(storedDate)
+                {
+                    Label("Voted \(AppDate.display(date))", systemImage: "checkmark.seal")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.riverBlue)
+                } else if assignment.requiresVote {
+                    Label("Vote missing", systemImage: "exclamationmark.circle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(statusLabel)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(
+                        assignment.isCurrentPlacement ? AppTheme.riverBlue : Color.secondary
+                    )
+                if
+                    let archivedAt = assignment.archivedAt,
+                    let archivedDate = AppDate.displayTimestamp(archivedAt)
+                {
+                    Text("Archived \(archivedDate)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Image(systemName: "square.and.pencil")
+                    .foregroundStyle(AppTheme.riverBlue)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+struct VoteQueueView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var search = ""
+
+    private var awaitingVotes: [AssignmentDetail] {
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        return model.assignments
+            .filter { assignment in
+                guard assignment.isCurrentPlacement, assignment.voteMissing else {
+                    return false
+                }
+                guard !query.isEmpty else { return true }
+                return [
+                    assignment.personName,
+                    assignment.roleName,
+                    assignment.subRoleName ?? "",
+                    assignment.termName ?? ""
+                ].contains { $0.localizedCaseInsensitiveContains(query) }
+            }
+            .sorted {
+                let roleOrder = $0.roleName.localizedCaseInsensitiveCompare($1.roleName)
+                if roleOrder != .orderedSame { return roleOrder == .orderedAscending }
+                let lastOrder = $0.lastName.localizedCaseInsensitiveCompare($1.lastName)
+                if lastOrder != .orderedSame { return lastOrder == .orderedAscending }
+                return $0.firstName.localizedCaseInsensitiveCompare($1.firstName)
+                    == .orderedAscending
+            }
+    }
+
+    private var grouped: [(String, [AssignmentDetail])] {
+        Dictionary(grouping: awaitingVotes, by: \.roleName)
+            .map { ($0.key, $0.value) }
+            .sorted {
+                $0.0.localizedCaseInsensitiveCompare($1.0) == .orderedAscending
+            }
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                TextField(
+                    "Search person, ministry, position, or term",
+                    text: $search
+                )
+                .textFieldStyle(.roundedBorder)
+
+                LabeledContent("Assignments awaiting a vote") {
+                    Text("\(awaitingVotes.count)")
+                        .monospacedDigit()
+                        .fontWeight(.semibold)
+                        .foregroundStyle(awaitingVotes.isEmpty ? Color.secondary : Color.orange)
+                }
+            } header: {
+                Text("Church vote work queue")
+            } footer: {
+                Text(
+                    "An assignment appears here when either its ministry or position " +
+                    "requires a church vote and no vote date has been recorded."
+                )
+            }
+
+            if grouped.isEmpty {
+                Section {
+                    ContentUnavailableView(
+                        search.nilIfBlank == nil ? "No votes awaiting" : "No matching votes",
+                        systemImage: "checkmark.seal.fill",
+                        description: Text(
+                            search.nilIfBlank == nil
+                                ? "Every required church vote has a recorded date."
+                                : "Try a different search or clear the search field."
+                        )
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 32)
+                }
+            } else {
+                ForEach(grouped, id: \.0) { ministryName, assignments in
+                    Section {
+                        ForEach(assignments) { assignment in
+                            PendingVoteRow(assignment: assignment)
+                                .environmentObject(model)
+                        }
+                    } header: {
+                        Text(ministryName)
+                            .font(.title2.weight(.bold))
+                            .foregroundStyle(AppTheme.riverBlueDark)
+                            .textCase(nil)
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .frame(maxWidth: 920)
+        .frame(maxWidth: .infinity)
+        .background(AppTheme.pageBackground)
+        .navigationTitle("Awaiting Church Vote")
+    }
+}
+
+private struct PendingVoteRow: View {
+    @EnvironmentObject private var model: AppModel
+    let assignment: AssignmentDetail
+    @State private var voteDate = Date()
+
+    private var requirementLabel: String {
+        switch (assignment.ministryRequiresVote, assignment.positionRequiresVote) {
+        case (true, true): "Ministry and position require a vote"
+        case (true, false): "Ministry requires a vote"
+        case (false, true): "Position requires a vote"
+        case (false, false): "Vote required"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(assignment.personName)
+                        .font(.headline)
+                    Text(
+                        [assignment.subRoleName, assignment.termName]
+                            .compactMap { $0?.nilIfBlank }
+                            .joined(separator: " • ")
+                    )
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Label(requirementLabel, systemImage: "exclamationmark.circle")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.orange)
+            }
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    DatePicker(
+                        "Vote date",
+                        selection: $voteDate,
+                        displayedComponents: .date
+                    )
+                    Spacer()
+                    recordButton
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    DatePicker(
+                        "Vote date",
+                        selection: $voteDate,
+                        displayedComponents: .date
+                    )
+                    recordButton
+                        .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var recordButton: some View {
+        Button {
+            Task {
+                await model.recordAssignmentVote(
+                    assignmentId: assignment.id,
+                    voteDate: voteDate
+                )
+            }
+        } label: {
+            Label("Record Vote", systemImage: "checkmark.seal")
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(model.isBusy)
     }
 }
 
@@ -175,7 +712,7 @@ private struct AssignmentDirectoryRow: View {
     let assignment: AssignmentDetail
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(assignment.personName)
                     .fontWeight(assignment.leadershipRank < 100 ? .semibold : .regular)
@@ -196,22 +733,232 @@ private struct AssignmentDirectoryRow: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                if let note = assignment.notes.nilIfBlank {
+                    Text(note)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .padding(.top, 3)
+                    Label(
+                        assignment.noteIsPublic ? "Reports & web" : "Staff only",
+                        systemImage: assignment.noteIsPublic ? "eye" : "lock"
+                    )
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(
+                        assignment.noteIsPublic ? AppTheme.riverBlue : Color.secondary
+                    )
+                }
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 3) {
+                Image(systemName: "square.and.pencil")
+                    .foregroundStyle(AppTheme.riverBlue)
+                    .accessibilityHidden(true)
                 if let end = assignment.endDateValue {
                     Text("Ends \(AppDate.display(end))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                if assignment.voteMissing {
-                    Label("Vote missing", systemImage: "exclamationmark.circle")
+                if assignment.requiresVote {
+                    if
+                        let storedDate = assignment.voteDate,
+                        let date = AppDate.parse(storedDate)
+                    {
+                        Label(
+                            "Voted \(AppDate.display(date))",
+                            systemImage: "checkmark.seal"
+                        )
                         .font(.caption)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(AppTheme.riverBlue)
+                    } else {
+                        Label("Vote missing", systemImage: "exclamationmark.circle")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
                 }
             }
         }
         .padding(.vertical, 3)
+    }
+}
+
+private struct AssignmentEditor: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    let assignment: AssignmentDetail
+    @State private var notes: String
+    @State private var noteIsPublic: Bool
+    @State private var hasVoteDate: Bool
+    @State private var voteDate: Date
+    @State private var showingArchiveConfirmation = false
+
+    init(assignment: AssignmentDetail) {
+        self.assignment = assignment
+        _notes = State(initialValue: assignment.notes ?? "")
+        _noteIsPublic = State(initialValue: assignment.noteIsPublic)
+        let storedVoteDate = assignment.voteDate.flatMap(AppDate.parse)
+        _hasVoteDate = State(initialValue: storedVoteDate != nil)
+        _voteDate = State(initialValue: storedVoteDate ?? Date())
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Assignment") {
+                    LabeledContent("Volunteer", value: assignment.personName)
+                    LabeledContent("Ministry", value: assignment.roleName)
+                    LabeledContent(
+                        "Position",
+                        value: assignment.subRoleName ?? "Volunteer"
+                    )
+                    if let termName = assignment.termName {
+                        LabeledContent("Term", value: termName)
+                    }
+                }
+
+                Section {
+                    LabeledContent("Requirement") {
+                        Text(voteRequirementLabel)
+                            .foregroundStyle(
+                                assignment.requiresVote ? Color.orange : Color.secondary
+                            )
+                    }
+                    Toggle("Church vote recorded", isOn: $hasVoteDate)
+                    if hasVoteDate {
+                        DatePicker(
+                            "Vote date",
+                            selection: $voteDate,
+                            displayedComponents: .date
+                        )
+                    }
+                } header: {
+                    Label("Church vote", systemImage: "checkmark.seal")
+                } footer: {
+                    Text(
+                        "Correct the date here, or turn off ‘Church vote recorded’ to " +
+                        "return a required assignment to the Votes queue."
+                    )
+                }
+
+                Section {
+                    TextEditor(text: $notes)
+                        .frame(minHeight: 150)
+                        .padding(8)
+                        .background(AppTheme.riverBlueSoft.opacity(0.55))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                    Toggle(
+                        "Include this note in reports and the public web directory",
+                        isOn: $noteIsPublic
+                    )
+                    .disabled(notes.nilIfBlank == nil)
+                } header: {
+                    Label("Note", systemImage: "note.text")
+                } footer: {
+                    Text(
+                        "Off keeps the note inside the staff app. On includes it in " +
+                        "reports and, when the assignment and ministry are public, the iframe directory."
+                    )
+                }
+
+                Section {
+                    if assignment.status == "completed" {
+                        Button {
+                            Task {
+                                if await model.setAssignmentArchived(
+                                    assignmentId: assignment.id,
+                                    archived: false
+                                ) {
+                                    dismiss()
+                                }
+                            }
+                        } label: {
+                            Label("Restore this assignment", systemImage: "arrow.uturn.backward")
+                        }
+                    } else if assignment.isCurrentPlacement {
+                        Button("Archive this assignment", role: .destructive) {
+                            showingArchiveConfirmation = true
+                        }
+                    } else {
+                        Label(
+                            "This assignment is historical because its ministry is archived.",
+                            systemImage: "archivebox"
+                        )
+                        .foregroundStyle(.secondary)
+                    }
+                } footer: {
+                    if assignment.status == "completed" {
+                        Text("Restoring returns this assignment to current directories and reports.")
+                    } else if assignment.isCurrentPlacement {
+                        Text(
+                            "Archiving ends this placement and removes it from current directories, " +
+                            "reports, the Votes queue, and the public iframe. Its history remains in " +
+                            "the People Directory and can be restored."
+                        )
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .background(AppTheme.pageBackground)
+            .navigationTitle("Edit Assignment")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        Task {
+                            if await model.updateAssignmentDetails(
+                                assignmentId: assignment.id,
+                                notes: notes,
+                                noteIsPublic: noteIsPublic,
+                                voteDate: hasVoteDate ? voteDate : nil
+                            ) {
+                                dismiss()
+                            }
+                        }
+                    }
+                    .disabled(model.isBusy)
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(minWidth: 540, minHeight: 620)
+        #endif
+        .confirmationDialog(
+            "Archive this volunteer assignment?",
+            isPresented: $showingArchiveConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Archive Assignment", role: .destructive) {
+                Task {
+                    if await model.setAssignmentArchived(
+                        assignmentId: assignment.id,
+                        archived: true
+                    ) {
+                        dismiss()
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The assignment remains available in the volunteer's People Directory history.")
+        }
+        .onChange(of: notes) { _, value in
+            if value.nilIfBlank == nil {
+                noteIsPublic = false
+            }
+        }
+    }
+
+    private var voteRequirementLabel: String {
+        switch (assignment.ministryRequiresVote, assignment.positionRequiresVote) {
+        case (true, true): "Required by ministry and position"
+        case (true, false): "Required by ministry"
+        case (false, true): "Required by position"
+        case (false, false): "Not required"
+        }
     }
 }
 
@@ -228,7 +975,11 @@ struct ReportsView: View {
     var body: some View {
         Form {
             Section("Report filters") {
-                AssignmentFilterControls(filter: $filter, roles: model.roles)
+                AssignmentFilterControls(
+                    filter: $filter,
+                    roles: model.roles,
+                    includeVoteFilter: true
+                )
             }
 
             Section {
@@ -251,12 +1002,18 @@ struct ReportsView: View {
                 Text("Preview")
             } footer: {
                 Text(
-                    "The PDF uses the same leadership-first ordering as the directory: " +
-                    "Head/Lead, Co-Head/Co-Lead, Assistant Head, then last and first name."
+                    "The all-ministries PDF groups volunteers under ministry headings. " +
+                    "Each ministry uses the same leadership-first ordering as the directory: " +
+                    "Head/Lead, Co-Head/Co-Lead, Assistant Head, then last and first name. " +
+                    "Only notes marked for reports and the web are included."
                 )
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .frame(maxWidth: 920)
+        .frame(maxWidth: .infinity)
+        .background(AppTheme.pageBackground)
         .navigationTitle("Reports")
         .sheet(isPresented: $showingPreview) {
             if let pdfData {
@@ -269,7 +1026,8 @@ struct ReportsView: View {
         do {
             pdfData = try ReportGenerator.makePDF(
                 assignments: filtered,
-                filterDescription: filter.description(roles: model.roles)
+                filterDescription: filter.description(roles: model.roles),
+                groupByRole: filter.roleId == nil
             )
             showingPreview = true
         } catch {
@@ -286,6 +1044,7 @@ private struct PDFReportPreview: View {
     var body: some View {
         NavigationStack {
             PDFPreview(data: data)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationTitle("Volunteer Directory PDF")
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
@@ -305,7 +1064,9 @@ private struct PDFReportPreview: View {
                     }
                 }
         }
-        .frame(minWidth: 700, minHeight: 520)
+        #if os(macOS)
+        .frame(width: 780, height: 580)
+        #endif
         .fileExporter(
             isPresented: $exporting,
             document: PDFReportDocument(data: data),

@@ -2,7 +2,8 @@ import Foundation
 import Security
 
 enum KeychainStore {
-    private static let service = "org.riverviewadventist.ministry"
+    private static let service =
+        "\(Bundle.main.bundleIdentifier ?? "org.riverviewadventist.ministry").volunteers"
 
     static func save<T: Encodable>(_ value: T, account: String) throws {
         let data = try JSONEncoder().encode(value)

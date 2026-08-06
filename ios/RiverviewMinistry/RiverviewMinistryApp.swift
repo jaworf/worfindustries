@@ -1,13 +1,72 @@
 import SwiftUI
 
+enum AppTextSize: String, CaseIterable, Identifiable {
+    case small
+    case medium
+    case large
+    case extraLarge
+
+    static let storageKey = "app-text-size"
+
+    var id: String { rawValue }
+
+    var shortLabel: String {
+        switch self {
+        case .small: "S"
+        case .medium: "M"
+        case .large: "L"
+        case .extraLarge: "XL"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .small: "Compact"
+        case .medium: "Comfortable"
+        case .large: "Large"
+        case .extraLarge: "Extra large"
+        }
+    }
+
+    var dynamicTypeSize: DynamicTypeSize {
+        switch self {
+        case .small: .large
+        case .medium: .xLarge
+        case .large: .xxLarge
+        case .extraLarge: .xxxLarge
+        }
+    }
+}
+
+enum AppTheme {
+    static let riverBlue = Color(red: 31 / 255, green: 95 / 255, blue: 139 / 255)
+    static let riverBlueDark = Color(red: 18 / 255, green: 62 / 255, blue: 95 / 255)
+    static let riverBlueSoft = Color(red: 232 / 255, green: 242 / 255, blue: 248 / 255)
+    static let canvas = Color(red: 246 / 255, green: 249 / 255, blue: 251 / 255)
+    static let pageBackground = LinearGradient(
+        colors: [riverBlueSoft.opacity(0.72), canvas, Color.white],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+}
+
 @main
 struct RiverviewMinistryApp: App {
     @StateObject private var model = AppModel()
+    @AppStorage(AppTextSize.storageKey) private var textSizeRaw = AppTextSize.large.rawValue
+
+    private var selectedTextSize: AppTextSize {
+        AppTextSize(rawValue: textSizeRaw) ?? .large
+    }
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(model)
+                .environment(\.colorScheme, .light)
+                .dynamicTypeSize(selectedTextSize.dynamicTypeSize)
+                .tint(AppTheme.riverBlue)
+                .preferredColorScheme(.light)
                 .frame(minWidth: 390, minHeight: 560)
         }
     }
@@ -58,13 +117,47 @@ private struct MessageBanner: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Dismiss")
             }
-            .foregroundStyle(model.errorMessage == nil ? Color.green : Color.red)
+            .foregroundStyle(model.errorMessage == nil ? AppTheme.riverBlueDark : Color.red)
             .padding(12)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-            .shadow(radius: 8, y: 3)
+            .background(
+                model.errorMessage == nil
+                    ? AppTheme.riverBlueSoft
+                    : Color.red.opacity(0.1),
+                in: RoundedRectangle(cornerRadius: 12)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(
+                        model.errorMessage == nil
+                            ? AppTheme.riverBlue.opacity(0.28)
+                            : Color.red.opacity(0.28)
+                    )
+            }
+            .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
             .padding()
             .transition(.move(edge: .top).combined(with: .opacity))
             .zIndex(10)
+            .task(id: model.noticeMessage) {
+                guard
+                    model.errorMessage == nil,
+                    let displayedNotice = model.noticeMessage
+                else {
+                    return
+                }
+
+                try? await Task.sleep(for: .seconds(4))
+                guard
+                    !Task.isCancelled,
+                    model.errorMessage == nil,
+                    model.noticeMessage == displayedNotice
+                else {
+                    return
+                }
+
+                withAnimation {
+                    model.noticeMessage = nil
+                }
+            }
         }
     }
 }
@@ -110,7 +203,9 @@ struct ConfigurationView: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle(isInitialSetup ? "Set Up Riverview Ministry" : "Database Connection")
+            .navigationTitle(
+                isInitialSetup ? "Set Up Riverview Ministry Volunteers" : "Database Connection"
+            )
         }
     }
 }
@@ -123,51 +218,70 @@ struct LoginView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                Spacer()
-                Image(systemName: "person.3.sequence.fill")
-                    .font(.system(size: 54))
-                    .foregroundStyle(Color.accentColor)
-                VStack(spacing: 8) {
-                    Text("Riverview Ministry")
-                        .font(.largeTitle.bold())
-                    Text("Volunteer placement and term records")
-                        .foregroundStyle(.secondary)
-                }
+            ZStack {
+                AppTheme.pageBackground
+                    .ignoresSafeArea()
 
-                VStack(spacing: 14) {
-                    TextField("Email", text: $email)
-                        .textContentType(.emailAddress)
-                        .withoutAutocapitalization()
-                        .autocorrectionDisabled()
-                        .textFieldStyle(.roundedBorder)
-                    SecureField("Password", text: $password)
-                        .textContentType(.password)
-                        .textFieldStyle(.roundedBorder)
-                    Button {
-                        Task { await model.signIn(email: email, password: password) }
-                    } label: {
-                        if model.isBusy {
-                            ProgressView()
-                                .frame(maxWidth: .infinity)
-                        } else {
-                            Text("Sign In")
-                                .frame(maxWidth: .infinity)
-                        }
+                VStack(spacing: 26) {
+                    Spacer()
+                    ZStack {
+                        Circle()
+                            .fill(AppTheme.riverBlueSoft)
+                            .frame(width: 92, height: 92)
+                        Image(systemName: "person.3.sequence.fill")
+                            .font(.system(size: 48))
+                            .foregroundStyle(AppTheme.riverBlue)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(email.nilIfBlank == nil || password.isEmpty || model.isBusy)
-                }
-                .frame(maxWidth: 420)
+                    VStack(spacing: 8) {
+                        Text("Riverview Ministry Volunteers")
+                            .font(.largeTitle.bold())
+                            .multilineTextAlignment(.center)
+                        Text("Volunteer placement and term records")
+                            .foregroundStyle(.secondary)
+                    }
 
-                Button("Change Supabase connection") {
-                    showingConnection = true
+                    VStack(spacing: 16) {
+                        TextField("Email", text: $email)
+                            .textContentType(.emailAddress)
+                            .withoutAutocapitalization()
+                            .autocorrectionDisabled()
+                            .textFieldStyle(.roundedBorder)
+                        SecureField("Password", text: $password)
+                            .textContentType(.password)
+                            .textFieldStyle(.roundedBorder)
+                        Button {
+                            Task { await model.signIn(email: email, password: password) }
+                        } label: {
+                            if model.isBusy {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                Text("Sign In")
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .disabled(email.nilIfBlank == nil || password.isEmpty || model.isBusy)
+                    }
+                    .padding(24)
+                    .frame(maxWidth: 470)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(AppTheme.riverBlue.opacity(0.18))
+                    }
+                    .shadow(color: AppTheme.riverBlueDark.opacity(0.1), radius: 18, y: 8)
+
+                    Button("Change Supabase connection") {
+                        showingConnection = true
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    Spacer()
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                Spacer()
+                .padding(30)
             }
-            .padding(28)
             .sheet(isPresented: $showingConnection) {
                 ConfigurationView(isInitialSetup: false)
                     .environmentObject(model)
@@ -178,6 +292,8 @@ struct LoginView: View {
 }
 
 struct MainShellView: View {
+    @EnvironmentObject private var model: AppModel
+
     var body: some View {
         TabView {
             NavigationStack {
@@ -188,7 +304,18 @@ struct MainShellView: View {
             NavigationStack {
                 DirectoryView()
             }
-            .tabItem { Label("Directory", systemImage: "person.3") }
+            .tabItem { Label("Ministries", systemImage: "person.3") }
+
+            NavigationStack {
+                PeopleDirectoryView()
+            }
+            .tabItem { Label("People", systemImage: "person.text.rectangle") }
+
+            NavigationStack {
+                VoteQueueView()
+            }
+            .tabItem { Label("Votes", systemImage: "checkmark.seal") }
+            .badge(model.assignments.filter { $0.isCurrentPlacement && $0.voteMissing }.count)
 
             NavigationStack {
                 ReportsView()

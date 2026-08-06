@@ -1,4 +1,4 @@
-# Riverview Ministry
+# Riverview Ministry Volunteers
 
 Volunteer ministry management for Pasco Riverview Adventist Church.
 
@@ -15,8 +15,12 @@ This repository contains:
 - Find an existing person or add a new person.
 - Assign a ministry role, position/sub-role, two-year term, church vote date,
   notes, and public/private status.
-- Add terms and roles, or rename a role without breaking old assignments.
-- Search by person and see all their roles.
+- Give each ministry and each ministry-specific position its own church-vote rule.
+- Correct or clear vote dates from the Ministry or People Directory.
+- Use the Votes work queue or report filter to find every required vote still missing.
+- Add terms and ministries, or rename a ministry without breaking old assignments.
+- Search the People Directory to see current assignments and archived history.
+- Reversibly archive assignments and ministries without deleting their history.
 - Filter by role or by terms ending within 6 or 12 months.
 - Sort ministry rosters with leadership first, then last and first name.
 - Preview, export, and print a landscape PDF report.
@@ -38,34 +42,32 @@ This repository contains:
 ## 1. Supabase setup
 
 The production database is deployed in the Supabase project **Ministry
-Volunteers App** (`syyennvldkenqrcbvgaq`). Both migrations are applied, the
+Volunteers App** (`syyennvldkenqrcbvgaq`). All migrations are applied, the
 reference roles and terms are seeded, and the supplied starting records have
 been imported without committing member contact data to this repository.
 
-For a clean database, apply the migrations in order and then run
-`supabase/seed.sql`:
+For a clean database, apply every file in `supabase/migrations` in filename
+order, then run `supabase/seed.sql`.
 
-1. `supabase/migrations/20260730060635_initial_ministry_schema.sql`
-2. `supabase/migrations/20260730154704_harden_anon_privileges_and_indexes.sql`
-
-To finish staff access:
+To create an editor account:
 
 1. In Supabase Authentication, create the staff user.
-2. Promote the first staff user to administrator in the SQL editor:
+2. Promote that user to editor in the SQL editor:
 
 ```sql
 update public.profiles
-set app_role = 'admin'
+set app_role = 'editor'
 where user_id = (
   select id
   from auth.users
-  where email = 'YOUR-EMAIL@example.com'
+  where lower(email) = lower('YOUR-EMAIL@example.com')
 );
 ```
 
 New accounts start as `viewer`. An administrator can set `app_role` to
-`admin`, `editor`, or `viewer`. Editors can manage ministry data; viewers have
-read-only access.
+`admin`, `editor`, or `viewer`; use `admin` instead of `editor` in the SQL above
+only for a person who should manage other staff access. Editors can manage
+ministry data; viewers have read-only access.
 
 The schema deliberately enables Row Level Security on every public table and
 uses explicit grants. Contact data is available only to signed-in staff.
@@ -75,15 +77,39 @@ uses explicit grants. Contact data is available only to signed-in staff.
 Planning Center synchronization is supported. It is not a client-side login:
 the credentials stay in Supabase Edge Function secrets.
 
-Create a Planning Center Personal Access Token for this single church and set:
+Synchronization is deliberately one-way. Planning Center People is authoritative
+for names, contact details, membership status, and active status. A sync replaces
+those mirrored fields in this database, including clearing a field that was
+cleared in Planning Center. The app never sends person changes to Planning Center;
+ministry roles, terms, votes, and assignments remain local to this app.
 
-- `PCO_CLIENT_ID` - Planning Center application ID;
-- `PCO_CLIENT_SECRET` - Planning Center secret;
+For this one-church app, use a Planning Center Personal Access Token. This is
+the path the deployed functions currently implement, and it does not use an
+OAuth application or an authorization callback URL. Set:
+
+- `PCO_CLIENT_ID` - Planning Center Personal Access Token application ID;
+- `PCO_CLIENT_SECRET` - Planning Center Personal Access Token secret;
 - `PCO_WEBHOOK_SECRET` - the webhook signing secret;
 - `PCO_API_VERSION` - optional; defaults to `2026-06-04`.
 
-Both functions are deployed. Before using them, add the Planning Center
-credentials to the production project's Edge Function secrets.
+The **Authorization callback URLs** field belongs only to an OAuth flow. Do not
+put the webhook URL in that field. If the app later needs to connect multiple
+churches, first add a server-side OAuth callback and token-storage flow, then
+register its exact HTTPS URL in Planning Center. A suitable future route would
+be:
+
+```text
+https://syyennvldkenqrcbvgaq.supabase.co/functions/v1/planning-center-oauth-callback
+```
+
+That callback function does not exist yet, so registering this URL by itself
+will not enable OAuth. A confidential Planning Center client secret must stay
+in Supabase and never be placed in the Apple or web app.
+
+Both functions are deployed, and the Personal Access Token credentials are set
+in the production project's Edge Function secrets. The webhook still requires a
+`PCO_WEBHOOK_SECRET` and a matching Planning Center webhook subscription before
+automatic event delivery is active.
 
 Function configuration:
 
@@ -108,11 +134,19 @@ People** button performs a full reconciliation in case a webhook was missed.
 3. Choose **My Mac**, an iPhone simulator, or a connected iPhone.
 4. In **Signing & Capabilities**, choose the church's Apple Developer team.
 5. Press Xcode's Run button.
-6. On first launch, enter the Supabase project URL and publishable key.
-7. Sign in with the staff account created in Supabase.
+6. The production project URL and public publishable key are included in the
+   app build, so a fresh install opens at the staff sign-in screen.
+7. Sign in with the staff account created in Supabase. Use **Change Supabase
+   connection** only when intentionally pointing the app at another project.
 
 Do not enter a Supabase service-role key in the app. The publishable key is the
 correct key; Row Level Security provides the authorization boundary.
+
+This project includes `ios/Tools/clang-probe-wrapper.sh` because Xcode 26.6
+(17F113) can stall during its verbose clang macro probe. The wrapper removes
+`-v` only from that probe and delegates all compilation and linking to Xcode's
+own clang. It can be removed after Apple fixes the toolchain issue and a clean
+build succeeds without it.
 
 ## 4. Import the supplied CSV files
 
@@ -140,7 +174,9 @@ remain visibly missing rather than being invented.
 ## 5. Public web directory
 
 The public site reads only `public.public_directory_entries`; that database view
-does not expose email, phone, address, notes, or internal IDs for people.
+does not expose email, phone, address, staff-only notes, or internal person IDs.
+An assignment note appears only when staff explicitly enables its report/web
+visibility toggle.
 
 Required hosted environment variables:
 
@@ -173,18 +209,37 @@ browser printing/saving as PDF.
 ## Verification performed
 
 - Web production build: passed.
-- Web lint: passed.
+- Web compiler/type build: passed. The full ESLint process did not terminate in
+  this environment and was stopped after the production build and route tests passed.
 - Web route and privacy tests: 3 passed.
 - macOS Swift type-check against Xcode 26.6 SDK: passed.
 - iOS Swift type-check against Xcode 26.6 SDK: passed.
+- Clean macOS app build in Xcode 26.6: passed.
+- Clean generic iOS Simulator app build in Xcode 26.6: passed.
+- macOS unit tests: 2 passed, 0 failed.
 - PDF runtime smoke test: passed and rendered page visually checked.
 - Production migrations: applied successfully.
-- Supabase security advisor: no findings.
+- Supabase database security: Row Level Security is enabled on every public
+  table. The Auth advisor currently recommends enabling leaked-password
+  protection in the Supabase dashboard.
 - Anonymous contact-field access: explicitly denied and verified.
-- Starting data: 531 distinct people and 233 distinct assignments imported.
+- Current production data after full Planning Center reconciliation: 1,303
+  people and 237 assignments. The sync processed 1,298 Planning Center people:
+  7 added, 1,140 updated, 36 unchanged, 115 held for identity review, and 0
+  errors. Membership status was imported for 1,146 linked records; 37 linked
+  records do not currently have a membership value in Planning Center.
+- The June 27, 2026 second-reading vote was reconciled from the approved PDF:
+  89 named starred records mapped to 93 app assignments because three combined
+  report headings correspond to separate app ministries. Four missing Church
+  Board assignments were added; the blank TBD position and all unstarred names
+  were left unchanged.
+- Live app-client integration: login, reads, role add/rename, term add, voted
+  assignment, and duplicate/enrichment CSV import passed; disposable records
+  were removed afterward.
 
 ## Important privacy rule
 
 The staff app can contain personal contact information. The public web view must
-remain limited to names, ministry roles, positions, terms, and recorded vote
-dates. Do not add contact columns to `public_directory_entries`.
+remain limited to names, ministries, positions, terms, recorded vote dates, and
+notes that staff explicitly approve for reports/web. Do not add contact columns
+or raw staff-only notes to `public_directory_entries`.

@@ -28,7 +28,7 @@ final class AppModel: ObservableObject {
         {
             configuration = saved
         } else {
-            configuration = SupabaseConfiguration(projectURL: "", publishableKey: "")
+            configuration = Self.productionConfiguration()
         }
 
         if configuration.isValid {
@@ -39,6 +39,13 @@ final class AppModel: ObservableObject {
             session = restored ?? nil
             client = SupabaseRESTClient(configuration: configuration, session: session)
         }
+    }
+
+    private static func productionConfiguration() -> SupabaseConfiguration {
+        return SupabaseConfiguration(
+            projectURL: "https://syyennvldkenqrcbvgaq.supabase.co",
+            publishableKey: "sb_publishable_Nq87oxGP61lMI0QsaiXnsg_AGSjSAYT"
+        )
     }
 
     func saveConfiguration() {
@@ -112,14 +119,17 @@ final class AppModel: ObservableObject {
             }
 
             guard let role = roles.first(where: { $0.id == assignment.roleId }) else {
-                throw SupabaseClientError.invalidRequest("Choose a ministry role.")
+                throw SupabaseClientError.invalidRequest("Choose a ministry.")
             }
             guard assignment.termId != nil else {
                 throw SupabaseClientError.invalidRequest("Choose a term.")
             }
-            if role.requiresVote, assignment.voteDate == nil {
+            let positionRequiresVote = subRoles.first {
+                $0.id == assignment.subRoleId
+            }?.requiresVote == true
+            if (role.requiresVote || positionRequiresVote), assignment.voteDate == nil {
                 throw SupabaseClientError.invalidRequest(
-                    "\(role.name) requires a church vote date."
+                    "This ministry placement requires a church vote date."
                 )
             }
 
@@ -135,7 +145,7 @@ final class AppModel: ObservableObject {
         var succeeded = false
         await perform {
             guard let name = draft.name.nilIfBlank else {
-                throw SupabaseClientError.invalidRequest("Enter a role name.")
+                throw SupabaseClientError.invalidRequest("Enter a ministry name.")
             }
             var clean = draft
             clean.name = name
@@ -143,7 +153,106 @@ final class AppModel: ObservableObject {
             let client = try requireClient()
             try await client.createRole(clean, displayOrder: nextOrder)
             try await reload(using: client)
-            noticeMessage = "Role added."
+            noticeMessage = "Ministry added."
+            succeeded = true
+        }
+        return succeeded
+    }
+
+    func updateAssignmentNote(
+        assignmentId: UUID,
+        notes: String,
+        noteIsPublic: Bool
+    ) async -> Bool {
+        var succeeded = false
+        await perform {
+            let client = try requireClient()
+            try await client.updateAssignmentNote(
+                assignmentId: assignmentId,
+                notes: notes,
+                noteIsPublic: noteIsPublic
+            )
+            try await reload(using: client)
+            noticeMessage = "Assignment note updated."
+            succeeded = true
+        }
+        return succeeded
+    }
+
+    func recordAssignmentVote(
+        assignmentId: UUID,
+        voteDate: Date
+    ) async -> Bool {
+        var succeeded = false
+        await perform {
+            let client = try requireClient()
+            try await client.updateAssignmentVoteDate(
+                assignmentId: assignmentId,
+                voteDate: voteDate
+            )
+            try await reload(using: client)
+            noticeMessage = "Church vote recorded."
+            succeeded = true
+        }
+        return succeeded
+    }
+
+    func updateAssignmentDetails(
+        assignmentId: UUID,
+        notes: String,
+        noteIsPublic: Bool,
+        voteDate: Date?
+    ) async -> Bool {
+        var succeeded = false
+        await perform {
+            let client = try requireClient()
+            try await client.updateAssignmentDetails(
+                assignmentId: assignmentId,
+                notes: notes,
+                noteIsPublic: noteIsPublic,
+                voteDate: voteDate
+            )
+            try await reload(using: client)
+            noticeMessage = "Assignment details updated."
+            succeeded = true
+        }
+        return succeeded
+    }
+
+    func setAssignmentArchived(
+        assignmentId: UUID,
+        archived: Bool
+    ) async -> Bool {
+        var succeeded = false
+        await perform {
+            let client = try requireClient()
+            try await client.setAssignmentArchived(
+                assignmentId: assignmentId,
+                archived: archived
+            )
+            try await reload(using: client)
+            noticeMessage = archived
+                ? "Assignment archived and removed from current directories and reports."
+                : "Assignment restored to current directories and reports."
+            succeeded = true
+        }
+        return succeeded
+    }
+
+    func setMinistryArchived(
+        _ role: MinistryRole,
+        archived: Bool
+    ) async -> Bool {
+        var succeeded = false
+        await perform {
+            var updated = role
+            updated.isActive = !archived
+            let client = try requireClient()
+            try await client.updateRole(updated)
+            try await reload(using: client)
+            noticeMessage = archived
+                ? "Ministry archived and removed from current directories and reports."
+                : "Ministry restored."
             succeeded = true
         }
         return succeeded
@@ -153,12 +262,44 @@ final class AppModel: ObservableObject {
         var succeeded = false
         await perform {
             guard role.name.nilIfBlank != nil else {
-                throw SupabaseClientError.invalidRequest("The role name cannot be blank.")
+                throw SupabaseClientError.invalidRequest("The ministry name cannot be blank.")
             }
             let client = try requireClient()
             try await client.updateRole(role)
             try await reload(using: client)
-            noticeMessage = "Role updated everywhere it is assigned."
+            noticeMessage = "Ministry updated everywhere it is assigned."
+            succeeded = true
+        }
+        return succeeded
+    }
+
+    func addSubRole(_ draft: SubRoleDraft) async -> Bool {
+        var succeeded = false
+        await perform {
+            guard draft.name.nilIfBlank != nil else {
+                throw SupabaseClientError.invalidRequest("Enter a position name.")
+            }
+            var clean = draft
+            clean.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            let client = try requireClient()
+            try await client.createSubRole(clean)
+            try await reload(using: client)
+            noticeMessage = "Ministry position added."
+            succeeded = true
+        }
+        return succeeded
+    }
+
+    func updateSubRole(_ subRole: MinistrySubRole) async -> Bool {
+        var succeeded = false
+        await perform {
+            guard subRole.name.nilIfBlank != nil else {
+                throw SupabaseClientError.invalidRequest("The position name cannot be blank.")
+            }
+            let client = try requireClient()
+            try await client.updateSubRole(subRole)
+            try await reload(using: client)
+            noticeMessage = "Ministry position updated."
             succeeded = true
         }
         return succeeded

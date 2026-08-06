@@ -8,49 +8,39 @@ struct ManageView: View {
     @State private var showingNewTerm = false
 
     var body: some View {
-        List {
+        Form {
             Section {
-                ForEach(model.roles) { role in
-                    Button {
-                        editingRole = role
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(role.name)
-                                    .foregroundStyle(.primary)
-                                HStack(spacing: 8) {
-                                    if role.requiresVote {
-                                        Label("Vote required", systemImage: "checkmark.seal")
-                                    }
-                                    if !role.isPublic {
-                                        Label("Private", systemImage: "lock")
-                                    }
-                                    if !role.isActive {
-                                        Text("Inactive")
-                                    }
-                                }
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                    .buttonStyle(.plain)
+                ForEach(activeRoles) { role in
+                    ministryButton(role)
                 }
                 Button {
                     showingNewRole = true
                 } label: {
-                    Label("Add ministry role", systemImage: "plus.circle")
+                    Label("Add ministry", systemImage: "plus.circle")
                 }
             } header: {
-                Text("Ministry roles")
+                Text("Ministries & positions")
             } footer: {
                 Text(
-                    "Renaming a role updates it everywhere; existing assignments keep " +
-                    "their link to the same role record."
+                    "Open a ministry to rename it, set its church-vote requirement, " +
+                    "and manage the positions available within it."
                 )
+            }
+
+            if !archivedRoles.isEmpty {
+                Section {
+                    ForEach(archivedRoles) { role in
+                        ministryButton(role)
+                    }
+                } header: {
+                    Label("Archived ministries", systemImage: "archivebox")
+                } footer: {
+                    Text(
+                        "Archived ministries stay available for history and can be restored, " +
+                        "but are excluded from assignment entry, current directories, reports, " +
+                        "the Votes queue, and the public iframe."
+                    )
+                }
             }
 
             Section {
@@ -82,7 +72,12 @@ struct ManageView: View {
                 )
             }
         }
-        .navigationTitle("Manage Roles & Terms")
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .frame(maxWidth: 920)
+        .frame(maxWidth: .infinity)
+        .background(AppTheme.pageBackground)
+        .navigationTitle("Manage Ministries & Terms")
         .sheet(item: $editingRole) { role in
             EditRoleSheet(role: role)
                 .environmentObject(model)
@@ -96,12 +91,64 @@ struct ManageView: View {
                 .environmentObject(model)
         }
     }
+
+    private func positions(for role: MinistryRole) -> [MinistrySubRole] {
+        model.subRoles.filter { $0.roleId == role.id && $0.isActive }
+    }
+
+    private var activeRoles: [MinistryRole] {
+        model.roles.filter(\.isActive)
+    }
+
+    private var archivedRoles: [MinistryRole] {
+        model.roles.filter { !$0.isActive }
+    }
+
+    private func ministryButton(_ role: MinistryRole) -> some View {
+        Button {
+            editingRole = role
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(role.name)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(
+                        "\(positions(for: role).count) " +
+                        (positions(for: role).count == 1 ? "position" : "positions")
+                    )
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.riverBlue)
+                    HStack(spacing: 8) {
+                        if role.requiresVote {
+                            Label("Vote required", systemImage: "checkmark.seal")
+                        }
+                        if !role.isPublic {
+                            Label("Private", systemImage: "lock")
+                        }
+                        if !role.isActive {
+                            Label("Archived", systemImage: "archivebox")
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .buttonStyle(.plain)
+    }
 }
 
 private struct EditRoleSheet: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var role: MinistryRole
+    @State private var editingPosition: MinistrySubRole?
+    @State private var showingNewPosition = false
+    @State private var showingArchiveConfirmation = false
 
     init(role: MinistryRole) {
         _role = State(initialValue: role)
@@ -110,21 +157,94 @@ private struct EditRoleSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Role name", text: $role.name)
-                TextField(
-                    "Description (optional)",
-                    text: Binding(
-                        get: { role.description ?? "" },
-                        set: { role.description = $0.nilIfBlank }
-                    ),
-                    axis: .vertical
-                )
-                Toggle("Church vote required", isOn: $role.requiresVote)
-                Toggle("Show in public directory", isOn: $role.isPublic)
-                Toggle("Active", isOn: $role.isActive)
+                Section("Ministry") {
+                    TextField("Ministry name", text: $role.name)
+                    TextField(
+                        "Description (optional)",
+                        text: Binding(
+                            get: { role.description ?? "" },
+                            set: { role.description = $0.nilIfBlank }
+                        ),
+                        axis: .vertical
+                    )
+                    Toggle("Ministry requires a church vote", isOn: $role.requiresVote)
+                    Toggle("Show in public directory", isOn: $role.isPublic)
+                    LabeledContent("Status", value: role.isActive ? "Current" : "Archived")
+                }
+
+                Section {
+                    ForEach(positions) { position in
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(position.name)
+                                        .foregroundStyle(.primary)
+                                    Text("Sort priority \(position.leadershipRank)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                                Button {
+                                    editingPosition = position
+                                } label: {
+                                    Label("Edit", systemImage: "square.and.pencil")
+                                }
+                                .buttonStyle(.borderless)
+                                .foregroundStyle(AppTheme.riverBlue)
+                                .accessibilityLabel("Edit \(position.name)")
+                            }
+
+                            PositionVoteToggle(position: position)
+                                .environmentObject(model)
+                        }
+                        .padding(.vertical, 4)
+                    }
+
+                    Button {
+                        showingNewPosition = true
+                    } label: {
+                        Label("Add position to this ministry", systemImage: "plus.circle")
+                    }
+                } header: {
+                    Text("Available positions")
+                } footer: {
+                    Text(
+                        "Each position belongs only to this ministry. A vote date is required " +
+                        "when either the ministry or the position's church-vote toggle is on."
+                    )
+                }
+
+                Section {
+                    if role.isActive {
+                        Button("Archive this ministry", role: .destructive) {
+                            showingArchiveConfirmation = true
+                        }
+                    } else {
+                        Button {
+                            Task {
+                                if await model.setMinistryArchived(role, archived: false) {
+                                    dismiss()
+                                }
+                            }
+                        } label: {
+                            Label("Restore this ministry", systemImage: "arrow.uturn.backward")
+                        }
+                    }
+                } footer: {
+                    Text(
+                        role.isActive
+                            ? "Archiving preserves all volunteer history while removing this " +
+                                "ministry from current directories, reports, assignment entry, " +
+                                "the Votes queue, and the public iframe."
+                            : "Restoring makes this ministry available for current use again."
+                    )
+                }
             }
             .formStyle(.grouped)
-            .navigationTitle("Edit Role")
+            .scrollContentBackground(.hidden)
+            .background(AppTheme.pageBackground)
+            .navigationTitle("Edit Ministry")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -141,7 +261,176 @@ private struct EditRoleSheet: View {
                 }
             }
         }
-        .frame(minWidth: 440, minHeight: 360)
+        .frame(minWidth: 540, minHeight: 560)
+        .sheet(item: $editingPosition) { position in
+            EditSubRoleSheet(position: position)
+                .environmentObject(model)
+        }
+        .sheet(isPresented: $showingNewPosition) {
+            NewSubRoleSheet(role: role)
+                .environmentObject(model)
+        }
+        .confirmationDialog(
+            "Archive \(role.name)?",
+            isPresented: $showingArchiveConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Archive Ministry", role: .destructive) {
+                Task {
+                    if await model.setMinistryArchived(role, archived: true) {
+                        dismiss()
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Volunteer history is preserved and the ministry can be restored later.")
+        }
+    }
+
+    private var positions: [MinistrySubRole] {
+        model.subRoles
+            .filter { $0.roleId == role.id }
+            .sorted {
+                if $0.leadershipRank != $1.leadershipRank {
+                    return $0.leadershipRank < $1.leadershipRank
+                }
+                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+    }
+}
+
+private struct PositionVoteToggle: View {
+    @EnvironmentObject private var model: AppModel
+    let position: MinistrySubRole
+    @State private var requiresVote: Bool
+
+    init(position: MinistrySubRole) {
+        self.position = position
+        _requiresVote = State(initialValue: position.requiresVote)
+    }
+
+    var body: some View {
+        Toggle("Requires a church vote", isOn: $requiresVote)
+            .disabled(model.isBusy || !position.isActive)
+            .onChange(of: requiresVote) { _, newValue in
+                guard newValue != position.requiresVote else { return }
+                var updated = position
+                updated.requiresVote = newValue
+                Task {
+                    if !(await model.updateSubRole(updated)) {
+                        requiresVote = position.requiresVote
+                    }
+                }
+            }
+    }
+}
+
+private struct EditSubRoleSheet: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var position: MinistrySubRole
+
+    init(position: MinistrySubRole) {
+        _position = State(initialValue: position)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Position") {
+                    TextField("Position name", text: $position.name)
+                    Toggle("Requires a church vote", isOn: $position.requiresVote)
+                    Toggle("Active", isOn: $position.isActive)
+                }
+                Section {
+                    Stepper(
+                        "Sort priority: \(position.leadershipRank)",
+                        value: $position.leadershipRank,
+                        in: 0...1000,
+                        step: 10
+                    )
+                } footer: {
+                    Text(
+                        "Lower numbers appear first. Suggested values: Head/Lead 10, " +
+                        "Co-Head/Co-Lead 20, Assistant 30, all other positions 100."
+                    )
+                }
+            }
+            .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .background(AppTheme.pageBackground)
+            .navigationTitle("Edit Position")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        Task {
+                            if await model.updateSubRole(position) {
+                                dismiss()
+                            }
+                        }
+                    }
+                    .disabled(position.name.nilIfBlank == nil || model.isBusy)
+                }
+            }
+        }
+        .frame(minWidth: 460, minHeight: 390)
+    }
+}
+
+private struct NewSubRoleSheet: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    let role: MinistryRole
+    @State private var draft: SubRoleDraft
+
+    init(role: MinistryRole) {
+        self.role = role
+        _draft = State(initialValue: SubRoleDraft(roleId: role.id))
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("\(role.name) position") {
+                    TextField("Position name", text: $draft.name)
+                    Toggle("Requires a church vote", isOn: $draft.requiresVote)
+                }
+                Section {
+                    Stepper(
+                        "Sort priority: \(draft.leadershipRank)",
+                        value: $draft.leadershipRank,
+                        in: 0...1000,
+                        step: 10
+                    )
+                } footer: {
+                    Text("Lower numbers appear first; use 100 for a general position.")
+                }
+            }
+            .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .background(AppTheme.pageBackground)
+            .navigationTitle("New Position")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        Task {
+                            if await model.addSubRole(draft) {
+                                dismiss()
+                            }
+                        }
+                    }
+                    .disabled(draft.name.nilIfBlank == nil || model.isBusy)
+                }
+            }
+        }
+        .frame(minWidth: 460, minHeight: 380)
     }
 }
 
@@ -153,13 +442,13 @@ private struct NewRoleSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Role name", text: $draft.name)
+                TextField("Ministry name", text: $draft.name)
                 TextField("Description (optional)", text: $draft.description, axis: .vertical)
-                Toggle("Church vote required", isOn: $draft.requiresVote)
+                Toggle("Ministry requires a church vote", isOn: $draft.requiresVote)
                 Toggle("Show in public directory", isOn: $draft.isPublic)
             }
             .formStyle(.grouped)
-            .navigationTitle("New Ministry Role")
+            .navigationTitle("New Ministry")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -234,12 +523,36 @@ private struct NewTermSheet: View {
 
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
+    @AppStorage(AppTextSize.storageKey) private var textSizeRaw = AppTextSize.large.rawValue
     @State private var importKind: CSVImportKind = .members
     @State private var showingImporter = false
     @State private var showingConnection = false
 
     var body: some View {
         Form {
+            Section {
+                Picker("Text size", selection: $textSizeRaw) {
+                    ForEach(AppTextSize.allCases) { size in
+                        Text(size.shortLabel)
+                            .tag(size.rawValue)
+                            .accessibilityLabel(size.description)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                LabeledContent("Current size") {
+                    Text(selectedTextSize.description)
+                        .foregroundStyle(AppTheme.riverBlueDark)
+                }
+            } header: {
+                Text("Appearance")
+            } footer: {
+                Text(
+                    "S, M, L, and XL resize text throughout the app. L is the default " +
+                    "for comfortable reading on Mac and iPad."
+                )
+            }
+
             Section {
                 Button {
                     Task { await model.syncPlanningCenter() }
@@ -252,8 +565,10 @@ struct SettingsView: View {
             } footer: {
                 Text(
                     "Planning Center credentials live only in the Supabase Edge Function. " +
-                    "They are never stored in this app. Webhooks can keep new and updated " +
-                    "people synchronized; this button provides a full reconciliation."
+                    "Synchronization is one-way: Planning Center replaces names, contact " +
+                    "details, membership status, and active status here. This app never " +
+                    "writes changes back to Planning Center. Webhooks can keep people " +
+                    "synchronized; this button provides a full reconciliation."
                 )
             }
 
@@ -301,6 +616,10 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .frame(maxWidth: 920)
+        .frame(maxWidth: .infinity)
+        .background(AppTheme.pageBackground)
         .navigationTitle("Settings & Import")
         .sheet(isPresented: $showingConnection) {
             ConfigurationView(isInitialSetup: false)
@@ -336,5 +655,9 @@ struct SettingsView: View {
                 model.errorMessage = error.localizedDescription
             }
         }
+    }
+
+    private var selectedTextSize: AppTextSize {
+        AppTextSize(rawValue: textSizeRaw) ?? .large
     }
 }

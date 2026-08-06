@@ -37,9 +37,10 @@ test("server-renders the public ministry directory", async () => {
   const html = await response.text();
   assert.match(html, /Volunteer ministry directory/i);
   assert.match(html, /Pasco Riverview Adventist Church/i);
-  assert.match(html, /placeholder="Person, role, position, or term"/i);
+  assert.match(html, /placeholder="Person, role, position, term, or note"/i);
   assert.match(html, /Print \/ PDF/i);
-  assert.match(html, /Contact information remains private/i);
+  assert.match(html, /Contact information[\s\S]*remain private/i);
+  assert.match(html, /notes explicitly approved/i);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
@@ -65,8 +66,10 @@ test("keeps public data limited to approved directory fields", async () => {
 
   assert.match(client, /public_directory_entries/);
   assert.doesNotMatch(client, /mobile_phone|home_phone|address_line|Home Email/);
+  assert.match(client, /entry\.note/);
+  assert.match(client, /<th>Note<\/th>/);
   const page = await readFile(new URL("app/page.tsx", root), "utf8");
   assert.match(page, /SUPABASE_PUBLISHABLE_KEY/);
   assert.doesNotMatch(client, /service[_-]?role/i);
-  assert.match(layout, /\/og\.png/);
+  assert.match(layout, /\/og-blue\.png/);
 });
