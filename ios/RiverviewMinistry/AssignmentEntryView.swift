@@ -41,8 +41,15 @@ struct AssignmentEntryView: View {
         model.subRoles.first(where: { $0.id == assignment.subRoleId })
     }
 
+    private var placementRequirements: AssignmentRequirements {
+        AssignmentRequirements(
+            ministryRequiresVote: selectedRole?.requiresVote == true,
+            positionRequiresVote: selectedPosition?.requiresVote == true
+        )
+    }
+
     private var placementRequiresVote: Bool {
-        selectedRole?.requiresVote == true || selectedPosition?.requiresVote == true
+        placementRequirements.requiresChurchVote
     }
 
     private var matchingPeople: [Person] {
@@ -128,11 +135,21 @@ struct AssignmentEntryView: View {
                 }
 
                 Picker("Term", selection: $assignment.termId) {
-                    Text("Choose a term").tag(UUID?.none)
+                    Text(placementRequirements.requiresTerm ? "Choose a term" : "No term (optional)")
+                        .tag(UUID?.none)
                     ForEach(model.terms.filter(\.isActive)) { term in
                         Text("\(term.name) — \(term.dateRangeLabel)")
                             .tag(Optional(term.id))
                     }
+                }
+                if placementRequirements.requiresTerm {
+                    Text("A term is required because this placement requires a church vote.")
+                        .appFont(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("A term is optional for placements that do not require a church vote.")
+                        .appFont(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -384,8 +401,8 @@ struct AssignmentEntryView: View {
         if assignment.subRoleId == nil {
             return "Choose a position before saving."
         }
-        if assignment.termId == nil {
-            return "Choose a term before saving."
+        if placementRequirements.requiresTerm, assignment.termId == nil {
+            return "Choose a term because this placement requires a church vote."
         }
         return nil
     }

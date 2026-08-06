@@ -192,16 +192,18 @@ final class AppModel: ObservableObject {
             guard let role = roles.first(where: { $0.id == assignment.roleId }) else {
                 throw SupabaseClientError.invalidRequest("Choose a ministry.")
             }
-            guard assignment.termId != nil else {
-                throw SupabaseClientError.invalidRequest("Choose a term.")
-            }
             let positionRequiresVote = subRoles.first {
                 $0.id == assignment.subRoleId
             }?.requiresVote == true
-            if (role.requiresVote || positionRequiresVote), assignment.voteDate == nil {
-                throw SupabaseClientError.invalidRequest(
-                    "This ministry placement requires a church vote date."
-                )
+            let requirements = AssignmentRequirements(
+                ministryRequiresVote: role.requiresVote,
+                positionRequiresVote: positionRequiresVote
+            )
+            if let message = requirements.validationMessage(
+                termId: assignment.termId,
+                voteDate: assignment.voteDate
+            ) {
+                throw SupabaseClientError.invalidRequest(message)
             }
 
             try await client.createAssignment(assignment)

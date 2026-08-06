@@ -167,6 +167,28 @@ struct AssignmentDraft: Sendable {
     var isPublic = true
 }
 
+struct AssignmentRequirements: Equatable, Sendable {
+    let requiresChurchVote: Bool
+
+    init(ministryRequiresVote: Bool, positionRequiresVote: Bool) {
+        requiresChurchVote = ministryRequiresVote || positionRequiresVote
+    }
+
+    var requiresTerm: Bool {
+        requiresChurchVote
+    }
+
+    func validationMessage(termId: UUID?, voteDate: Date?) -> String? {
+        if requiresTerm, termId == nil {
+            return "Choose a term because this ministry placement requires a church vote."
+        }
+        if requiresChurchVote, voteDate == nil {
+            return "This ministry placement requires a church vote date."
+        }
+        return nil
+    }
+}
+
 struct RoleDraft: Sendable {
     var name = ""
     var description = ""

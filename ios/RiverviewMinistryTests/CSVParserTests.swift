@@ -46,6 +46,40 @@ final class CSVParserTests: XCTestCase {
         XCTAssertFalse(AppUserRole.invitationChoices.contains(.admin))
     }
 
+    func testAssignmentWithoutVoteRequirementDoesNotRequireTermOrVoteDate() {
+        let requirements = AssignmentRequirements(
+            ministryRequiresVote: false,
+            positionRequiresVote: false
+        )
+
+        XCTAssertFalse(requirements.requiresChurchVote)
+        XCTAssertFalse(requirements.requiresTerm)
+        XCTAssertNil(requirements.validationMessage(termId: nil, voteDate: nil))
+    }
+
+    func testMinistryVoteRequirementAlsoRequiresTermAndVoteDate() {
+        let requirements = AssignmentRequirements(
+            ministryRequiresVote: true,
+            positionRequiresVote: false
+        )
+        let termId = UUID()
+
+        XCTAssertTrue(requirements.requiresTerm)
+        XCTAssertNotNil(requirements.validationMessage(termId: nil, voteDate: Date()))
+        XCTAssertNotNil(requirements.validationMessage(termId: termId, voteDate: nil))
+        XCTAssertNil(requirements.validationMessage(termId: termId, voteDate: Date()))
+    }
+
+    func testPositionVoteRequirementAlsoRequiresTermAndVoteDate() {
+        let requirements = AssignmentRequirements(
+            ministryRequiresVote: false,
+            positionRequiresVote: true
+        )
+
+        XCTAssertTrue(requirements.requiresChurchVote)
+        XCTAssertTrue(requirements.requiresTerm)
+    }
+
     func testPlacementFocusFindsEmptyMinistryAndUnfilledExpiredPosition() throws {
         let emptyRole = makeRole(name: "Empty Ministry")
         let gapRole = makeRole(name: "Needs Replacement")
