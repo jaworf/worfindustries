@@ -289,6 +289,8 @@ final class AppModel: ObservableObject {
 
     func updateAssignmentDetails(
         assignmentId: UUID,
+        subRoleId: UUID?,
+        termId: UUID?,
         notes: String,
         noteIsPublic: Bool,
         voteDate: Date?
@@ -298,6 +300,8 @@ final class AppModel: ObservableObject {
             let client = try requireClient()
             try await client.updateAssignmentDetails(
                 assignmentId: assignmentId,
+                subRoleId: subRoleId,
+                termId: termId,
                 notes: notes,
                 noteIsPublic: noteIsPublic,
                 voteDate: voteDate

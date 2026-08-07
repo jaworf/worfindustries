@@ -91,6 +91,29 @@ final class CSVParserTests: XCTestCase {
         XCTAssertTrue(requirements.requiresTerm)
     }
 
+    func testAssignmentDetailsUpdateIncludesPositionAndExplicitNulls() throws {
+        let positionId = UUID()
+        let payload = AssignmentDetailsWrite(
+            subRoleId: positionId,
+            termId: nil,
+            notes: nil,
+            noteIsPublic: false,
+            voteDate: nil
+        )
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        let data = try encoder.encode(payload)
+        let json = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+
+        XCTAssertEqual(json["sub_role_id"] as? String, positionId.uuidString)
+        XCTAssertTrue(json["term_id"] is NSNull)
+        XCTAssertTrue(json["notes"] is NSNull)
+        XCTAssertEqual(json["note_is_public"] as? Bool, false)
+        XCTAssertTrue(json["vote_date"] is NSNull)
+    }
+
     func testPlacementFocusFindsEmptyMinistryAndUnfilledExpiredPosition() throws {
         let emptyRole = makeRole(name: "Empty Ministry")
         let gapRole = makeRole(name: "Needs Replacement")

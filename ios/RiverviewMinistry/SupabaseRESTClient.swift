@@ -235,12 +235,16 @@ actor SupabaseRESTClient {
 
     func updateAssignmentDetails(
         assignmentId: UUID,
+        subRoleId: UUID?,
+        termId: UUID?,
         notes: String?,
         noteIsPublic: Bool,
         voteDate: Date?
     ) async throws {
         let cleanNotes = notes.nilIfBlank
         let payload = AssignmentDetailsWrite(
+            subRoleId: subRoleId,
+            termId: termId,
             notes: cleanNotes,
             noteIsPublic: noteIsPublic && cleanNotes != nil,
             voteDate: voteDate.map(AppDate.storage)
@@ -736,10 +740,45 @@ private struct AssignmentVoteWrite: Encodable {
     let voteDate: String?
 }
 
-private struct AssignmentDetailsWrite: Encodable {
+struct AssignmentDetailsWrite: Encodable {
+    let subRoleId: UUID?
+    let termId: UUID?
     let notes: String?
     let noteIsPublic: Bool
     let voteDate: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case subRoleId
+        case termId
+        case notes
+        case noteIsPublic
+        case voteDate
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if let subRoleId {
+            try container.encode(subRoleId, forKey: .subRoleId)
+        } else {
+            try container.encodeNil(forKey: .subRoleId)
+        }
+        if let termId {
+            try container.encode(termId, forKey: .termId)
+        } else {
+            try container.encodeNil(forKey: .termId)
+        }
+        if let notes {
+            try container.encode(notes, forKey: .notes)
+        } else {
+            try container.encodeNil(forKey: .notes)
+        }
+        try container.encode(noteIsPublic, forKey: .noteIsPublic)
+        if let voteDate {
+            try container.encode(voteDate, forKey: .voteDate)
+        } else {
+            try container.encodeNil(forKey: .voteDate)
+        }
+    }
 }
 
 private struct AssignmentStatusWrite: Encodable {

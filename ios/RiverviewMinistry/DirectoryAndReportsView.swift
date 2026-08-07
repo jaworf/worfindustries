@@ -878,6 +878,8 @@ private struct AssignmentEditor: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
     let assignment: AssignmentDetail
+    @State private var subRoleId: UUID?
+    @State private var termId: UUID?
     @State private var notes: String
     @State private var noteIsPublic: Bool
     @State private var hasVoteDate: Bool
@@ -886,6 +888,8 @@ private struct AssignmentEditor: View {
 
     init(assignment: AssignmentDetail) {
         self.assignment = assignment
+        _subRoleId = State(initialValue: assignment.subRoleId)
+        _termId = State(initialValue: assignment.termId)
         _notes = State(initialValue: assignment.notes ?? "")
         _noteIsPublic = State(initialValue: assignment.noteIsPublic)
         let storedVoteDate = assignment.voteDate.flatMap(AppDate.parse)
@@ -899,12 +903,41 @@ private struct AssignmentEditor: View {
                 Section("Assignment") {
                     LabeledContent("Volunteer", value: assignment.personName)
                     LabeledContent("Ministry", value: assignment.roleName)
-                    LabeledContent(
-                        "Position",
-                        value: assignment.subRoleName ?? "Volunteer"
-                    )
-                    if let termName = assignment.termName {
-                        LabeledContent("Term", value: termName)
+
+                    Picker("Position", selection: $subRoleId) {
+                        Text("Choose a position").tag(UUID?.none)
+                        ForEach(availablePositions) { position in
+                            Text(position.name).tag(Optional(position.id))
+                        }
+                    }
+
+                    Picker("Term", selection: $termId) {
+                        Text(
+                            placementRequirements.requiresTerm
+                                ? "Choose a term"
+                                : "No term (optional)"
+                        )
+                        .tag(UUID?.none)
+                        ForEach(availableTerms) { term in
+                            Text("\(term.name) — \(term.dateRangeLabel)")
+                                .tag(Optional(term.id))
+                        }
+                    }
+
+                    if placementRequirements.requiresTerm {
+                        Text("A term is required because this placement requires a church vote.")
+                            .appFont(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("A term is optional because this placement does not require a church vote.")
+                            .appFont(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let saveRequirementMessage {
+                        Label(saveRequirementMessage, systemImage: "exclamationmark.circle.fill")
+                            .appFont(.footnote, weight: .semibold)
+                            .foregroundStyle(.orange)
                     }
                 }
 
@@ -912,7 +945,9 @@ private struct AssignmentEditor: View {
                     LabeledContent("Requirement") {
                         Text(voteRequirementLabel)
                             .foregroundStyle(
-                                assignment.requiresVote ? Color.orange : Color.secondary
+                                placementRequirements.requiresChurchVote
+                                    ? Color.orange
+                                    : Color.secondary
                             )
                     }
                     Toggle("Church vote recorded", isOn: $hasVoteDate)
@@ -1003,6 +1038,8 @@ private struct AssignmentEditor: View {
                         Task {
                             if await model.updateAssignmentDetails(
                                 assignmentId: assignment.id,
+                                subRoleId: subRoleId,
+                                termId: termId,
                                 notes: notes,
                                 noteIsPublic: noteIsPublic,
                                 voteDate: hasVoteDate ? voteDate : nil
@@ -1011,7 +1048,7 @@ private struct AssignmentEditor: View {
                             }
                         }
                     }
-                    .disabled(model.isBusy)
+                    .disabled(model.isBusy || saveRequirementMessage != nil)
                 }
             }
         }
@@ -1044,8 +1081,57 @@ private struct AssignmentEditor: View {
         }
     }
 
+    private var availablePositions: [MinistrySubRole] {
+        model.subRoles
+            .filter {
+                $0.roleId == assignment.roleId
+                    && ($0.isActive || $0.id == subRoleId)
+            }
+            .sorted { left, right in
+                if left.leadershipRank != right.leadershipRank {
+                    return left.leadershipRank < right.leadershipRank
+                }
+                return left.name.localizedCaseInsensitiveCompare(right.name) == .orderedAscending
+            }
+    }
+
+    private var availableTerms: [MinistryTerm] {
+        model.terms.filter { $0.isActive || $0.id == termId }
+    }
+
+    private var selectedPosition: MinistrySubRole? {
+        model.subRoles.first(where: { $0.id == subRoleId })
+    }
+
+    private var ministryRequiresVote: Bool {
+        model.roles.first(where: { $0.id == assignment.roleId })?.requiresVote
+            ?? assignment.ministryRequiresVote
+    }
+
+    private var positionRequiresVote: Bool {
+        selectedPosition?.requiresVote
+            ?? (subRoleId == assignment.subRoleId && assignment.positionRequiresVote)
+    }
+
+    private var placementRequirements: AssignmentRequirements {
+        AssignmentRequirements(
+            ministryRequiresVote: ministryRequiresVote,
+            positionRequiresVote: positionRequiresVote
+        )
+    }
+
+    private var saveRequirementMessage: String? {
+        if subRoleId == nil {
+            return "Choose a position before saving."
+        }
+        if placementRequirements.requiresTerm, termId == nil {
+            return "Choose a term because this placement requires a church vote."
+        }
+        return nil
+    }
+
     private var voteRequirementLabel: String {
-        switch (assignment.ministryRequiresVote, assignment.positionRequiresVote) {
+        switch (ministryRequiresVote, positionRequiresVote) {
         case (true, true): "Required by ministry and position"
         case (true, false): "Required by ministry"
         case (false, true): "Required by position"
