@@ -711,43 +711,69 @@ private struct PendingVoteRow: View {
 private struct AssignmentDirectoryRow: View {
     let assignment: AssignmentDetail
 
+    private var usesPhoneLayout: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        false
+        #endif
+    }
+
     var body: some View {
+        if usesPhoneLayout {
+            phoneLayout
+        } else {
+            regularLayout
+        }
+    }
+
+    private var phoneLayout: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(assignment.personName)
+                    .fontWeight(assignment.leadershipRank < 100 ? .semibold : .regular)
+                Spacer(minLength: 8)
+                Image(systemName: "square.and.pencil")
+                    .foregroundStyle(AppTheme.riverBlue)
+                    .accessibilityHidden(true)
+            }
+
+            if let subRole = assignment.subRoleName.nilIfBlank {
+                positionBadge(subRole, keepsOneLine: true)
+            }
+
+            if assignment.endDateValue != nil || assignment.requiresVote {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) {
+                        phoneEndDate
+                        phoneVoteStatus
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        phoneEndDate
+                        phoneVoteStatus
+                    }
+                }
+            }
+
+            noteBlock
+        }
+        .padding(.vertical, 3)
+    }
+
+    private var regularLayout: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(assignment.personName)
                     .fontWeight(assignment.leadershipRank < 100 ? .semibold : .regular)
                 HStack(spacing: 6) {
                     if let subRole = assignment.subRoleName {
-                        Text(subRole)
-                            .appFont(.caption, weight: .medium)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .background(
-                                assignment.leadershipRank < 100
-                                    ? Color.accentColor.opacity(0.15)
-                                    : Color.secondary.opacity(0.12),
-                                in: Capsule()
-                            )
+                        positionBadge(subRole)
                     }
                     Text(assignment.termName ?? "No term")
                         .appFont(.caption)
                         .foregroundStyle(.secondary)
                 }
-                if let note = assignment.notes.nilIfBlank {
-                    Text(note)
-                        .appFont(.callout)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .padding(.top, 3)
-                    Label(
-                        assignment.noteIsPublic ? "Reports & web" : "Staff only",
-                        systemImage: assignment.noteIsPublic ? "eye" : "lock"
-                    )
-                    .appFont(.caption2, weight: .semibold)
-                    .foregroundStyle(
-                        assignment.noteIsPublic ? AppTheme.riverBlue : Color.secondary
-                    )
-                }
+                noteBlock
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 3) {
@@ -779,6 +805,72 @@ private struct AssignmentDirectoryRow: View {
             }
         }
         .padding(.vertical, 3)
+    }
+
+    private func positionBadge(
+        _ title: String,
+        keepsOneLine: Bool = false
+    ) -> some View {
+        Text(title)
+            .appFont(.caption, weight: .medium)
+            .lineLimit(keepsOneLine ? 1 : nil)
+            .minimumScaleFactor(keepsOneLine ? 0.8 : 1)
+            .allowsTightening(keepsOneLine)
+            .truncationMode(.tail)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(
+                assignment.leadershipRank < 100
+                    ? Color.accentColor.opacity(0.15)
+                    : Color.secondary.opacity(0.12),
+                in: Capsule()
+            )
+    }
+
+    @ViewBuilder
+    private var phoneEndDate: some View {
+        if let end = assignment.endDateValue {
+            Text("Ends \(AppDate.display(end))")
+                .appFont(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var phoneVoteStatus: some View {
+        if assignment.requiresVote {
+            if
+                let storedDate = assignment.voteDate,
+                let date = AppDate.parse(storedDate)
+            {
+                Text("Voted \(AppDate.display(date))")
+                    .appFont(.caption)
+                    .foregroundStyle(AppTheme.riverBlue)
+            } else {
+                Label("Vote missing", systemImage: "exclamationmark.circle")
+                    .appFont(.caption)
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var noteBlock: some View {
+        if let note = assignment.notes.nilIfBlank {
+            Text(note)
+                .appFont(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .padding(.top, 3)
+            Label(
+                assignment.noteIsPublic ? "Reports & web" : "Staff only",
+                systemImage: assignment.noteIsPublic ? "eye" : "lock"
+            )
+            .appFont(.caption2, weight: .semibold)
+            .foregroundStyle(
+                assignment.noteIsPublic ? AppTheme.riverBlue : Color.secondary
+            )
+        }
     }
 }
 
