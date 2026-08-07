@@ -10,6 +10,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var assignments: [AssignmentDetail] = []
     @Published private(set) var session: SupabaseSession?
     @Published private(set) var currentProfile: AppProfile?
+    @Published private(set) var hasRestoredSession = false
     @Published var configuration: SupabaseConfiguration
     @Published var isBusy = false
     @Published var errorMessage: String?
@@ -42,18 +43,33 @@ final class AppModel: ObservableObject {
         }
 
         if configuration.isValid {
-            let restored: SupabaseSession?
-            if Self.isRunningTests {
-                restored = nil
-            } else {
-                restored = try? KeychainStore.load(
-                    SupabaseSession.self,
-                    account: sessionAccount
-                )
-            }
-            session = restored ?? nil
-            client = SupabaseRESTClient(configuration: configuration, session: session)
+            client = SupabaseRESTClient(configuration: configuration)
         }
+    }
+
+    func restoreStoredSession() async {
+        guard !hasRestoredSession else { return }
+        guard configuration.isValid else {
+            hasRestoredSession = true
+            return
+        }
+
+        let restored: SupabaseSession?
+        if Self.isRunningTests {
+            restored = nil
+        } else {
+            let account = sessionAccount
+            restored = await Task.detached(priority: .userInitiated) {
+                try? KeychainStore.load(
+                    SupabaseSession.self,
+                    account: account
+                )
+            }.value
+        }
+
+        session = restored
+        client = SupabaseRESTClient(configuration: configuration, session: restored)
+        hasRestoredSession = true
     }
 
     private static func productionConfiguration() -> SupabaseConfiguration {
@@ -78,6 +94,7 @@ final class AppModel: ObservableObject {
             currentProfile = nil
             KeychainStore.delete(account: sessionAccount)
             client = SupabaseRESTClient(configuration: configuration)
+            hasRestoredSession = true
             noticeMessage = "Supabase connection settings saved."
         } catch {
             errorMessage = error.localizedDescription

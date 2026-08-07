@@ -46,6 +46,17 @@ final class CSVParserTests: XCTestCase {
         XCTAssertFalse(AppUserRole.invitationChoices.contains(.admin))
     }
 
+    @MainActor
+    func testStartupRestorationAlwaysCompletes() async {
+        let model = AppModel()
+
+        XCTAssertFalse(model.hasRestoredSession)
+        await model.restoreStoredSession()
+
+        XCTAssertTrue(model.hasRestoredSession)
+        XCTAssertTrue(model.isConfigured)
+    }
+
     func testAssignmentWithoutVoteRequirementDoesNotRequireTermOrVoteDate() {
         let requirements = AssignmentRequirements(
             ministryRequiresVote: false,

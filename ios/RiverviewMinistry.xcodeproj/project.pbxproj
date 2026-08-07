@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		01FEE2DE9B15976446ED19D0 /* PDFKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 404558B33BD2F1EEF561EED3 /* PDFKit.framework */; };
+		E21A4D961A5C4A11B87291F0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D17E386DE31D4E02A4C99124 /* Assets.xcassets */; };
 		10548F89AF5556FA03A54BC6 /* ReportGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B0229A245EA2E42F5C7BACE /* ReportGenerator.swift */; };
 		2C7AB5B16D7C555998922DEB /* RiverviewMinistryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 113F77FA38284B131B948F77 /* RiverviewMinistryApp.swift */; };
 		44D6C117ED069D356FA94386 /* CSVParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71A7999EEA0096F50C3E875A /* CSVParserTests.swift */; };
@@ -35,7 +36,7 @@
 /* Begin PBXFileReference section */
 		113F77FA38284B131B948F77 /* RiverviewMinistryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiverviewMinistryApp.swift; sourceTree = "<group>"; };
 		12729D6DCEF8B428DB530DA5 /* DirectoryAndReportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectoryAndReportsView.swift; sourceTree = "<group>"; };
-		205A4DABAED0C73F2958D714 /* RiverviewMinistry.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RiverviewMinistry.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		205A4DABAED0C73F2958D714 /* Riverview Ministry Volunteers.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Riverview Ministry Volunteers.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3831A2FE9F60FCC270E859CD /* AssignmentEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssignmentEntryView.swift; sourceTree = "<group>"; };
 		404558B33BD2F1EEF561EED3 /* PDFKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PDFKit.framework; path = System/Library/Frameworks/PDFKit.framework; sourceTree = SDKROOT; };
 		41FA8ACFBB66E3CDE9BDD599 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -43,9 +44,10 @@
 		6B0229A245EA2E42F5C7BACE /* ReportGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportGenerator.swift; sourceTree = "<group>"; };
 		71A7999EEA0096F50C3E875A /* CSVParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSVParserTests.swift; sourceTree = "<group>"; };
 		A8192A129B768735625B720D /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
-		AFA930086EB4D65E1DD03032 /* RiverviewMinistryTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RiverviewMinistryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AFA930086EB4D65E1DD03032 /* RiverviewMinistryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RiverviewMinistryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B4F1174859764BDF95B9C1AF /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		C4EDB91B010BBE0915BD0CE2 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		D17E386DE31D4E02A4C99124 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F46DF979B2389576B440E47C /* SupabaseRESTClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseRESTClient.swift; sourceTree = "<group>"; };
 		FBD0A9251FACF249D4834243 /* CSVParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSVParser.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -76,6 +78,7 @@
 			isa = PBXGroup;
 			children = (
 				B4F1174859764BDF95B9C1AF /* AppModel.swift */,
+				D17E386DE31D4E02A4C99124 /* Assets.xcassets */,
 				3831A2FE9F60FCC270E859CD /* AssignmentEntryView.swift */,
 				FBD0A9251FACF249D4834243 /* CSVParser.swift */,
 				12729D6DCEF8B428DB530DA5 /* DirectoryAndReportsView.swift */,
@@ -92,7 +95,7 @@
 		9AE41024578DCEE3291CCB32 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				205A4DABAED0C73F2958D714 /* RiverviewMinistry.app */,
+				205A4DABAED0C73F2958D714 /* Riverview Ministry Volunteers.app */,
 				AFA930086EB4D65E1DD03032 /* RiverviewMinistryTests.xctest */,
 			);
 			name = Products;
@@ -143,6 +146,7 @@
 			buildPhases = (
 				224CD05398B1AD7805C2CDAB /* Sources */,
 				1D73FB3A22FE31BCB1D0765D /* Frameworks */,
+				F2A9170B91EC45DEB114F209 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -152,7 +156,7 @@
 			packageProductDependencies = (
 			);
 			productName = RiverviewMinistry;
-			productReference = 205A4DABAED0C73F2958D714 /* RiverviewMinistry.app */;
+			productReference = 205A4DABAED0C73F2958D714 /* Riverview Ministry Volunteers.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -191,6 +195,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F2A9170B91EC45DEB114F209 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E21A4D961A5C4A11B87291F0 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		22131F51D018F0FD52AECE7C /* Sources */ = {
@@ -236,7 +251,11 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				"CODE_SIGN_STYLE[sdk=macosx*]" = Automatic;
+				DEVELOPMENT_TEAM = W3T4AK7599;
 				INFOPLIST_KEY_CFBundleDisplayName = "Riverview Ministry Volunteers";
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -326,6 +345,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = W3T4AK7599;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -352,7 +372,11 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				"CODE_SIGN_STYLE[sdk=macosx*]" = Automatic;
+				DEVELOPMENT_TEAM = W3T4AK7599;
 				INFOPLIST_KEY_CFBundleDisplayName = "Riverview Ministry Volunteers";
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -375,6 +399,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = W3T4AK7599;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -136,8 +136,19 @@ struct RiverviewMinistryApp: App {
                 .font(selectedTextSize.bodyFont)
                 .tint(AppTheme.riverBlue)
                 .preferredColorScheme(.light)
-                .frame(minWidth: 390, minHeight: 560)
+                .platformWindowFrame()
         }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func platformWindowFrame() -> some View {
+        #if os(macOS)
+        frame(minWidth: 390, minHeight: 560)
+        #else
+        frame(maxWidth: .infinity, maxHeight: .infinity)
+        #endif
     }
 }
 
@@ -152,7 +163,9 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if !model.isConfigured {
+            if !model.hasRestoredSession {
+                BrandedLaunchView()
+            } else if !model.isConfigured {
                 ConfigurationView(isInitialSetup: true)
             } else if !model.isSignedIn {
                 LoginView()
@@ -162,12 +175,55 @@ struct RootView: View {
                         if model.assignments.isEmpty {
                             await model.reload()
                         }
-                    }
+                }
             }
+        }
+        .task {
+            await model.restoreStoredSession()
         }
         .overlay(alignment: .top) {
             MessageBanner()
         }
+    }
+}
+
+private struct BrandedLaunchView: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [AppTheme.riverBlueDark, AppTheme.riverBlue],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 20) {
+                Image("MinistryMark")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 136, height: 136)
+                    .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                    .shadow(color: .black.opacity(0.22), radius: 18, y: 9)
+
+                VStack(spacing: 6) {
+                    Text("Riverview Ministry Volunteers")
+                        .appFont(.title, weight: .bold)
+                    Text("Serving together")
+                        .appFont(.headline, weight: .medium)
+                        .opacity(0.88)
+                }
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(.white)
+                    .padding(.top, 6)
+            }
+            .padding(32)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Riverview Ministry Volunteers is opening")
     }
 }
 
@@ -300,14 +356,13 @@ struct LoginView: View {
 
                 VStack(spacing: 26) {
                     Spacer()
-                    ZStack {
-                        Circle()
-                            .fill(AppTheme.riverBlueSoft)
-                            .frame(width: 92, height: 92)
-                        Image(systemName: "person.3.sequence.fill")
-                            .font(.system(size: 48))
-                            .foregroundStyle(AppTheme.riverBlue)
-                    }
+                    Image("MinistryMark")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 112, height: 112)
+                        .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
+                        .shadow(color: AppTheme.riverBlueDark.opacity(0.2), radius: 12, y: 6)
+                        .accessibilityLabel("Riverview Ministry Volunteers")
                     VStack(spacing: 8) {
                         Text("Riverview Ministry Volunteers")
                             .appFont(.largeTitle, weight: .bold)
