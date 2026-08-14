@@ -1,10 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.110.8";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.110.8/cors";
 
 const jsonHeaders = {
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Origin": "*",
+  ...corsHeaders,
   "Content-Type": "application/json",
 };
 
