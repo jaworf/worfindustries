@@ -352,6 +352,11 @@ export function MinistryAdmin({
     return (
       <main className="admin-login-shell">
         <section className="admin-login-card">
+          <img
+            src="/ministry-logo.png"
+            alt="Riverview Ministry Volunteers logo"
+            className="admin-login-mark"
+          />
           <h1>Riverview Ministry Volunteers</h1>
           <p>The secure database connection is not configured on this host.</p>
         </section>
@@ -371,7 +376,7 @@ export function MinistryAdmin({
     <div className="admin-app-shell">
       <header className="admin-header">
         <div className="admin-brand">
-          <img src="/favicon.svg" alt="" />
+          <img src="/ministry-logo.png" alt="Riverview Ministry Volunteers logo" />
           <div>
             <p>Pasco Riverview Adventist Church</p>
             <h1>Ministry Volunteers</h1>
@@ -544,7 +549,11 @@ function AdminLogin({
   return (
     <main className="admin-login-shell">
       <section className="admin-login-card">
-        <img src="/favicon.svg" alt="" className="admin-login-mark" />
+        <img
+          src="/ministry-logo.png"
+          alt="Riverview Ministry Volunteers logo"
+          className="admin-login-mark"
+        />
         <p className="eyebrow">Pasco Riverview Adventist Church</p>
         <h1>Riverview Ministry Volunteers</h1>
         <p className="admin-login-intro">

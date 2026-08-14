@@ -265,7 +265,11 @@ export function VolunteerDirectory({
     <main className={embedded ? "directory-shell embedded" : "directory-shell"}>
       <header className="site-header">
         <div className="brand-lockup">
-          <BrandMark />
+          <img
+            className="brand-mark"
+            src="/ministry-logo.png"
+            alt="Riverview Ministry Volunteers logo"
+          />
           <div>
             <p className="eyebrow">Pasco Riverview Adventist Church</p>
             <h1>Volunteer ministry directory</h1>
@@ -450,33 +454,6 @@ function LoadingDirectory() {
         </div>
       ))}
     </div>
-  );
-}
-
-function BrandMark() {
-  return (
-    <svg
-      className="brand-mark"
-      viewBox="0 0 56 56"
-      role="img"
-      aria-label="Riverview ministry mark"
-    >
-      <path d="M28 4a24 24 0 1 0 24 24A24 24 0 0 0 28 4Z" fill="#1f5f8b" />
-      <path
-        d="M17 35c5-8 12-13 22-16-3 5-5 10-5 17"
-        fill="none"
-        stroke="#e0ad55"
-        strokeLinecap="round"
-        strokeWidth="4"
-      />
-      <path
-        d="M14 39c8-2 17-2 28 1"
-        fill="none"
-        stroke="#fff"
-        strokeLinecap="round"
-        strokeWidth="3"
-      />
-    </svg>
   );
 }
 

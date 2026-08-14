@@ -129,7 +129,11 @@ export function PasswordReset({ projectUrl, publishableKey }: PasswordResetProps
   return (
     <main className="auth-shell">
       <section className="auth-card" aria-live="polite">
-        <img className="auth-mark" src="/favicon.svg" alt="" />
+        <img
+          className="auth-mark"
+          src="/ministry-logo.png"
+          alt="Riverview Ministry Volunteers logo"
+        />
         <p className="eyebrow">Pasco Riverview Adventist Church</p>
         <h1>
           {linkKind === "invite"

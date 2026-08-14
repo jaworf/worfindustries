@@ -214,6 +214,13 @@ enum ReportGenerator {
     ) {
         let bannerHeight: CGFloat = 64
         let bannerY = pageSize.height - margin - bannerHeight
+        let logoRect = CGRect(
+            x: margin + 8,
+            y: bannerY + 8,
+            width: 48,
+            height: 48
+        )
+        let textX = logoRect.maxX + 13
         context.setFillColor(riverBlue)
         context.fill(
             CGRect(
@@ -223,13 +230,14 @@ enum ReportGenerator {
                 height: bannerHeight
             )
         )
+        drawMinistryLogo(context, in: logoRect)
         drawText(
             context,
             "Pasco Riverview Adventist Church",
             in: CGRect(
-                x: margin + 16,
+                x: textX,
                 y: bannerY + 35,
-                width: pageSize.width - margin * 2 - 32,
+                width: pageSize.width - margin - textX - 16,
                 height: 24
             ),
             fontSize: 18,
@@ -240,9 +248,9 @@ enum ReportGenerator {
             context,
             "Volunteer Ministry Directory",
             in: CGRect(
-                x: margin + 16,
+                x: textX,
                 y: bannerY + 16,
-                width: pageSize.width - margin * 2 - 32,
+                width: pageSize.width - margin - textX - 16,
                 height: 18
             ),
             fontSize: 11,
@@ -260,6 +268,43 @@ enum ReportGenerator {
             fontSize: 8,
             color: CGColor(gray: 0.35, alpha: 1)
         )
+    }
+
+    private static func drawMinistryLogo(
+        _ context: CGContext,
+        in rect: CGRect
+    ) {
+        guard let image = ministryLogo else { return }
+
+        let clipPath = CGPath(
+            roundedRect: rect,
+            cornerWidth: 7,
+            cornerHeight: 7,
+            transform: nil
+        )
+        context.saveGState()
+        context.addPath(clipPath)
+        context.clip()
+        context.interpolationQuality = .high
+        context.draw(image, in: rect)
+        context.restoreGState()
+
+        context.setStrokeColor(CGColor(gray: 1, alpha: 0.72))
+        context.setLineWidth(0.75)
+        context.addPath(clipPath)
+        context.strokePath()
+    }
+
+    private static var ministryLogo: CGImage? {
+        #if os(iOS)
+        return UIImage(named: "MinistryLogo")?.cgImage
+        #elseif os(macOS)
+        return NSImage(named: NSImage.Name("MinistryLogo"))?.cgImage(
+            forProposedRect: nil,
+            context: nil,
+            hints: nil
+        )
+        #endif
     }
 
     private static func drawPageFooter(

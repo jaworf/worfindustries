@@ -16,8 +16,9 @@ export async function generateMetadata(): Promise<Metadata> {
     description:
       "Search and print the Pasco Riverview Adventist Church volunteer ministry directory.",
     icons: {
-      icon: "/favicon.svg",
-      shortcut: "/favicon.svg",
+      icon: "/ministry-logo.png",
+      shortcut: "/ministry-logo.png",
+      apple: "/ministry-logo.png",
     },
     openGraph: {
       title: "Volunteer Ministry Directory",
@@ -26,9 +27,9 @@ export async function generateMetadata(): Promise<Metadata> {
       type: "website",
       images: [
         {
-          url: `${origin}/og-blue.png`,
-          width: 1730,
-          height: 909,
+          url: `${origin}/ministry-logo.png`,
+          width: 1024,
+          height: 1024,
           alt: "Pasco Riverview volunteer ministry directory",
         },
       ],

@@ -39,6 +39,7 @@ test("server-renders the public ministry directory", async () => {
   assert.match(html, /Pasco Riverview Adventist Church/i);
   assert.match(html, /placeholder="Person, role, position, term, or note"/i);
   assert.match(html, /Print \/ PDF/i);
+  assert.match(html, /src="\/ministry-logo\.png"/i);
   assert.match(html, /Contact information[\s\S]*remain private/i);
   assert.match(html, /notes explicitly approved/i);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
@@ -91,7 +92,7 @@ test("keeps public data limited to approved directory fields", async () => {
   const page = await readFile(new URL("app/page.tsx", root), "utf8");
   assert.match(page, /SUPABASE_PUBLISHABLE_KEY/);
   assert.doesNotMatch(client, /service[_-]?role/i);
-  assert.match(layout, /\/og-blue\.png/);
+  assert.match(layout, /\/ministry-logo\.png/);
 });
 
 test("keeps ordination on people and out of the public iframe", async () => {
