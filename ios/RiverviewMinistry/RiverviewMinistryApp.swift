@@ -546,11 +546,16 @@ struct MainShellView: View {
     @State private var assignmentRoute: AssignmentRoute?
 
     private var ministryWatchCount: Int {
-        PlacementFocusSnapshot(
+        let ministryCount = PlacementFocusSnapshot(
             roles: model.roles,
             subRoles: model.subRoles,
             assignments: model.assignments
         ).ministryNeeds.count
+        let ordinationCount = makeOrdinationFocusNeeds(
+            people: model.people,
+            assignments: model.assignments
+        ).count
+        return ministryCount + ordinationCount
     }
 
     var body: some View {

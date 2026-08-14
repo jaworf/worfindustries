@@ -20,6 +20,9 @@ struct Person: Codable, Identifiable, Hashable, Sendable {
     var notes: String?
     var isActive: Bool
     var isPublic: Bool
+    var isOrdainedDeacon: Bool = false
+    var isOrdainedDeaconess: Bool = false
+    var isOrdainedElder: Bool = false
     var sourceCreatedAt: String? = nil
     var sourceUpdatedAt: String? = nil
     var createdAt: String? = nil
@@ -32,6 +35,36 @@ struct Person: Codable, Identifiable, Hashable, Sendable {
 
     var addedDate: Date? {
         AppDate.parseTimestamp(sourceCreatedAt ?? createdAt ?? "")
+    }
+
+    var ordinationLabels: [String] {
+        var labels: [String] = []
+        if isOrdainedDeacon { labels.append("Ordained Deacon") }
+        if isOrdainedDeaconess { labels.append("Ordained Deaconess") }
+        if isOrdainedElder { labels.append("Ordained Elder") }
+        return labels
+    }
+}
+
+enum OrdinationKind: String, CaseIterable, Identifiable, Sendable {
+    case deacon
+    case deaconess
+    case elder
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .deacon: "Ordained Deacon"
+        case .deaconess: "Ordained Deaconess"
+        case .elder: "Ordained Elder"
+        }
+    }
+
+    static func matching(ministryName: String?) -> OrdinationKind? {
+        guard let normalized = ministryName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased() else { return nil }
+        return OrdinationKind(rawValue: normalized)
     }
 }
 
@@ -140,6 +173,9 @@ struct PersonDraft: Sendable {
     var mobilePhone = ""
     var homePhone = ""
     var isPublic = true
+    var isOrdainedDeacon = false
+    var isOrdainedDeaconess = false
+    var isOrdainedElder = false
 
     init() {}
 
@@ -153,6 +189,23 @@ struct PersonDraft: Sendable {
         mobilePhone = person.mobilePhone ?? ""
         homePhone = person.homePhone ?? ""
         isPublic = person.isPublic
+        isOrdainedDeacon = person.isOrdainedDeacon
+        isOrdainedDeaconess = person.isOrdainedDeaconess
+        isOrdainedElder = person.isOrdainedElder
+    }
+}
+
+struct PersonOrdinationDraft: Sendable {
+    var isOrdainedDeacon = false
+    var isOrdainedDeaconess = false
+    var isOrdainedElder = false
+
+    init() {}
+
+    init(person: Person) {
+        isOrdainedDeacon = person.isOrdainedDeacon
+        isOrdainedDeaconess = person.isOrdainedDeaconess
+        isOrdainedElder = person.isOrdainedElder
     }
 }
 

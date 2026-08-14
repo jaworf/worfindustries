@@ -20,6 +20,7 @@ struct AssignmentEntryView: View {
     @State private var personSearch = ""
     @State private var assignment = AssignmentDraft()
     @State private var newPerson = PersonDraft()
+    @State private var existingOrdination = PersonOrdinationDraft()
     @State private var includeVoteDate = false
     @State private var selectedVoteDate = Date()
     @State private var roleForNewPosition: MinistryRole?
@@ -39,6 +40,10 @@ struct AssignmentEntryView: View {
 
     private var selectedPosition: MinistrySubRole? {
         model.subRoles.first(where: { $0.id == assignment.subRoleId })
+    }
+
+    private var selectedOrdinationKind: OrdinationKind? {
+        OrdinationKind.matching(ministryName: selectedRole?.name)
     }
 
     private var placementRequirements: AssignmentRequirements {
@@ -153,6 +158,21 @@ struct AssignmentEntryView: View {
                 }
             }
 
+            if let ordinationKind = selectedOrdinationKind {
+                Section("Ordination") {
+                    Toggle(
+                        ordinationKind.label,
+                        isOn: ordinationBinding(for: ordinationKind)
+                    )
+                    Text(
+                        "This is saved on the person and remains searchable even if this " +
+                        "ministry assignment is later archived."
+                    )
+                    .appFont(.footnote)
+                    .foregroundStyle(.secondary)
+                }
+            }
+
             Section("Record details") {
                 if placementRequiresVote {
                     LabeledContent("Church vote") {
@@ -260,6 +280,9 @@ struct AssignmentEntryView: View {
         }
         .onChange(of: assignment.subRoleId) { _, _ in
             includeVoteDate = placementRequiresVote
+        }
+        .onChange(of: assignment.personId) { _, _ in
+            syncExistingOrdination()
         }
         .onChange(of: assignment.notes) { _, notes in
             if notes.nilIfBlank == nil {
@@ -421,11 +444,13 @@ struct AssignmentEntryView: View {
         assignment.voteDate = includeVoteDate ? selectedVoteDate : nil
         let succeeded = await model.saveAssignment(
             assignment,
-            newPerson: mode == .new ? newPerson : nil
+            newPerson: mode == .new ? newPerson : nil,
+            ordination: mode == .existing ? existingOrdination : nil
         )
         if succeeded {
             assignment = AssignmentDraft()
             newPerson = PersonDraft()
+            existingOrdination = PersonOrdinationDraft()
             personSearch = ""
             showSaveRequirements = false
             includeVoteDate = false
@@ -445,11 +470,44 @@ struct AssignmentEntryView: View {
         if let personId = requestedRoute.personId,
            let person = model.people.first(where: { $0.id == personId }) {
             personSearch = person.displayName
+            existingOrdination = PersonOrdinationDraft(person: person)
         } else {
             personSearch = ""
+            existingOrdination = PersonOrdinationDraft()
         }
 
         includeVoteDate = placementRequiresVote
         route = nil
+    }
+
+    private func syncExistingOrdination() {
+        existingOrdination = selectedPerson.map(PersonOrdinationDraft.init)
+            ?? PersonOrdinationDraft()
+    }
+
+    private func ordinationBinding(for kind: OrdinationKind) -> Binding<Bool> {
+        Binding(
+            get: {
+                switch (mode, kind) {
+                case (.new, .deacon): newPerson.isOrdainedDeacon
+                case (.new, .deaconess): newPerson.isOrdainedDeaconess
+                case (.new, .elder): newPerson.isOrdainedElder
+                case (.existing, .deacon): existingOrdination.isOrdainedDeacon
+                case (.existing, .deaconess): existingOrdination.isOrdainedDeaconess
+                case (.existing, .elder): existingOrdination.isOrdainedElder
+                }
+            },
+            set: { isOrdained in
+                switch (mode, kind) {
+                case (.new, .deacon): newPerson.isOrdainedDeacon = isOrdained
+                case (.new, .deaconess): newPerson.isOrdainedDeaconess = isOrdained
+                case (.new, .elder): newPerson.isOrdainedElder = isOrdained
+                case (.existing, .deacon): existingOrdination.isOrdainedDeacon = isOrdained
+                case (.existing, .deaconess):
+                    existingOrdination.isOrdainedDeaconess = isOrdained
+                case (.existing, .elder): existingOrdination.isOrdainedElder = isOrdained
+                }
+            }
+        )
     }
 }

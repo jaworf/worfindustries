@@ -170,6 +170,55 @@ final class CSVParserTests: XCTestCase {
         XCTAssertEqual(snapshot.activePersonIds, [coveredReplacement.personId])
     }
 
+    func testOrdinationFocusIncludesOnlyCurrentUnordainedTeamMembers() throws {
+        let role = makeRole(name: "Deacon")
+        let position = MinistrySubRole(
+            id: UUID(),
+            roleId: role.id,
+            name: "Team Member",
+            leadershipRank: 100,
+            requiresVote: false,
+            isActive: true
+        )
+        let needsOrdination = makePerson(name: "Needs Ordination", ordainedDeacon: false)
+        let alreadyOrdained = makePerson(name: "Already Ordained", ordainedDeacon: true)
+        let archivedPerson = makePerson(name: "Archived Person", ordainedDeacon: false)
+
+        let needs = makeOrdinationFocusNeeds(
+            people: [needsOrdination, alreadyOrdained, archivedPerson],
+            assignments: [
+                makeAssignment(
+                    role: role,
+                    position: position,
+                    personId: needsOrdination.id,
+                    personName: needsOrdination.displayName,
+                    status: "active",
+                    endDate: "2028-06-30"
+                ),
+                makeAssignment(
+                    role: role,
+                    position: position,
+                    personId: alreadyOrdained.id,
+                    personName: alreadyOrdained.displayName,
+                    status: "active",
+                    endDate: "2028-06-30"
+                ),
+                makeAssignment(
+                    role: role,
+                    position: position,
+                    personId: archivedPerson.id,
+                    personName: archivedPerson.displayName,
+                    status: "completed",
+                    endDate: "2028-06-30"
+                )
+            ],
+            now: try XCTUnwrap(AppDate.parse("2026-08-05"))
+        )
+
+        XCTAssertEqual(needs.map(\.person.id), [needsOrdination.id])
+        XCTAssertEqual(needs.first?.kind, .deacon)
+    }
+
     private func makeRole(name: String) -> MinistryRole {
         MinistryRole(
             id: UUID(),
@@ -185,6 +234,7 @@ final class CSVParserTests: XCTestCase {
     private func makeAssignment(
         role: MinistryRole,
         position: MinistrySubRole,
+        personId: UUID = UUID(),
         personName: String,
         status: String,
         endDate: String
@@ -192,7 +242,7 @@ final class CSVParserTests: XCTestCase {
         let nameParts = personName.split(separator: " ").map(String.init)
         return AssignmentDetail(
             id: UUID(),
-            personId: UUID(),
+            personId: personId,
             firstName: nameParts.first ?? personName,
             preferredName: nil,
             lastName: nameParts.last ?? personName,
@@ -219,6 +269,37 @@ final class CSVParserTests: XCTestCase {
             isPublic: true,
             notes: nil,
             noteIsPublic: false
+        )
+    }
+
+    private func makePerson(name: String, ordainedDeacon: Bool) -> Person {
+        let parts = name.split(separator: " ").map(String.init)
+        return Person(
+            id: UUID(),
+            firstName: parts.first ?? name,
+            middleName: nil,
+            lastName: parts.last ?? name,
+            preferredName: nil,
+            suffix: nil,
+            email: nil,
+            mobilePhone: nil,
+            homePhone: nil,
+            addressLine1: nil,
+            addressLine2: nil,
+            city: nil,
+            stateRegion: nil,
+            postalCode: nil,
+            countryCode: nil,
+            membershipStatus: nil,
+            notes: nil,
+            isActive: true,
+            isPublic: false,
+            isOrdainedDeacon: ordainedDeacon,
+            isOrdainedDeaconess: false,
+            isOrdainedElder: false,
+            sourceCreatedAt: nil,
+            sourceUpdatedAt: nil,
+            createdAt: nil
         )
     }
 }

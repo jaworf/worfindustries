@@ -31,6 +31,9 @@ final class AppModel: ObservableObject {
     var isConfigured: Bool { configuration.isValid }
     var isSignedIn: Bool { session != nil }
     var isAdministrator: Bool { currentProfile?.appRole == .admin }
+    var canEdit: Bool {
+        currentProfile?.appRole == .admin || currentProfile?.appRole == .editor
+    }
 
     init() {
         if
@@ -188,7 +191,8 @@ final class AppModel: ObservableObject {
 
     func saveAssignment(
         _ draft: AssignmentDraft,
-        newPerson: PersonDraft?
+        newPerson: PersonDraft?,
+        ordination: PersonOrdinationDraft? = nil
     ) async -> Bool {
         var succeeded = false
         await perform {
@@ -224,8 +228,37 @@ final class AppModel: ObservableObject {
             }
 
             try await client.createAssignment(assignment)
+            if let personId = assignment.personId, let ordination {
+                try await client.updatePersonOrdination(
+                    personId: personId,
+                    ordination: ordination
+                )
+            }
             try await reload(using: client)
             noticeMessage = "Volunteer assignment saved."
+            succeeded = true
+        }
+        return succeeded
+    }
+
+    func updatePersonOrdination(
+        personId: UUID,
+        ordination: PersonOrdinationDraft
+    ) async -> Bool {
+        var succeeded = false
+        await perform {
+            guard canEdit else {
+                throw SupabaseClientError.invalidRequest(
+                    "Your account can view ordination records but cannot edit them."
+                )
+            }
+            let client = try requireClient()
+            try await client.updatePersonOrdination(
+                personId: personId,
+                ordination: ordination
+            )
+            try await reload(using: client)
+            noticeMessage = "Ordination record updated."
             succeeded = true
         }
         return succeeded

@@ -230,22 +230,48 @@ struct DirectoryView: View {
     }
 }
 
+private enum OrdinationDirectoryFilter: String, CaseIterable, Identifiable {
+    case all = "All people"
+    case deacon = "Ordained Deacons"
+    case deaconess = "Ordained Deaconesses"
+    case elder = "Ordained Elders"
+    case notOrdained = "Not ordained"
+
+    var id: String { rawValue }
+
+    func includes(_ person: Person) -> Bool {
+        switch self {
+        case .all: true
+        case .deacon: person.isOrdainedDeacon
+        case .deaconess: person.isOrdainedDeaconess
+        case .elder: person.isOrdainedElder
+        case .notOrdained: person.ordinationLabels.isEmpty
+        }
+    }
+}
+
 struct PeopleDirectoryView: View {
     @EnvironmentObject private var model: AppModel
     @State private var search = ""
+    @State private var ordinationFilter = OrdinationDirectoryFilter.all
     @State private var selectedPerson: Person?
 
     private var matchingPeople: [Person] {
-        guard let query = search.nilIfBlank else { return [] }
+        let query = search.nilIfBlank
+        guard query != nil || ordinationFilter != .all else { return [] }
         return model.people
             .filter { person in
-                [
+                guard ordinationFilter.includes(person) else { return false }
+                guard let query else { return true }
+                return ([
                     person.displayName,
                     person.email ?? "",
                     person.mobilePhone ?? "",
                     person.homePhone ?? "",
                     person.membershipStatus ?? ""
-                ].contains { $0.localizedCaseInsensitiveContains(query) }
+                ] + person.ordinationLabels).contains {
+                    $0.localizedCaseInsensitiveContains(query)
+                }
             }
             .sorted {
                 let lastOrder = $0.lastName.localizedCaseInsensitiveCompare($1.lastName)
@@ -259,10 +285,16 @@ struct PeopleDirectoryView: View {
         Form {
             Section {
                 TextField(
-                    "Search name, email, phone, or membership status",
+                    "Search name, contact, membership, or ordination",
                     text: $search
                 )
                 .textFieldStyle(.roundedBorder)
+
+                Picker("Ordination", selection: $ordinationFilter) {
+                    ForEach(OrdinationDirectoryFilter.allCases) { filter in
+                        Text(filter.rawValue).tag(filter)
+                    }
+                }
             } header: {
                 Text("Find a person")
             } footer: {
@@ -271,13 +303,13 @@ struct PeopleDirectoryView: View {
                 )
             }
 
-            if search.nilIfBlank == nil {
+            if search.nilIfBlank == nil, ordinationFilter == .all {
                 Section {
                     ContentUnavailableView(
                         "Search the People Directory",
                         systemImage: "person.text.rectangle",
                         description: Text(
-                            "Enter part of a name, email address, phone number, or membership status."
+                            "Search by person details, or choose an ordination filter."
                         )
                     )
                     .frame(maxWidth: .infinity)
@@ -350,6 +382,11 @@ private struct PersonDirectoryRow: View {
                         .appFont(.caption)
                         .foregroundStyle(.secondary)
                 }
+                ForEach(person.ordinationLabels, id: \.self) { label in
+                    Label(label, systemImage: "checkmark.seal.fill")
+                        .appFont(.caption, weight: .semibold)
+                        .foregroundStyle(AppTheme.riverBlue)
+                }
                 if !person.isActive {
                     Label("Inactive person record", systemImage: "archivebox")
                         .appFont(.caption)
@@ -379,6 +416,12 @@ private struct PersonMinistryHistory: View {
     @Environment(\.dismiss) private var dismiss
     let person: Person
     @State private var editingAssignment: AssignmentDetail?
+    @State private var ordination: PersonOrdinationDraft
+
+    init(person: Person) {
+        self.person = person
+        _ordination = State(initialValue: PersonOrdinationDraft(person: person))
+    }
 
     private var assignments: [AssignmentDetail] {
         model.assignments
@@ -415,6 +458,37 @@ private struct PersonMinistryHistory: View {
                         LabeledContent("Membership", value: membership)
                     }
                 }
+
+                Section {
+                    Toggle("Ordained Deacon", isOn: $ordination.isOrdainedDeacon)
+                    Toggle("Ordained Deaconess", isOn: $ordination.isOrdainedDeaconess)
+                    Toggle("Ordained Elder", isOn: $ordination.isOrdainedElder)
+
+                    if model.canEdit {
+                        Button {
+                            Task {
+                                _ = await model.updatePersonOrdination(
+                                    personId: person.id,
+                                    ordination: ordination
+                                )
+                            }
+                        } label: {
+                            Label("Save Ordination Status", systemImage: "checkmark.seal")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(model.isBusy)
+                    }
+                } header: {
+                    Text("Ordination")
+                } footer: {
+                    Text(
+                        model.canEdit
+                            ? "Ordination stays with this person even after all ministry roles are archived."
+                            : "Your account can view ordination status but cannot change it."
+                    )
+                }
+                .disabled(!model.canEdit)
 
                 Section("Current ministries") {
                     if currentAssignments.isEmpty {
@@ -1183,7 +1257,8 @@ struct ReportsView: View {
                     "The all-ministries PDF groups volunteers under ministry headings. " +
                     "Each ministry uses the same leadership-first ordering as the directory: " +
                     "Head/Lead, Co-Head/Co-Lead, Assistant Head, then last and first name. " +
-                    "Only notes marked for reports and the web are included."
+                    "Only notes marked for reports and the web are included. " +
+                    "Ordination status is never included in reports."
                 )
             }
         }
@@ -1294,6 +1369,61 @@ struct MinistryFocusNeed: Identifiable {
 
     var id: UUID { role.id }
     var isEmpty: Bool { activeVolunteerCount == 0 }
+}
+
+struct OrdinationFocusNeed: Identifiable {
+    let person: Person
+    let kind: OrdinationKind
+    let ministryName: String
+
+    var id: String { "\(person.id.uuidString)-\(kind.rawValue)" }
+}
+
+func makeOrdinationFocusNeeds(
+    people: [Person],
+    assignments: [AssignmentDetail],
+    now: Date = Date()
+) -> [OrdinationFocusNeed] {
+    let calendar = Calendar.autoupdatingCurrent
+    let today = calendar.startOfDay(for: now)
+    let peopleById = Dictionary(uniqueKeysWithValues: people.map { ($0.id, $0) })
+    var needsById: [String: OrdinationFocusNeed] = [:]
+
+    for assignment in assignments {
+        guard
+            assignment.status == "active",
+            assignment.ministryIsActive,
+            assignment.endDateValue.map({ calendar.startOfDay(for: $0) >= today }) ?? true,
+            let kind = OrdinationKind.matching(ministryName: assignment.roleName),
+            let person = peopleById[assignment.personId],
+            person.isActive
+        else {
+            continue
+        }
+
+        let isOrdained = switch kind {
+        case .deacon: person.isOrdainedDeacon
+        case .deaconess: person.isOrdainedDeaconess
+        case .elder: person.isOrdainedElder
+        }
+        guard !isOrdained else { continue }
+
+        let need = OrdinationFocusNeed(
+            person: person,
+            kind: kind,
+            ministryName: assignment.roleName
+        )
+        needsById[need.id] = need
+    }
+
+    return needsById.values.sorted { left, right in
+        let ministryOrder = left.ministryName.localizedCaseInsensitiveCompare(right.ministryName)
+        if ministryOrder != .orderedSame { return ministryOrder == .orderedAscending }
+        let lastOrder = left.person.lastName.localizedCaseInsensitiveCompare(right.person.lastName)
+        if lastOrder != .orderedSame { return lastOrder == .orderedAscending }
+        return left.person.firstName.localizedCaseInsensitiveCompare(right.person.firstName)
+            == .orderedAscending
+    }
 }
 
 struct PlacementFocusSnapshot {
@@ -1429,6 +1559,7 @@ struct FocusView: View {
 
     private struct ViewData {
         let snapshot: PlacementFocusSnapshot
+        let ordinationNeeds: [OrdinationFocusNeed]
         let unassignedPeople: [Person]
         let newUnassignedCount: Int
         let membershipOptions: [String]
@@ -1516,6 +1647,10 @@ struct FocusView: View {
             }
         return ViewData(
             snapshot: snapshot,
+            ordinationNeeds: makeOrdinationFocusNeeds(
+                people: model.people,
+                assignments: model.assignments
+            ),
             unassignedPeople: unassignedPeople,
             newUnassignedCount: newUnassignedCount,
             membershipOptions: membershipOptions,
@@ -1558,6 +1693,28 @@ struct FocusView: View {
                 Text(
                     "A ministry appears here when it has no active volunteer or when the " +
                     "most recently completed position has fewer replacements than outgoing volunteers."
+                )
+            }
+
+            Section {
+                if data.ordinationNeeds.isEmpty {
+                    Label(
+                        "Every current Deacon, Deaconess, and Elder is marked ordained.",
+                        systemImage: "checkmark.circle.fill"
+                    )
+                    .foregroundStyle(.green)
+                    .padding(.vertical, 12)
+                } else {
+                    ForEach(data.ordinationNeeds) { need in
+                        OrdinationFocusRow(need: need)
+                    }
+                }
+            } header: {
+                Text("Ordination Action")
+            } footer: {
+                Text(
+                    "This queue shows current Deacons, Deaconesses, and Elders whose matching " +
+                    "permanent ordination record is not checked. Ordination is never included in reports."
                 )
             }
 
@@ -1668,6 +1825,53 @@ struct FocusView: View {
             systemImage: "person.2.slash",
             color: AppTheme.riverBlueDark
         )
+        FocusSummaryCard(
+            title: "Awaiting ordination",
+            value: data.ordinationNeeds.count,
+            systemImage: "person.crop.circle.badge.exclamationmark",
+            color: .orange
+        )
+    }
+}
+
+private struct OrdinationFocusRow: View {
+    @EnvironmentObject private var model: AppModel
+    let need: OrdinationFocusNeed
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            Image(systemName: "person.crop.circle.badge.exclamationmark")
+                .appFont(.title2)
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(need.person.displayName)
+                    .appFont(.headline, weight: .semibold)
+                Text("\(need.ministryName) · \(need.kind.label) is not checked")
+                    .appFont(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if model.canEdit {
+                Button("Mark \(need.kind.label)") {
+                    var ordination = PersonOrdinationDraft(person: need.person)
+                    switch need.kind {
+                    case .deacon: ordination.isOrdainedDeacon = true
+                    case .deaconess: ordination.isOrdainedDeaconess = true
+                    case .elder: ordination.isOrdainedElder = true
+                    }
+                    Task {
+                        _ = await model.updatePersonOrdination(
+                            personId: need.person.id,
+                            ordination: ordination
+                        )
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(model.isBusy)
+            }
+        }
+        .padding(.vertical, 5)
     }
 }
 

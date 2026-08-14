@@ -65,6 +65,14 @@ test("provides a password setup and recovery page", async () => {
   assert.match(html, /does not change the Supabase project or database password/i);
 });
 
+test("provides a mobile authenticated administration route", async () => {
+  const response = await render("/admin");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Riverview Ministry Volunteers/i);
+  assert.match(html, /secure database connection|Secure mobile access/i);
+});
+
 test("keeps public data limited to approved directory fields", async () => {
   const client = await readFile(
     new URL("app/directory-client.tsx", root),
@@ -79,10 +87,49 @@ test("keeps public data limited to approved directory fields", async () => {
   assert.match(client, /<th>Term end<\/th>/);
   assert.doesNotMatch(client, /<th>Term<\/th>/);
   assert.doesNotMatch(client, /data-label="Term"/);
+  assert.doesNotMatch(client, /is_ordained|ordination/i);
   const page = await readFile(new URL("app/page.tsx", root), "utf8");
   assert.match(page, /SUPABASE_PUBLISHABLE_KEY/);
   assert.doesNotMatch(client, /service[_-]?role/i);
   assert.match(layout, /\/og-blue\.png/);
+});
+
+test("keeps ordination on people and out of the public iframe", async () => {
+  const adminClient = await readFile(
+    new URL("app/admin/admin-client.tsx", root),
+    "utf8",
+  );
+  const models = await readFile(
+    new URL("ios/RiverviewMinistry/Models.swift", root),
+    "utf8",
+  );
+  const migration = await readFile(
+    new URL(
+      "supabase/migrations/20260814191710_add_person_ordination_status.sql",
+      root,
+    ),
+    "utf8",
+  );
+  const reportGenerator = await readFile(
+    new URL("ios/RiverviewMinistry/ReportGenerator.swift", root),
+    "utf8",
+  );
+
+  assert.match(adminClient, /is_ordained_deacon/);
+  assert.match(adminClient, /permanent person record/i);
+  assert.match(adminClient, /Ordained Deacons/);
+  assert.match(adminClient, /Ordination action/i);
+  assert.match(adminClient, /Awaiting ordination/i);
+  assert.match(adminClient, /ordination status are intentionally excluded/i);
+  assert.doesNotMatch(adminClient, /service[_-]?role/i);
+  assert.match(models, /var isOrdainedDeacon: Bool/);
+  assert.match(models, /ordinationLabels/);
+  assert.match(migration, /alter table public\.people/);
+  assert.match(migration, /is_ordained_deaconess/);
+  assert.match(migration, /Yadelky/i);
+  assert.match(migration, /Victoria/i);
+  assert.doesNotMatch(migration, /update public\.assignments[\s\S]*is_ordained/i);
+  assert.doesNotMatch(reportGenerator, /ordinat/i);
 });
 
 test("prints with comfortable margins and page totals", async () => {

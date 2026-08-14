@@ -173,11 +173,31 @@ actor SupabaseRESTClient {
             mobilePhone: draft.mobilePhone.nilIfBlank,
             homePhone: draft.homePhone.nilIfBlank,
             isActive: true,
-            isPublic: draft.isPublic
+            isPublic: draft.isPublic,
+            isOrdainedDeacon: draft.isOrdainedDeacon,
+            isOrdainedDeaconess: draft.isOrdainedDeaconess,
+            isOrdainedElder: draft.isOrdainedElder
         )
         let rows: [Person] = try await restWrite("POST", table: "people", body: payload)
         guard let person = rows.first else { throw SupabaseClientError.emptyResponse }
         return person
+    }
+
+    func updatePersonOrdination(
+        personId: UUID,
+        ordination: PersonOrdinationDraft
+    ) async throws {
+        let payload = PersonOrdinationWrite(
+            isOrdainedDeacon: ordination.isOrdainedDeacon,
+            isOrdainedDeaconess: ordination.isOrdainedDeaconess,
+            isOrdainedElder: ordination.isOrdainedElder
+        )
+        let _: [Person] = try await restWrite(
+            "PATCH",
+            table: "people",
+            query: [.init(name: "id", value: "eq.\(personId.uuidString)")],
+            body: payload
+        )
     }
 
     func createAssignment(_ draft: AssignmentDraft) async throws {
@@ -717,6 +737,15 @@ private struct PersonWrite: Encodable {
     let homePhone: String?
     let isActive: Bool
     let isPublic: Bool
+    let isOrdainedDeacon: Bool
+    let isOrdainedDeaconess: Bool
+    let isOrdainedElder: Bool
+}
+
+private struct PersonOrdinationWrite: Encodable {
+    let isOrdainedDeacon: Bool
+    let isOrdainedDeaconess: Bool
+    let isOrdainedElder: Bool
 }
 
 private struct AssignmentWrite: Encodable {
