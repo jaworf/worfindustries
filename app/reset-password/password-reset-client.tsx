@@ -13,8 +13,8 @@ type PasswordResetProps = {
 function linkErrorMessage(errorCode: string | null, description: string | null) {
   if (errorCode === "otp_expired") {
     return (
-      "This setup or recovery link is invalid or has expired. Return to the app, " +
-      "request a new email, and use the link in the newest message."
+      "This setup or recovery link has expired or was already used. Ask an administrator " +
+      "to resend the setup email, then use the link in the newest message."
     );
   }
 

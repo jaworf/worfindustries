@@ -183,7 +183,7 @@ final class AppModel: ObservableObject {
                 role: role
             )
             noticeMessage =
-                "Setup email sent to \(invitation.email) with \(invitation.role.label) access."
+                "\(invitation.message) \(invitation.email) has \(invitation.role.label) access."
             succeeded = true
         }
         return succeeded

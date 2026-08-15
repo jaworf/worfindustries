@@ -169,9 +169,11 @@ test("keeps user creation administrator-only and server-side", async () => {
   );
 
   assert.match(settings, /if model\.isAdministrator/);
-  assert.match(settings, /Create User & Send Setup Email/);
+  assert.match(settings, /Create or Resend Setup Email/);
   assert.doesNotMatch(client, /SUPABASE_(?:SERVICE_ROLE|SECRET)_KEY/);
   assert.match(edgeFunction, /profile\?\.app_role !== "admin"/);
   assert.match(edgeFunction, /role !== "editor" && role !== "viewer"/);
   assert.match(edgeFunction, /inviteUserByEmail/);
+  assert.match(edgeFunction, /resetPasswordForEmail/);
+  assert.match(edgeFunction, /email_confirmed_at/);
 });

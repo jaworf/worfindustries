@@ -261,7 +261,7 @@ private struct EditRoleSheet: View {
                 }
             }
         }
-        .frame(minWidth: 540, minHeight: 560)
+        .platformSheetFrame(minWidth: 540, minHeight: 560)
         .sheet(item: $editingPosition) { position in
             EditSubRoleSheet(position: position)
                 .environmentObject(model)
@@ -377,7 +377,7 @@ private struct EditSubRoleSheet: View {
                 }
             }
         }
-        .frame(minWidth: 460, minHeight: 390)
+        .platformSheetFrame(minWidth: 460, minHeight: 390)
     }
 }
 
@@ -436,7 +436,7 @@ struct NewSubRoleSheet: View {
                 }
             }
         }
-        .frame(minWidth: 460, minHeight: 380)
+        .platformSheetFrame(minWidth: 460, minHeight: 380)
     }
 }
 
@@ -471,7 +471,7 @@ private struct NewRoleSheet: View {
                 }
             }
         }
-        .frame(minWidth: 440, minHeight: 360)
+        .platformSheetFrame(minWidth: 440, minHeight: 360)
     }
 }
 
@@ -523,7 +523,7 @@ private struct NewTermSheet: View {
                 }
             }
         }
-        .frame(minWidth: 440, minHeight: 400)
+        .platformSheetFrame(minWidth: 440, minHeight: 400)
     }
 }
 
@@ -607,7 +607,7 @@ struct SettingsView: View {
                         }
                     } label: {
                         Label(
-                            "Create User & Send Setup Email",
+                            "Create or Resend Setup Email",
                             systemImage: "person.badge.plus"
                         )
                     }
@@ -616,9 +616,9 @@ struct SettingsView: View {
                     Text("Team Access")
                 } footer: {
                     Text(
-                        "Administrator only. The new user receives a secure email link " +
-                        "to choose their own password. Editor and Viewer accounts cannot " +
-                        "see this section or create users."
+                        "Administrator only. This creates a new account, or sends a fresh " +
+                        "setup link when that email has a pending invitation. Always use the " +
+                        "newest email. Editor and Viewer accounts cannot see this section."
                     )
                 }
             }
@@ -675,7 +675,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showingConnection) {
             ConfigurationView(isInitialSetup: false)
                 .environmentObject(model)
-                .frame(minWidth: 460, minHeight: 440)
+                .platformSheetFrame(minWidth: 460, minHeight: 440)
         }
         .fileImporter(
             isPresented: $showingImporter,

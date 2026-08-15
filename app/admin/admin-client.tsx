@@ -1782,18 +1782,18 @@ function SettingsView({
         </section>
         {profile.app_role === "admin" && (
           <section className="admin-card admin-settings-card full-panel">
-            <h3>Create an app user</h3>
-            <p>The new user receives an email to set a password. This section is visible only to administrators.</p>
+            <h3>Create or resend an app user</h3>
+            <p>Create a new account, or send a fresh setup link to an invited user who has not finished enrollment. Always use the newest email. This section is visible only to administrators.</p>
             <div className="admin-form-grid invite-grid">
               <label>Email<input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} /></label>
               <label>Access<select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as "editor" | "viewer")}><option value="editor">Editor</option><option value="viewer">Viewer</option></select></label>
               <button className="button button-primary admin-check-bottom" disabled={working || !inviteEmail.trim()} onClick={async () => {
-                const succeeded = await mutate("Setup email sent to the new app user.", async () => {
+                const succeeded = await mutate("Setup email sent. Use the newest message.", async () => {
                   const { error } = await supabase.functions.invoke("admin-users", { body: { email: inviteEmail.trim(), role: inviteRole } });
                   if (error) throw error;
                 });
                 if (succeeded) setInviteEmail("");
-              }}>Create User & Send Setup Email</button>
+              }}>Create or Resend Setup Email</button>
             </div>
           </section>
         )}

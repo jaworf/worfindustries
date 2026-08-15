@@ -432,12 +432,12 @@ struct LoginView: View {
             .sheet(isPresented: $showingConnection) {
                 ConfigurationView(isInitialSetup: false)
                     .environmentObject(model)
-                    .frame(minWidth: 420, minHeight: 440)
+                    .platformSheetFrame(minWidth: 420, minHeight: 440)
             }
             .sheet(isPresented: $showingPasswordReset) {
                 ForgotPasswordView(initialEmail: email)
                     .environmentObject(model)
-                    .frame(minWidth: 420, minHeight: 420)
+                    .platformSheetFrame(minWidth: 420, minHeight: 420)
             }
         }
     }
@@ -617,6 +617,15 @@ struct MainShellView: View {
 }
 
 extension View {
+    @ViewBuilder
+    func platformSheetFrame(minWidth: CGFloat, minHeight: CGFloat) -> some View {
+        #if os(macOS)
+        frame(minWidth: minWidth, minHeight: minHeight)
+        #else
+        self
+        #endif
+    }
+
     @ViewBuilder
     func withoutAutocapitalization() -> some View {
         #if os(iOS)

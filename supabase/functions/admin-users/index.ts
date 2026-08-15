@@ -40,6 +40,20 @@ function serviceKey(): string {
   return key;
 }
 
+async function findUserByEmail(
+  admin: ReturnType<typeof createClient>,
+  email: string,
+) {
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    const match = data.users.find((user) => user.email?.toLowerCase() === email);
+    if (match) return match;
+    if (data.users.length < 1000) return null;
+  }
+  throw new Error("The user directory is too large to search safely.");
+}
+
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: jsonHeaders });
@@ -91,41 +105,61 @@ Deno.serve(async (request: Request) => {
 
     const redirectTo =
       Deno.env.get("APP_PASSWORD_RESET_URL") ?? defaultPasswordSetupURL;
-    const { data: invitation, error: invitationError } =
-      await admin.auth.admin.inviteUserByEmail(email, {
+    const existingUser = await findUserByEmail(admin, email);
+    let userId: string;
+    let responseStatus = 201;
+    let responseMessage = "Setup email sent.";
+
+    if (existingUser) {
+      if (existingUser.email_confirmed_at) {
+        return json(409, { error: "That email already has an active app account." });
+      }
+
+      const { error: resendError } = await admin.auth.resetPasswordForEmail(email, {
         redirectTo,
-        data: { full_name: email.split("@")[0] },
       });
-    if (invitationError || !invitation.user) {
-      const message = invitationError?.message ?? "Supabase could not create the user.";
-      const friendly = /already|registered|exists/i.test(message)
-        ? "That email already has an app account."
-        : message;
-      return json(409, { error: friendly });
+      if (resendError) return json(400, { error: resendError.message });
+      userId = existingUser.id;
+      responseStatus = 200;
+      responseMessage = "A new setup email was sent. Use the link in the newest message.";
+    } else {
+      const { data: invitation, error: invitationError } =
+        await admin.auth.admin.inviteUserByEmail(email, {
+          redirectTo,
+          data: { full_name: email.split("@")[0] },
+        });
+      if (invitationError || !invitation.user) {
+        return json(400, {
+          error: invitationError?.message ?? "Supabase could not create the user.",
+        });
+      }
+      userId = invitation.user.id;
     }
 
     const { error: profileUpdateError } = await admin
       .from("profiles")
       .upsert(
         {
-          user_id: invitation.user.id,
+          user_id: userId,
           display_name: email.split("@")[0],
           app_role: role as InvitationRole,
         },
         { onConflict: "user_id" },
       );
     if (profileUpdateError) {
-      await admin.auth.admin.deleteUser(invitation.user.id);
+      if (!existingUser) await admin.auth.admin.deleteUser(userId);
       return json(500, {
-        error: "The account role could not be saved. No user was created.",
+        error: existingUser
+          ? "The account role could not be updated."
+          : "The account role could not be saved. No user was created.",
       });
     }
 
-    return json(201, {
-      user_id: invitation.user.id,
+    return json(responseStatus, {
+      user_id: userId,
       email,
       role,
-      message: "Setup email sent.",
+      message: responseMessage,
     });
   } catch (error) {
     return json(500, {
