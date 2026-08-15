@@ -96,6 +96,19 @@ test("recovers from a briefly future-issued JWT without leaving a blank portal",
   assert.match(adminClient, /Try Again/);
 });
 
+test("keeps the Planning Center connection button readable in narrow layouts", async () => {
+  const adminClient = await readFile(
+    new URL("app/admin/admin-client.tsx", root),
+    "utf8",
+  );
+  const styles = await readFile(new URL("app/globals.css", root), "utf8");
+
+  assert.match(adminClient, />Save Connection<\/button>/);
+  assert.doesNotMatch(adminClient, />Save Planning Center Connection<\/button>/);
+  assert.match(styles, /\.admin-connection-save\s*{[\s\S]*min-width:\s*max-content/);
+  assert.match(styles, /\.admin-connection-save\s*{[\s\S]*white-space:\s*nowrap/);
+});
+
 test("keeps public data limited to approved directory fields", async () => {
   const client = await readFile(
     new URL("app/directory-client.tsx", root),

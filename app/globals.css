@@ -1222,6 +1222,13 @@ footer p {
   grid-column: 1 / -1;
 }
 
+.admin-connection-save {
+  width: max-content;
+  min-width: max-content;
+  white-space: nowrap;
+  justify-self: start;
+}
+
 .admin-check-row {
   display: flex !important;
   min-height: 42px;

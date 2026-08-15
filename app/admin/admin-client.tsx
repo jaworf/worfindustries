@@ -1846,13 +1846,13 @@ function SettingsView({
             <div className="admin-form-grid">
               <label>Personal Access Token application ID<input type="password" autoComplete="off" value={pcoApplicationId} onChange={(event) => setPcoApplicationId(event.target.value)} /></label>
               <label>Personal Access Token secret<input type="password" autoComplete="off" value={pcoSecret} onChange={(event) => setPcoSecret(event.target.value)} /></label>
-              <button className="button" disabled={working || !pcoApplicationId.trim() || !pcoSecret.trim()} onClick={async () => {
+              <button className="button admin-connection-save" disabled={working || !pcoApplicationId.trim() || !pcoSecret.trim()} onClick={async () => {
                 const succeeded = await mutate("Planning Center connection saved securely.", async () => {
                   const { error } = await supabase.rpc("configure_planning_center", { p_application_id: pcoApplicationId.trim(), p_secret: pcoSecret.trim() });
                   if (error) throw error;
                 });
                 if (succeeded) { setPcoApplicationId(""); setPcoSecret(""); setPcoConnected(true); }
-              }}>Save Planning Center Connection</button>
+              }}>Save Connection</button>
             </div>
           )}
           <p><a href="https://api.planningcenteronline.com/docs/overview/authentication" target="_blank" rel="noreferrer">Where to create a Planning Center Personal Access Token</a></p>
