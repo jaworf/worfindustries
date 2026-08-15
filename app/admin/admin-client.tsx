@@ -205,6 +205,21 @@ function normalizeError(error: unknown) {
   return "The request could not be completed.";
 }
 
+function isFutureJwtError(error: unknown) {
+  return normalizeError(error).toLowerCase().includes("jwt issued at future");
+}
+
+function adminErrorMessage(error: unknown) {
+  if (isFutureJwtError(error)) {
+    return "The secure session is still synchronizing. Check that this device sets its date and time automatically, then try again.";
+  }
+  return normalizeError(error);
+}
+
+function wait(milliseconds: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
 function membershipPriority(value: string | null) {
   const normalized = value?.trim().toLowerCase() ?? "";
   if (normalized === "riverview member") return 0;
@@ -248,49 +263,61 @@ export function MinistryAdmin({
       if (!supabase) return;
       if (!quiet) setLoading(true);
       try {
-        const [profileResult, peopleResult, ministryResult, positionResult, termResult, assignmentResult] =
-          await Promise.all([
-            supabase
-              .from("profiles")
-              .select("user_id,display_name,app_role,church_id,is_platform_admin,churches(name,slug,support_email)")
-              .eq("user_id", userId)
-              .single(),
-            supabase.from("people").select("*").order("last_name").order("first_name"),
-            supabase.from("roles").select("*").order("display_order").order("name"),
-            supabase.from("sub_roles").select("*").order("leadership_rank").order("name"),
-            supabase.from("terms").select("*").order("end_date", { ascending: false }),
-            supabase
-              .from("assignment_details")
-              .select("*")
-              .order("role_name")
-              .order("last_name")
-              .order("first_name"),
-          ]);
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            const [profileResult, peopleResult, ministryResult, positionResult, termResult, assignmentResult] =
+              await Promise.all([
+                supabase
+                  .from("profiles")
+                  .select("user_id,display_name,app_role,church_id,is_platform_admin,churches(name,slug,support_email)")
+                  .eq("user_id", userId)
+                  .single(),
+                supabase.from("people").select("*").order("last_name").order("first_name"),
+                supabase.from("roles").select("*").order("display_order").order("name"),
+                supabase.from("sub_roles").select("*").order("leadership_rank").order("name"),
+                supabase.from("terms").select("*").order("end_date", { ascending: false }),
+                supabase
+                  .from("assignment_details")
+                  .select("*")
+                  .order("role_name")
+                  .order("last_name")
+                  .order("first_name"),
+              ]);
 
-        const firstError = [
-          profileResult,
-          peopleResult,
-          ministryResult,
-          positionResult,
-          termResult,
-          assignmentResult,
-        ].find((result) => result.error)?.error;
-        if (firstError) throw firstError;
-        if (!profileResult.data) {
-          throw new Error("This login has not been assigned an app access role.");
+            const firstError = [
+              profileResult,
+              peopleResult,
+              ministryResult,
+              positionResult,
+              termResult,
+              assignmentResult,
+            ].find((result) => result.error)?.error;
+            if (firstError) throw firstError;
+            if (!profileResult.data) {
+              throw new Error("This login has not been assigned an app access role.");
+            }
+
+            setProfile(profileResult.data as Profile);
+            setSnapshot({
+              people: (peopleResult.data ?? []) as Person[],
+              ministries: (ministryResult.data ?? []) as Ministry[],
+              positions: (positionResult.data ?? []) as Position[],
+              terms: (termResult.data ?? []) as Term[],
+              assignments: (assignmentResult.data ?? []) as Assignment[],
+            });
+            setError(null);
+            return;
+          } catch (caught) {
+            if (isFutureJwtError(caught) && attempt < 2) {
+              setError(null);
+              await wait((attempt + 1) * 1_200);
+              continue;
+            }
+            throw caught;
+          }
         }
-
-        setProfile(profileResult.data as Profile);
-        setSnapshot({
-          people: (peopleResult.data ?? []) as Person[],
-          ministries: (ministryResult.data ?? []) as Ministry[],
-          positions: (positionResult.data ?? []) as Position[],
-          terms: (termResult.data ?? []) as Term[],
-          assignments: (assignmentResult.data ?? []) as Assignment[],
-        });
-        setError(null);
       } catch (caught) {
-        setError(normalizeError(caught));
+        setError(adminErrorMessage(caught));
       } finally {
         if (!quiet) setLoading(false);
       }
@@ -425,6 +452,22 @@ export function MinistryAdmin({
 
         <main className="admin-main">
           {loading && <AdminLoading label="Loading ministry data…" compact />}
+          {!loading && !profile && (
+            <section className="admin-card admin-session-recovery" aria-live="polite">
+              <p className="eyebrow">Secure session</p>
+              <h2>Reconnect to ministry data</h2>
+              <p>
+                The login succeeded, but the secure data session has not finished synchronizing.
+              </p>
+              <button
+                className="button button-primary"
+                onClick={() => void loadData(session.user.id)}
+                disabled={working}
+              >
+                Try Again
+              </button>
+            </section>
+          )}
           {!loading && profile && (
             <>
               {activeTab === "focus" && (

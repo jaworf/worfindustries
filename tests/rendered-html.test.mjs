@@ -83,6 +83,19 @@ test("provides a mobile authenticated administration route", async () => {
   assert.match(html, /secure database connection|Secure mobile access/i);
 });
 
+test("recovers from a briefly future-issued JWT without leaving a blank portal", async () => {
+  const adminClient = await readFile(
+    new URL("app/admin/admin-client.tsx", root),
+    "utf8",
+  );
+
+  assert.match(adminClient, /isFutureJwtError/);
+  assert.match(adminClient, /attempt < 3/);
+  assert.match(adminClient, /await wait\(\(attempt \+ 1\) \* 1_200\)/);
+  assert.match(adminClient, /Reconnect to ministry data/);
+  assert.match(adminClient, /Try Again/);
+});
+
 test("keeps public data limited to approved directory fields", async () => {
   const client = await readFile(
     new URL("app/directory-client.tsx", root),
