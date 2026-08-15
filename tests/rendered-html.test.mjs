@@ -151,6 +151,10 @@ test("updates passwords with invitation or recovery tokens without privileged ke
   assert.match(resetClient, /\/auth\/v1\/user/);
   assert.match(resetClient, /type !== "recovery" && type !== "invite"/);
   assert.match(resetClient, /Bearer \$\{accessToken\}/);
+  assert.match(resetClient, /href="riverviewministry:\/\/open"/);
+  assert.match(resetClient, /Open iPhone or iPad App/);
+  assert.match(resetClient, /href="\/admin"/);
+  assert.match(resetClient, /Open Web App/);
   assert.doesNotMatch(resetClient, /service[_-]?role/i);
 });
 

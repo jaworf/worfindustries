@@ -196,7 +196,16 @@ export function PasswordReset({ projectUrl, publishableKey }: PasswordResetProps
         {state === "complete" && (
           <div className="auth-status success">
             <strong>Password updated.</strong>
-            <span>You can close this page and sign in to Riverview Ministry Volunteers.</span>
+            <span>Choose where you would like to sign in.</span>
+            <div className="auth-success-actions">
+              <a className="button primary" href="riverviewministry://open">
+                Open iPhone or iPad App
+              </a>
+              <a className="button secondary" href="/admin">
+                Open Web App
+              </a>
+            </div>
+            <small>If the mobile app is not installed, use the web app instead.</small>
           </div>
         )}
       </section>
