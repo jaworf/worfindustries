@@ -14,6 +14,31 @@
   --shadow: 0 18px 48px rgb(18 62 95 / 0.12);
 }
 
+.support-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 18px;
+  background: linear-gradient(145deg, #eef7fb, #ffffff 55%, #fdf5df);
+}
+
+.support-card {
+  width: min(680px, 100%);
+  padding: clamp(28px, 6vw, 56px);
+  border: 1px solid #cfe0ea;
+  border-radius: 28px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgb(20 63 92 / 14%);
+  color: #173d5a;
+}
+
+.support-card h1 { margin: 8px 0 18px; font-size: clamp(2.2rem, 8vw, 4.2rem); }
+.support-card h2 { margin-top: 0; font-size: 1.35rem; }
+.support-card p, .support-card li { font-size: 1.05rem; line-height: 1.65; }
+.support-logo { width: 88px; height: 88px; border-radius: 20px; }
+.support-email { margin-top: 16px; }
+.support-details { margin: 32px 0; padding: 24px; border-radius: 18px; background: #eff7fb; }
+
 * {
   box-sizing: border-box;
 }

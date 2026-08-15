@@ -389,6 +389,23 @@ struct AppProfile: Codable, Sendable {
     let userId: UUID
     let displayName: String?
     let appRole: AppUserRole
+    let churchId: UUID
+    let isPlatformAdmin: Bool
+}
+
+struct Church: Codable, Identifiable, Sendable {
+    let id: UUID
+    let name: String
+    let slug: String
+    let supportEmail: String?
+}
+
+struct PlanningCenterConnectionStatus: Codable, Sendable {
+    let connected: Bool
+    let configuredAt: String?
+    let lastSyncedAt: String?
+    let lastSyncStatus: String?
+    let lastSyncError: String?
 }
 
 struct AppUserInvitationResult: Codable, Sendable {

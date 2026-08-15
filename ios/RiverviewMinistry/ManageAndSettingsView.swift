@@ -535,6 +535,8 @@ struct SettingsView: View {
     @State private var showingConnection = false
     @State private var inviteEmail = ""
     @State private var inviteRole: AppUserRole = .editor
+    @State private var pcoApplicationId = ""
+    @State private var pcoSecret = ""
 
     var body: some View {
         Form {
@@ -562,6 +564,49 @@ struct SettingsView: View {
             }
 
             Section {
+                LabeledContent("Church") {
+                    Text(model.currentChurch?.name ?? "Loading…")
+                        .foregroundStyle(.secondary)
+                }
+
+                LabeledContent("Connection") {
+                    Text(model.planningCenterStatus?.connected == true ? "Connected" : "Not connected")
+                        .foregroundStyle(model.planningCenterStatus?.connected == true ? .green : .secondary)
+                }
+
+                if model.isAdministrator {
+                    SecureField("Personal Access Token application ID", text: $pcoApplicationId)
+                        .textContentType(.none)
+                    SecureField("Personal Access Token secret", text: $pcoSecret)
+                        .textContentType(.password)
+
+                    Button {
+                        Task {
+                            if await model.configurePlanningCenter(
+                                applicationId: pcoApplicationId,
+                                secret: pcoSecret
+                            ) {
+                                pcoApplicationId = ""
+                                pcoSecret = ""
+                            }
+                        }
+                    } label: {
+                        Label("Save Planning Center Connection", systemImage: "key")
+                    }
+                    .disabled(
+                        pcoApplicationId.nilIfBlank == nil
+                            || pcoSecret.nilIfBlank == nil
+                            || model.isBusy
+                    )
+                }
+
+                Link(
+                    "Where to create a Planning Center Personal Access Token",
+                    destination: URL(
+                        string: "https://api.planningcenteronline.com/docs/overview/authentication"
+                    )!
+                )
+
                 Button {
                     Task { await model.syncPlanningCenter() }
                 } label: {
@@ -572,7 +617,7 @@ struct SettingsView: View {
                 Text("Planning Center")
             } footer: {
                 Text(
-                    "Planning Center credentials live only in the Supabase Edge Function. " +
+                    "Each church uses its own encrypted Planning Center credentials. " +
                     "Synchronization is one-way: Planning Center replaces names, contact " +
                     "details, membership status, and active status here. This app never " +
                     "writes changes back to Planning Center. Webhooks can keep people " +
@@ -665,6 +710,9 @@ struct SettingsView: View {
                     model.signOut()
                 }
             }
+        }
+        .task {
+            await model.loadPlanningCenterStatus()
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)

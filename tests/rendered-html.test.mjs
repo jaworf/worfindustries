@@ -66,6 +66,15 @@ test("provides a password setup and recovery page", async () => {
   assert.match(html, /does not change the Supabase project or database password/i);
 });
 
+test("provides an App Store support page", async () => {
+  const response = await render("/support");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /App Support/i);
+  assert.match(html, /jason\.worf@riverviewadventist\.org/i);
+  assert.match(html, /Do not send passwords or Planning Center API secrets/i);
+});
+
 test("provides a mobile authenticated administration route", async () => {
   const response = await render("/admin");
   assert.equal(response.status, 200);
@@ -180,4 +189,29 @@ test("keeps user creation administrator-only and server-side", async () => {
   assert.match(edgeFunction, /inviteUserByEmail/);
   assert.match(edgeFunction, /resetPasswordForEmail/);
   assert.match(edgeFunction, /email_confirmed_at/);
+});
+
+test("isolates church data and encrypts per-church Planning Center credentials", async () => {
+  const tenancy = await readFile(
+    new URL("supabase/migrations/20260814230000_add_multi_church_tenancy.sql", root),
+    "utf8",
+  );
+  const sync = await readFile(
+    new URL("supabase/functions/planning-center-sync/index.ts", root),
+    "utf8",
+  );
+  const webAdmin = await readFile(
+    new URL("app/admin/admin-client.tsx", root),
+    "utf8",
+  );
+
+  assert.match(tenancy, /create table public\.churches/);
+  assert.match(tenancy, /private\.has_church_role\(church_id/);
+  assert.match(tenancy, /vault\.create_secret/);
+  assert.match(tenancy, /Apple Review Test Church/);
+  assert.match(tenancy, /example\.com/);
+  assert.match(sync, /get_planning_center_credentials/);
+  assert.match(sync, /church_id: churchId/);
+  assert.match(webAdmin, /api\.planningcenteronline\.com\/docs\/overview\/authentication/);
+  assert.doesNotMatch(webAdmin, /PCO_CLIENT_SECRET/);
 });

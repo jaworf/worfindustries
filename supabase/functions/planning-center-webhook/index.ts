@@ -71,6 +71,14 @@ Deno.serve(async (request: Request) => {
   const payload = JSON.parse(body) as { data?: Delivery[] };
   const deliveries = payload.data ?? [];
   const supabase = adminClient();
+  // This legacy webhook endpoint belongs to Riverview's existing Planning
+  // Center webhook. Other churches use their own full sync connection.
+  const { data: riverview, error: churchError } = await supabase
+    .from("churches")
+    .select("id")
+    .eq("slug", "riverview")
+    .single();
+  if (churchError || !riverview) throw churchError ?? new Error("Riverview church not found.");
   const results: Array<Record<string, unknown>> = [];
 
   for (const delivery of deliveries) {
@@ -78,6 +86,7 @@ Deno.serve(async (request: Request) => {
     const { data: inserted, error: insertError } = await supabase
       .from("webhook_deliveries")
       .insert({
+        church_id: riverview.id,
         source_system: "planning_center",
         delivery_id: delivery.id,
         event_name: eventName,
@@ -117,6 +126,7 @@ Deno.serve(async (request: Request) => {
       const person = await fetchPerson(personId);
       const mergeResult = await mergePlanningCenterPerson(
         supabase,
+        riverview.id,
         person,
         null,
       );

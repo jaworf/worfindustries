@@ -10,6 +10,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var assignments: [AssignmentDetail] = []
     @Published private(set) var session: SupabaseSession?
     @Published private(set) var currentProfile: AppProfile?
+    @Published private(set) var currentChurch: Church?
+    @Published private(set) var planningCenterStatus: PlanningCenterConnectionStatus?
     @Published private(set) var hasRestoredSession = false
     @Published var configuration: SupabaseConfiguration
     @Published var isBusy = false
@@ -141,6 +143,8 @@ final class AppModel: ObservableObject {
     func signOut() {
         session = nil
         currentProfile = nil
+        currentChurch = nil
+        planningCenterStatus = nil
         people = []
         roles = []
         subRoles = []
@@ -489,16 +493,50 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func loadPlanningCenterStatus() async {
+        do {
+            planningCenterStatus = try await requireClient().planningCenterConnectionStatus()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func configurePlanningCenter(applicationId: String, secret: String) async -> Bool {
+        var succeeded = false
+        await perform {
+            guard isAdministrator else {
+                throw SupabaseClientError.invalidRequest(
+                    "Only a church administrator can change the Planning Center connection."
+                )
+            }
+            guard let applicationId = applicationId.nilIfBlank,
+                  let secret = secret.nilIfBlank else {
+                throw SupabaseClientError.invalidRequest(
+                    "Enter both the Personal Access Token application ID and secret."
+                )
+            }
+            let client = try requireClient()
+            try await client.configurePlanningCenter(applicationId: applicationId, secret: secret)
+            planningCenterStatus = try await client.planningCenterConnectionStatus()
+            noticeMessage = "Planning Center connection saved securely for this church."
+            succeeded = true
+        }
+        return succeeded
+    }
+
     private func reload(using client: SupabaseRESTClient) async throws {
         async let snapshotRequest = client.loadSnapshot()
         async let profileRequest = client.loadCurrentProfile()
         let (snapshot, profile) = try await (snapshotRequest, profileRequest)
+        let church = try await client.loadChurch(id: profile.churchId)
         people = snapshot.people
         roles = snapshot.roles
         subRoles = snapshot.subRoles
         terms = snapshot.terms
         assignments = snapshot.assignments
         currentProfile = profile
+        currentChurch = church
+        planningCenterStatus = try? await client.planningCenterConnectionStatus()
         if let currentSession = await client.currentSession(),
            currentSession.accessToken != session?.accessToken
         {

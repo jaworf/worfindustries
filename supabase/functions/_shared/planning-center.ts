@@ -103,7 +103,9 @@ export function adminClient(): SupabaseClient {
   });
 }
 
-export async function requireEditor(request: Request): Promise<void> {
+export async function requireEditor(
+  request: Request,
+): Promise<{ userId: string; churchId: string }> {
   const authorization = request.headers.get("Authorization");
   if (!authorization) {
     throw new Error("Authentication is required.");
@@ -130,21 +132,35 @@ export async function requireEditor(request: Request): Promise<void> {
 
   const { data: profile, error: profileError } = await client
     .from("profiles")
-    .select("app_role")
+    .select("app_role,church_id")
     .eq("user_id", user.id)
     .single();
   if (
     profileError ||
     !profile ||
     !["admin", "editor"].includes(profile.app_role)
+    || typeof profile.church_id !== "string"
   ) {
     throw new Error("An admin or editor account is required.");
   }
+  return { userId: user.id, churchId: profile.church_id };
 }
 
-function planningCenterHeaders(): HeadersInit {
-  const clientId = requiredSecret("PCO_CLIENT_ID");
-  const clientSecret = requiredSecret("PCO_CLIENT_SECRET");
+export type PlanningCenterCredentials = {
+  applicationId: string;
+  secret: string;
+};
+
+export function legacyPlanningCenterCredentials(): PlanningCenterCredentials {
+  return {
+    applicationId: requiredSecret("PCO_CLIENT_ID"),
+    secret: requiredSecret("PCO_CLIENT_SECRET"),
+  };
+}
+
+function planningCenterHeaders(credentials?: PlanningCenterCredentials): HeadersInit {
+  const clientId = credentials?.applicationId ?? requiredSecret("PCO_CLIENT_ID");
+  const clientSecret = credentials?.secret ?? requiredSecret("PCO_CLIENT_SECRET");
 
   return {
     Accept: "application/json",
@@ -157,10 +173,11 @@ function planningCenterHeaders(): HeadersInit {
 
 export async function planningCenterRequest(
   url: string,
+  credentials?: PlanningCenterCredentials,
 ): Promise<PlanningCenterResponse> {
   const response = await fetch(url, {
     method: "GET",
-    headers: planningCenterHeaders(),
+    headers: planningCenterHeaders(credentials),
   });
 
   if (!response.ok) {
@@ -277,13 +294,14 @@ export async function fetchPeoplePage(
   url:
     | string
     | null = "https://api.planningcenteronline.com/people/v2/people?include=emails,phone_numbers,addresses,name_suffix&per_page=100",
+  credentials?: PlanningCenterCredentials,
 ): Promise<{
   people: Array<{ externalId: string; record: MinistryPersonRecord }>;
   nextUrl: string | null;
 }> {
   if (!url) return { people: [], nextUrl: null };
 
-  const response = await planningCenterRequest(url);
+  const response = await planningCenterRequest(url, credentials);
   const people = Array.isArray(response.data) ? response.data : [response.data];
   const included = response.included ?? [];
 
@@ -319,10 +337,12 @@ export async function fetchPerson(
 
 export async function mergePlanningCenterPerson(
   supabase: SupabaseClient,
+  churchId: string,
   person: { externalId: string; record: MinistryPersonRecord },
   importRunId: string | null,
 ): Promise<{ outcome: string; person_id?: string; message?: string }> {
-  const { data, error } = await supabase.rpc("sync_planning_center_person", {
+  const { data, error } = await supabase.rpc("sync_planning_center_person_for_church", {
+    p_church_id: churchId,
     p_external_id: person.externalId,
     p_record: person.record,
     p_import_run_id: importRunId,

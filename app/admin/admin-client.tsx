@@ -25,7 +25,12 @@ type Profile = {
   user_id: string;
   display_name: string | null;
   app_role: AppRole;
+  church_id: string;
+  is_platform_admin: boolean;
+  churches: { name: string; slug: string; support_email: string | null } | null;
 };
+
+type Church = { id: string; name: string; slug: string };
 
 type Person = {
   id: string;
@@ -247,7 +252,7 @@ export function MinistryAdmin({
           await Promise.all([
             supabase
               .from("profiles")
-              .select("user_id,display_name,app_role")
+              .select("user_id,display_name,app_role,church_id,is_platform_admin,churches(name,slug,support_email)")
               .eq("user_id", userId)
               .single(),
             supabase.from("people").select("*").order("last_name").order("first_name"),
@@ -378,7 +383,7 @@ export function MinistryAdmin({
         <div className="admin-brand">
           <img src="/ministry-logo.png" alt="Riverview Ministry Volunteers logo" />
           <div>
-            <p>Pasco Riverview Adventist Church</p>
+            <p>{profile?.churches?.name ?? "Ministry Volunteers"}</p>
             <h1>Ministry Volunteers</h1>
           </div>
         </div>
@@ -1762,7 +1767,25 @@ function SettingsView({
   mutate: MutationRunner;
 }) {
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"editor" | "viewer">("editor");
+  const [inviteRole, setInviteRole] = useState<AppRole>("editor");
+  const [churches, setChurches] = useState<Church[]>([]);
+  const [inviteChurchId, setInviteChurchId] = useState(profile.church_id);
+  const [temporaryPassword, setTemporaryPassword] = useState("");
+  const [pcoApplicationId, setPcoApplicationId] = useState("");
+  const [pcoSecret, setPcoSecret] = useState("");
+  const [pcoConnected, setPcoConnected] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    void supabase.rpc("planning_center_connection_status").then(({ data }) => {
+      const status = data as { connected?: boolean } | null;
+      setPcoConnected(Boolean(status?.connected));
+    });
+    if (profile.is_platform_admin) {
+      void supabase.from("churches").select("id,name,slug").order("name").then(({ data }) => {
+        setChurches((data ?? []) as Church[]);
+      });
+    }
+  }, [profile.is_platform_admin, supabase]);
   return (
     <>
       <SectionHeading title="Settings" detail="Account, Planning Center sync, and administrator-only user access." />
@@ -1774,7 +1797,22 @@ function SettingsView({
         </section>
         <section className="admin-card admin-settings-card">
           <h3>Planning Center People</h3>
-          <p>Planning Center remains the source of truth for contact and membership information. This sync is read-only.</p>
+          <p>Planning Center remains the source of truth for contact and membership information. This sync is read-only and uses this church&apos;s own Personal Access Token.</p>
+          <p><strong>{pcoConnected === null ? "Checking connection…" : pcoConnected ? "Connected" : "Not connected"}</strong></p>
+          {profile.app_role === "admin" && (
+            <div className="admin-form-grid">
+              <label>Personal Access Token application ID<input type="password" autoComplete="off" value={pcoApplicationId} onChange={(event) => setPcoApplicationId(event.target.value)} /></label>
+              <label>Personal Access Token secret<input type="password" autoComplete="off" value={pcoSecret} onChange={(event) => setPcoSecret(event.target.value)} /></label>
+              <button className="button" disabled={working || !pcoApplicationId.trim() || !pcoSecret.trim()} onClick={async () => {
+                const succeeded = await mutate("Planning Center connection saved securely.", async () => {
+                  const { error } = await supabase.rpc("configure_planning_center", { p_application_id: pcoApplicationId.trim(), p_secret: pcoSecret.trim() });
+                  if (error) throw error;
+                });
+                if (succeeded) { setPcoApplicationId(""); setPcoSecret(""); setPcoConnected(true); }
+              }}>Save Planning Center Connection</button>
+            </div>
+          )}
+          <p><a href="https://api.planningcenteronline.com/docs/overview/authentication" target="_blank" rel="noreferrer">Where to create a Planning Center Personal Access Token</a></p>
           <button className="button button-primary" disabled={!canEdit || working} onClick={() => mutate("Planning Center sync completed.", async () => {
             const { error } = await supabase.functions.invoke("planning-center-sync", { body: {} });
             if (error) throw error;
@@ -1786,13 +1824,15 @@ function SettingsView({
             <p>Create a new account, or send a fresh setup link to an invited user who has not finished enrollment. Always use the newest email. This section is visible only to administrators.</p>
             <div className="admin-form-grid invite-grid">
               <label>Email<input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} /></label>
-              <label>Access<select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as "editor" | "viewer")}><option value="editor">Editor</option><option value="viewer">Viewer</option></select></label>
+              <label>Access<select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as AppRole)}>{profile.is_platform_admin && <option value="admin">Administrator</option>}<option value="editor">Editor</option><option value="viewer">Viewer</option></select></label>
+              {profile.is_platform_admin && <label>Church<select value={inviteChurchId} onChange={(event) => setInviteChurchId(event.target.value)}>{churches.map((church) => <option key={church.id} value={church.id}>{church.name}</option>)}</select></label>}
+              {profile.is_platform_admin && <label>Temporary password (review accounts only)<input type="password" autoComplete="new-password" value={temporaryPassword} onChange={(event) => setTemporaryPassword(event.target.value)} /></label>}
               <button className="button button-primary admin-check-bottom" disabled={working || !inviteEmail.trim()} onClick={async () => {
                 const succeeded = await mutate("Setup email sent. Use the newest message.", async () => {
-                  const { error } = await supabase.functions.invoke("admin-users", { body: { email: inviteEmail.trim(), role: inviteRole } });
+                  const { error } = await supabase.functions.invoke("admin-users", { body: { email: inviteEmail.trim(), role: inviteRole, church_id: inviteChurchId, temporary_password: temporaryPassword || undefined } });
                   if (error) throw error;
                 });
-                if (succeeded) setInviteEmail("");
+                if (succeeded) { setInviteEmail(""); setTemporaryPassword(""); }
               }}>Create or Resend Setup Email</button>
             </div>
           </section>

@@ -138,7 +138,7 @@ actor SupabaseRESTClient {
             method: "GET",
             path: "rest/v1/profiles",
             query: [
-                .init(name: "select", value: "user_id,display_name,app_role"),
+                .init(name: "select", value: "user_id,display_name,app_role,church_id,is_platform_admin"),
                 .init(name: "user_id", value: "eq.\(userId.uuidString)")
             ]
         )
@@ -148,6 +148,35 @@ actor SupabaseRESTClient {
             )
         }
         return profile
+    }
+
+    func loadChurch(id: UUID) async throws -> Church {
+        let churches: [Church] = try await send(
+            method: "GET",
+            path: "rest/v1/churches",
+            query: [
+                .init(name: "select", value: "id,name,slug,support_email"),
+                .init(name: "id", value: "eq.\(id.uuidString)")
+            ]
+        )
+        guard let church = churches.first else {
+            throw SupabaseClientError.invalidRequest("This account is not assigned to an active church.")
+        }
+        return church
+    }
+
+    func planningCenterConnectionStatus() async throws -> PlanningCenterConnectionStatus {
+        try await rpc("planning_center_connection_status", body: EmptyBody())
+    }
+
+    func configurePlanningCenter(applicationId: String, secret: String) async throws {
+        let _: PlanningCenterConnectionStatus = try await rpc(
+            "configure_planning_center",
+            body: PlanningCenterConnectionWrite(
+                pApplicationId: applicationId,
+                pSecret: secret
+            )
+        )
     }
 
     func inviteAppUser(
@@ -725,6 +754,11 @@ private struct SupabaseErrorResponse: Decodable {
 }
 
 private struct EmptyBody: Codable {}
+
+private struct PlanningCenterConnectionWrite: Encodable {
+    let pApplicationId: String
+    let pSecret: String
+}
 
 private struct PersonWrite: Encodable {
     let firstName: String

@@ -10,7 +10,7 @@ const jsonHeaders = {
 const defaultPasswordSetupURL =
   "https://riverview-ministry-directory.jaworf.chatgpt.site/reset-password";
 
-type InvitationRole = "editor" | "viewer";
+type InvitationRole = "admin" | "editor" | "viewer";
 
 function json(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
@@ -80,7 +80,7 @@ Deno.serve(async (request: Request) => {
 
     const { data: profile, error: profileError } = await admin
       .from("profiles")
-      .select("app_role")
+      .select("app_role,church_id,is_platform_admin")
       .eq("user_id", user.id)
       .single();
     if (profileError || profile?.app_role !== "admin") {
@@ -90,6 +90,8 @@ Deno.serve(async (request: Request) => {
     const payload = (await request.json().catch(() => null)) as {
       email?: unknown;
       role?: unknown;
+      church_id?: unknown;
+      temporary_password?: unknown;
     } | null;
     const email =
       typeof payload?.email === "string"
@@ -99,8 +101,35 @@ Deno.serve(async (request: Request) => {
     if (!/^\S+@\S+\.\S+$/.test(email)) {
       return json(400, { error: "Enter a valid email address." });
     }
-    if (role !== "editor" && role !== "viewer") {
-      return json(400, { error: "Access level must be Editor or Viewer." });
+    if (role !== "admin" && role !== "editor" && role !== "viewer") {
+      return json(400, { error: "Choose Administrator, Editor, or Viewer access." });
+    }
+    const requestedChurchId =
+      typeof payload?.church_id === "string" ? payload.church_id : null;
+    const churchId = profile.is_platform_admin && requestedChurchId
+      ? requestedChurchId
+      : profile.church_id;
+    if (!churchId) return json(400, { error: "Choose a church for this account." });
+    if (role === "admin" && !profile.is_platform_admin) {
+      return json(403, { error: "Only the platform administrator can create another administrator." });
+    }
+    const temporaryPassword =
+      typeof payload?.temporary_password === "string"
+        ? payload.temporary_password
+        : "";
+    if (temporaryPassword && !profile.is_platform_admin) {
+      return json(403, { error: "Only the platform administrator can create a password-based review account." });
+    }
+    if (temporaryPassword && temporaryPassword.length < 14) {
+      return json(400, { error: "The temporary password must contain at least 14 characters." });
+    }
+    const { data: church, error: churchError } = await admin
+      .from("churches")
+      .select("id,name,is_active")
+      .eq("id", churchId)
+      .single();
+    if (churchError || !church?.is_active) {
+      return json(400, { error: "The selected church is not active." });
     }
 
     const redirectTo =
@@ -110,7 +139,16 @@ Deno.serve(async (request: Request) => {
     let responseStatus = 201;
     let responseMessage = "Setup email sent.";
 
-    if (existingUser) {
+    if (existingUser && temporaryPassword) {
+      const { error: updateError } = await admin.auth.admin.updateUserById(
+        existingUser.id,
+        { password: temporaryPassword, email_confirm: true },
+      );
+      if (updateError) return json(400, { error: updateError.message });
+      userId = existingUser.id;
+      responseStatus = 200;
+      responseMessage = "Review account password updated.";
+    } else if (existingUser) {
       if (existingUser.email_confirmed_at) {
         return json(409, { error: "That email already has an active app account." });
       }
@@ -122,6 +160,18 @@ Deno.serve(async (request: Request) => {
       userId = existingUser.id;
       responseStatus = 200;
       responseMessage = "A new setup email was sent. Use the link in the newest message.";
+    } else if (temporaryPassword) {
+      const { data: created, error: createError } = await admin.auth.admin.createUser({
+        email,
+        password: temporaryPassword,
+        email_confirm: true,
+        user_metadata: { full_name: "App Review" },
+      });
+      if (createError || !created.user) {
+        return json(400, { error: createError?.message ?? "Supabase could not create the review user." });
+      }
+      userId = created.user.id;
+      responseMessage = "Password-based review account created.";
     } else {
       const { data: invitation, error: invitationError } =
         await admin.auth.admin.inviteUserByEmail(email, {
@@ -143,6 +193,7 @@ Deno.serve(async (request: Request) => {
           user_id: userId,
           display_name: email.split("@")[0],
           app_role: role as InvitationRole,
+          church_id: churchId,
         },
         { onConflict: "user_id" },
       );
@@ -159,6 +210,8 @@ Deno.serve(async (request: Request) => {
       user_id: userId,
       email,
       role,
+      church_id: churchId,
+      church_name: church.name,
       message: responseMessage,
     });
   } catch (error) {
