@@ -141,6 +141,10 @@ final class AppModel: ObservableObject {
     }
 
     func signOut() {
+        clearSessionState()
+    }
+
+    private func clearSessionState() {
         session = nil
         currentProfile = nil
         currentChurch = nil
@@ -561,6 +565,12 @@ final class AppModel: ObservableObject {
         do {
             try await operation()
         } catch {
+            if
+                let clientError = error as? SupabaseClientError,
+                case .sessionExpired = clientError
+            {
+                clearSessionState()
+            }
             errorMessage = error.localizedDescription
         }
     }

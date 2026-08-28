@@ -41,6 +41,66 @@ final class CSVParserTests: XCTestCase {
         )
     }
 
+    func testExpiredSessionHasFriendlyMessage() {
+        XCTAssertEqual(
+            SupabaseClientError.sessionExpired.localizedDescription,
+            "Your saved sign-in has expired. Please sign in again."
+        )
+    }
+
+    func testConcurrentSnapshotRequestsShareOneTokenRefresh() async throws {
+        RefreshCoalescingURLProtocol.reset()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RefreshCoalescingURLProtocol.self]
+        let urlSession = URLSession(configuration: configuration)
+        let userId = UUID()
+        let client = SupabaseRESTClient(
+            configuration: SupabaseConfiguration(
+                projectURL: "https://example.supabase.co",
+                publishableKey: "sb_publishable_test"
+            ),
+            session: SupabaseSession(
+                accessToken: "expired-access-token",
+                refreshToken: "single-use-refresh-token",
+                expiresAt: 0,
+                user: SupabaseUser(id: userId, email: "tester@example.com")
+            ),
+            urlSession: urlSession
+        )
+
+        _ = try await client.loadSnapshot()
+
+        XCTAssertEqual(RefreshCoalescingURLProtocol.refreshRequestCount, 1)
+    }
+
+    func testMissingRefreshTokenBecomesExpiredSessionError() async throws {
+        RefreshCoalescingURLProtocol.reset(rejectRefresh: true)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RefreshCoalescingURLProtocol.self]
+        let client = SupabaseRESTClient(
+            configuration: SupabaseConfiguration(
+                projectURL: "https://example.supabase.co",
+                publishableKey: "sb_publishable_test"
+            ),
+            session: SupabaseSession(
+                accessToken: "expired-access-token",
+                refreshToken: "missing-refresh-token",
+                expiresAt: 0,
+                user: SupabaseUser(id: UUID(), email: "tester@example.com")
+            ),
+            urlSession: URLSession(configuration: configuration)
+        )
+
+        do {
+            _ = try await client.loadSnapshot()
+            XCTFail("An invalid stored refresh token should require a new sign-in.")
+        } catch let error as SupabaseClientError {
+            guard case .sessionExpired = error else {
+                return XCTFail("Expected sessionExpired, received \(error)")
+            }
+        }
+    }
+
     func testOnlyNonAdministratorRolesAreAvailableForInvitations() {
         XCTAssertEqual(AppUserRole.invitationChoices, [.editor, .viewer])
         XCTAssertFalse(AppUserRole.invitationChoices.contains(.admin))
@@ -302,4 +362,80 @@ final class CSVParserTests: XCTestCase {
             createdAt: nil
         )
     }
+}
+
+private final class RefreshCoalescingURLProtocol: URLProtocol, @unchecked Sendable {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var storedRefreshRequestCount = 0
+    nonisolated(unsafe) private static var rejectRefresh = false
+
+    static var refreshRequestCount: Int {
+        lock.withLock { storedRefreshRequestCount }
+    }
+
+    static func reset(rejectRefresh: Bool = false) {
+        lock.withLock {
+            storedRefreshRequestCount = 0
+            Self.rejectRefresh = rejectRefresh
+        }
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let url = request.url else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
+
+        let data: Data
+        let statusCode: Int
+        if url.path == "/auth/v1/token" {
+            Self.lock.withLock { Self.storedRefreshRequestCount += 1 }
+            Thread.sleep(forTimeInterval: 0.15)
+            if Self.lock.withLock({ Self.rejectRefresh }) {
+                statusCode = 400
+                data = Data(
+                    """
+                    {
+                      "error_code": "refresh_token_not_found",
+                      "message": "Invalid Refresh Token: Refresh Token Not Found"
+                    }
+                    """.utf8
+                )
+            } else {
+                statusCode = 200
+                data = Data(
+                    """
+                    {
+                      "access_token": "fresh-access-token",
+                      "refresh_token": "rotated-refresh-token",
+                      "expires_at": 4102444800,
+                      "user": {
+                        "id": "00000000-0000-0000-0000-000000000001",
+                        "email": "tester@example.com"
+                      }
+                    }
+                    """.utf8
+                )
+            }
+        } else {
+            statusCode = 200
+            data = Data("[]".utf8)
+        }
+
+        let response = HTTPURLResponse(
+            url: url,
+            statusCode: statusCode,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: data)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }

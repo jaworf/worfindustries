@@ -3,6 +3,7 @@ import Foundation
 actor SupabaseRESTClient {
     private var configuration: SupabaseConfiguration
     private var session: SupabaseSession?
+    private var refreshTask: Task<SupabaseSession, Error>?
     private let urlSession: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -70,18 +71,36 @@ actor SupabaseRESTClient {
             return current.accessToken
         }
 
-        let body = try encoder.encode(
-            RefreshRequest(refreshToken: current.refreshToken)
-        )
-        let refreshed: SupabaseSession = try await send(
+        if let refreshTask {
+            return try await refreshTask.value.accessToken
+        }
+
+        let task = Task { [weak self] in
+            guard let self else { throw CancellationError() }
+            return try await self.refreshSession(using: current.refreshToken)
+        }
+        refreshTask = task
+
+        do {
+            let refreshed = try await task.value
+            session = refreshed
+            refreshTask = nil
+            return refreshed.accessToken
+        } catch {
+            refreshTask = nil
+            throw error
+        }
+    }
+
+    private func refreshSession(using refreshToken: String) async throws -> SupabaseSession {
+        let body = try encoder.encode(RefreshRequest(refreshToken: refreshToken))
+        return try await send(
             method: "POST",
             path: "auth/v1/token",
             query: [URLQueryItem(name: "grant_type", value: "refresh_token")],
             body: body,
             requiresAuthentication: false
         )
-        session = refreshed
-        return refreshed.accessToken
     }
 
     func loadSnapshot() async throws -> MinistrySnapshot {
@@ -683,6 +702,14 @@ actor SupabaseRESTClient {
                 {
                     throw SupabaseClientError.invalidCredentials
                 }
+                if
+                    http.statusCode == 400,
+                    detail.code == "refresh_token_not_found"
+                        || detail.errorCode == "refresh_token_not_found"
+                        || message.localizedCaseInsensitiveContains("invalid refresh token")
+                {
+                    throw SupabaseClientError.sessionExpired
+                }
                 throw SupabaseClientError.server(
                     status: http.statusCode,
                     message: message
@@ -702,6 +729,7 @@ enum SupabaseClientError: LocalizedError {
     case invalidConfiguration
     case notSignedIn
     case invalidCredentials
+    case sessionExpired
     case invalidRequest(String)
     case invalidResponse
     case emptyResponse
@@ -715,6 +743,8 @@ enum SupabaseClientError: LocalizedError {
             "Sign in to continue."
         case .invalidCredentials:
             "The email or password is incorrect."
+        case .sessionExpired:
+            "Your saved sign-in has expired. Please sign in again."
         case .invalidRequest(let message):
             message
         case .invalidResponse:

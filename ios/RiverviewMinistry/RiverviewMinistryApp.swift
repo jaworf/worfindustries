@@ -523,10 +523,10 @@ private struct ForgotPasswordView: View {
 }
 
 enum AppTab: Hashable {
-    case assign
     case ministries
     case people
     case focus
+    case assign
     case votes
     case reports
     case manage
@@ -542,7 +542,7 @@ struct AssignmentRoute: Equatable, Identifiable {
 
 struct MainShellView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var selectedTab: AppTab = .assign
+    @State private var selectedTab: AppTab = .ministries
     @State private var assignmentRoute: AssignmentRoute?
 
     private var ministryWatchCount: Int {
@@ -560,12 +560,6 @@ struct MainShellView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            NavigationStack {
-                AssignmentEntryView(route: $assignmentRoute)
-            }
-            .tabItem { Label("Assign", systemImage: "person.badge.plus") }
-            .tag(AppTab.assign)
-
             NavigationStack {
                 DirectoryView()
             }
@@ -587,6 +581,12 @@ struct MainShellView: View {
             .tabItem { Label("Focus", systemImage: "scope") }
             .badge(ministryWatchCount)
             .tag(AppTab.focus)
+
+            NavigationStack {
+                AssignmentEntryView(route: $assignmentRoute)
+            }
+            .tabItem { Label("Assign", systemImage: "person.badge.plus") }
+            .tag(AppTab.assign)
 
             NavigationStack {
                 VoteQueueView()
