@@ -28,6 +28,8 @@ type Profile = {
   app_role: AppRole;
   church_id: string;
   is_platform_admin: boolean;
+  access_disabled?: boolean;
+  must_change_password?: boolean;
   churches: { name: string; slug: string; support_email: string | null } | null;
 };
 
@@ -299,7 +301,7 @@ export function MinistryAdmin({
               await Promise.all([
                 supabase
                   .from("profiles")
-                  .select("user_id,display_name,app_role,church_id,is_platform_admin,churches(name,slug,support_email)")
+                  .select("user_id,display_name,app_role,church_id,is_platform_admin,access_disabled,must_change_password,churches(name,slug,support_email)")
                   .eq("user_id", userId)
                   .single(),
                 loadAllPeople(supabase),
@@ -432,8 +434,11 @@ export function MinistryAdmin({
   }
 
   if (!session) {
-    return <AdminLogin supabase={supabase} setNotice={setNotice} />;
+    return <AdminLogin supabase={supabase} notice={notice} setNotice={setNotice} />;
   }
+
+  if (profile?.access_disabled) return <main className="admin-login-shell"><section className="admin-login-card"><h1>App access removed</h1><p>Contact your administrator to restore access.</p><button className="button" onClick={() => void supabase.auth.signOut()}>Sign Out</button></section></main>;
+  if (profile?.must_change_password) return <InitialPasswordChange supabase={supabase} complete={() => loadData(session.user.id)} />;
 
   return (
     <div className="admin-app-shell">
@@ -576,6 +581,20 @@ export function MinistryAdmin({
   );
 }
 
+function InitialPasswordChange({supabase,complete}:{supabase:SupabaseClient;complete:()=>Promise<void>}) {
+  const [password,setPassword]=useState(""); const [confirmation,setConfirmation]=useState(""); const [busy,setBusy]=useState(false); const [error,setError]=useState<string|null>(null);
+  return <main className="admin-login-shell"><section className="admin-login-card"><h1>Change your temporary password</h1><p>Choose a new password before using the app. Use at least 14 characters.</p><form className="admin-form-stack" onSubmit={async event=>{event.preventDefault(); if(password.length<14 || password!==confirmation){setError("Enter matching passwords with at least 14 characters.");return;} setBusy(true); const {error}=await supabase.auth.updateUser({password}); if(error)setError(error.message); else await complete(); setBusy(false);}}><label>New password<input type="password" autoComplete="new-password" minLength={14} value={password} onChange={e=>setPassword(e.target.value)} required /></label><label>Confirm new password<input type="password" autoComplete="new-password" value={confirmation} onChange={e=>setConfirmation(e.target.value)} required /></label>{error&&<p role="alert">{error}</p>}<button className="button button-primary" disabled={busy}>Save New Password</button><button type="button" className="button" onClick={()=>void supabase.auth.signOut()}>Sign Out</button></form></section></main>;
+}
+
+type ManagedAppUser = {user_id:string;email:string;app_role:AppRole;church_id:string;is_platform_admin:boolean;access_disabled:boolean;must_change_password:boolean;enrolled:boolean};
+function AppUserManagement({supabase,profile,session,working,mutate}:{supabase:SupabaseClient;profile:Profile;session:Session;working:boolean;mutate:MutationRunner}) {
+ const [users,setUsers]=useState<ManagedAppUser[]>([]); const [error,setError]=useState<string|null>(null);
+ const load=useCallback(async()=>{const {data,error}=await supabase.functions.invoke("admin-users",{body:{action:"list"}}); if(error)setError(await functionErrorMessage(error)); else{setUsers(data.users);setError(null);}},[supabase]);
+ useEffect(()=>{void load();},[load,profile]);
+ async function change(user:ManagedAppUser,action:string,role?:AppRole){if(await mutate("App access updated.",async()=>{const {error}=await supabase.functions.invoke("admin-users",{body:{action,user_id:user.user_id,role}});if(error)throw new Error(await functionErrorMessage(error));}))await load();}
+ return <section className="admin-card full-panel"><h3>Manage App Users</h3><p>Changes apply to existing accounts. Remove access keeps records and can be reversed.</p><button className="button" onClick={()=>void load()}>Refresh Users</button>{error&&<p role="alert">{error}</p>}<ul className="admin-focus-list">{users.map(user=>{const protectedUser=user.user_id===session.user.id||user.is_platform_admin||(!profile.is_platform_admin&&user.app_role==="admin");return <li key={user.user_id}><strong>{user.email}</strong><p>{user.access_disabled?"Access removed":user.must_change_password?"Password change required":user.enrolled?"Active":"Invitation pending"}</p><label>Permissions for {user.email}<select value={user.app_role} disabled={working||protectedUser||user.access_disabled} onChange={e=>void change(user,"update_role",e.target.value as AppRole)}>{profile.is_platform_admin&&<option value="admin">Administrator</option>}<option value="editor">Editor</option><option value="viewer">Viewer</option></select></label><button className="button" disabled={working||protectedUser} onClick={()=>void change(user,user.access_disabled?"restore_access":"remove_access")}>{user.access_disabled?"Restore Access":"Remove Access"}</button>{!user.enrolled&&!user.access_disabled&&<button className="button" disabled={working} onClick={async()=>{await mutate("New setup email sent.",async()=>{const {error}=await supabase.functions.invoke("admin-users",{body:{email:user.email,role:user.app_role,church_id:user.church_id}});if(error)throw new Error(await functionErrorMessage(error));});}}>Resend Setup Email</button>}</li>;})}</ul></section>;
+}
+
 function AdminLoading({ label, compact = false }: { label: string; compact?: boolean }) {
   return (
     <main className={compact ? "admin-inline-loading" : "admin-login-shell"} aria-busy="true">
@@ -587,9 +606,11 @@ function AdminLoading({ label, compact = false }: { label: string; compact?: boo
 
 function AdminLogin({
   supabase,
+  notice,
   setNotice,
 }: {
   supabase: SupabaseClient;
+  notice: string | null;
   setNotice: (message: string | null) => void;
 }) {
   const [email, setEmail] = useState("");
@@ -662,6 +683,7 @@ function AdminLogin({
             />
           </label>
           {error && <p className="admin-form-error">{error}</p>}
+          {notice && <p role="status">{notice}</p>}
           <button className="button button-primary" disabled={busy}>
             {busy ? "Signing in…" : "Sign In"}
           </button>
@@ -1748,6 +1770,7 @@ function SettingsView({
   const [churches, setChurches] = useState<Church[]>([]);
   const [inviteChurchId, setInviteChurchId] = useState(profile.church_id);
   const [temporaryPassword, setTemporaryPassword] = useState("");
+  const [reviewAccount,setReviewAccount]=useState(false);
   const [pcoApplicationId, setPcoApplicationId] = useState("");
   const [pcoSecret, setPcoSecret] = useState("");
   const [pcoConnected, setPcoConnected] = useState<boolean | null>(null);
@@ -1798,22 +1821,24 @@ function SettingsView({
         {profile.app_role === "admin" && (
           <section className="admin-card admin-settings-card full-panel">
             <h3>Create or resend an app user</h3>
-            <p>Create a new account, or send a fresh setup link to an invited user who has not finished enrollment. Always use the newest email. This section is visible only to administrators.</p>
+            <p>Leave the temporary password blank to email a setup link valid for 24 hours. Enter a temporary password to create an account that requires a password change at first login. Provide that password to the user separately.</p>
             <div className="admin-form-grid invite-grid">
               <label>Email<input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} /></label>
               <label>Access<select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as AppRole)}>{profile.is_platform_admin && <option value="admin">Administrator</option>}<option value="editor">Editor</option><option value="viewer">Viewer</option></select></label>
               {profile.is_platform_admin && <label>Church<select value={inviteChurchId} onChange={(event) => setInviteChurchId(event.target.value)}>{churches.map((church) => <option key={church.id} value={church.id}>{church.name}</option>)}</select></label>}
-              {profile.is_platform_admin && <label>Temporary password (review accounts only)<input type="password" autoComplete="new-password" value={temporaryPassword} onChange={(event) => setTemporaryPassword(event.target.value)} /></label>}
+              {<label>Temporary password (optional; change required at first login)<input type="password" autoComplete="new-password" value={temporaryPassword} onChange={(event) => setTemporaryPassword(event.target.value)} /></label>}
+              {profile.is_platform_admin && <label><input type="checkbox" checked={reviewAccount} onChange={e=>setReviewAccount(e.target.checked)} />App Store review account (fixed password)</label>}
               <button className="button button-primary admin-check-bottom" disabled={working || !inviteEmail.trim()} onClick={async () => {
-                const succeeded = await mutate("Setup email sent. Use the newest message.", async () => {
-                  const { error } = await supabase.functions.invoke("admin-users", { body: { email: inviteEmail.trim(), role: inviteRole, church_id: inviteChurchId, temporary_password: temporaryPassword || undefined } });
+                const succeeded = await mutate(temporaryPassword ? (reviewAccount ? "Review account password saved." : "Temporary password saved. Password change is required at first login.") : "Setup email sent. Use the newest message.", async () => {
+                  const { error } = await supabase.functions.invoke("admin-users", { body: { email: inviteEmail.trim(), role: inviteRole, church_id: inviteChurchId, temporary_password: temporaryPassword || undefined, review_account: reviewAccount } });
                   if (error) throw new Error(await functionErrorMessage(error));
                 });
                 if (succeeded) { setInviteEmail(""); setTemporaryPassword(""); }
-              }}>Create or Resend Setup Email</button>
+              }}>{temporaryPassword ? "Create with Temporary Password" : "Create or Resend Setup Email"}</button>
             </div>
           </section>
         )}
+        {profile.app_role === "admin" && <AppUserManagement supabase={supabase} profile={profile} session={session} working={working} mutate={mutate} />}
       </div>
     </>
   );

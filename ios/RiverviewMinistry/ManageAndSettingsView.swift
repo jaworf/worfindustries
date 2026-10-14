@@ -534,6 +534,8 @@ struct SettingsView: View {
     @State private var showingImporter = false
     @State private var showingConnection = false
     @State private var inviteEmail = ""
+    @State private var temporaryPassword = ""
+    @State private var appUsers: [ManagedAppUser] = []
     @State private var inviteRole: AppUserRole = .editor
     @State private var pcoApplicationId = ""
     @State private var pcoSecret = ""
@@ -638,6 +640,8 @@ struct SettingsView: View {
                         }
                     }
 
+                    SecureField("Temporary password (optional)", text: $temporaryPassword)
+                    Text("Temporary passwords must have at least 14 characters. The user must change it at first login.")
                     Text(inviteRole.invitationDescription)
                         .foregroundStyle(.secondary)
 
@@ -645,27 +649,38 @@ struct SettingsView: View {
                         Task {
                             if await model.inviteAppUser(
                                 email: inviteEmail,
-                                role: inviteRole
+                                role: inviteRole, temporaryPassword: temporaryPassword.nilIfBlank
                             ) {
                                 inviteEmail = ""
+                                temporaryPassword = ""
+                                appUsers = await model.loadAppUsers()
                             }
                         }
                     } label: {
                         Label(
-                            "Create or Resend Setup Email",
+                            temporaryPassword.isEmpty ? "Create or Resend Setup Email" : "Create with Temporary Password",
                             systemImage: "person.badge.plus"
                         )
                     }
-                    .disabled(inviteEmail.nilIfBlank == nil || model.isBusy)
+                    .disabled(inviteEmail.nilIfBlank == nil || model.isBusy || (!temporaryPassword.isEmpty && temporaryPassword.count < 14))
                 } header: {
                     Text("Team Access")
                 } footer: {
                     Text(
-                        "Administrator only. This creates a new account, or sends a fresh " +
-                        "setup link when that email has a pending invitation. Always use the " +
-                        "newest email. Editor and Viewer accounts cannot see this section."
+                        "Administrator only. Leave the temporary password blank for a setup " +
+                        "email valid for 24 hours, or provide a temporary password separately. " +
+                        "Password accounts must change their password at first login."
                     )
                 }
+            }
+
+            if model.isAdministrator {
+                Section("Manage App Users") {
+                    Button("Refresh Users") { Task { appUsers = await model.loadAppUsers() } }
+                    ForEach(appUsers) { user in
+                        AppAccessRow(user: user) { appUsers = await model.loadAppUsers() }
+                    }
+                }.task { appUsers = await model.loadAppUsers() }
             }
 
             Section {
@@ -759,4 +774,26 @@ struct SettingsView: View {
     private var selectedTextSize: AppTextSize {
         AppTextSize(rawValue: textSizeRaw) ?? .large
     }
+}
+
+private struct AppAccessRow: View {
+ @EnvironmentObject private var model: AppModel
+ let user: ManagedAppUser
+ let refresh: () async -> Void
+ @State private var role: AppUserRole
+ init(user: ManagedAppUser, refresh: @escaping () async -> Void) { self.user=user; self.refresh=refresh; _role=State(initialValue:user.appRole) }
+ private var protectedUser: Bool { user.userId == model.currentProfile?.userId || user.isPlatformAdmin || (model.currentProfile?.isPlatformAdmin != true && user.appRole == .admin) }
+ var body: some View {
+  VStack(alignment: .leading, spacing: 10) {
+   Text(user.email).fontWeight(.semibold)
+   Text(user.accessDisabled ? "Access removed" : user.mustChangePassword ? "Password change required" : user.enrolled ? "Active" : "Invitation pending").foregroundStyle(.secondary)
+   Picker("Permissions", selection: $role) {
+    if model.currentProfile?.isPlatformAdmin == true { Text("Administrator").tag(AppUserRole.admin) }
+    Text("Editor").tag(AppUserRole.editor)
+    Text("Viewer").tag(AppUserRole.viewer)
+   }.disabled(protectedUser || user.accessDisabled || model.isBusy)
+   Button("Save Permissions") { Task { if await model.updateAppUser(user.userId, action: "update_role", role: role) { await refresh() } } }.disabled(protectedUser || user.accessDisabled || model.isBusy || role == user.appRole)
+   Button(user.accessDisabled ? "Restore Access" : "Remove Access") { Task { if await model.updateAppUser(user.userId, action: user.accessDisabled ? "restore_access" : "remove_access") { await refresh() } } }.disabled(protectedUser || model.isBusy)
+  }
+ }
 }

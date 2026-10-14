@@ -388,6 +388,8 @@ struct AppProfile: Codable, Sendable {
     let appRole: AppUserRole
     let churchId: UUID
     let isPlatformAdmin: Bool
+    var accessDisabled: Bool? = nil
+    var mustChangePassword: Bool? = nil
 }
 
 struct Church: Codable, Identifiable, Sendable {
@@ -470,3 +472,17 @@ extension Optional where Wrapped == String {
         return trimmed.isEmpty ? nil : trimmed
     }
 }
+
+struct ManagedAppUser: Codable, Identifiable, Sendable {
+ let userId: UUID
+ let email: String
+ let appRole: AppUserRole
+ let churchId: UUID
+ let isPlatformAdmin: Bool
+ let accessDisabled: Bool
+ let mustChangePassword: Bool
+ let enrolled: Bool
+ var id: UUID { userId }
+}
+struct ManagedAppUsersResult: Decodable { let users: [ManagedAppUser] }
+struct AppAccessResult: Decodable { let message: String }

@@ -132,12 +132,13 @@ export async function requireEditor(
 
   const { data: profile, error: profileError } = await client
     .from("profiles")
-    .select("app_role,church_id")
+    .select("app_role,church_id,access_disabled,must_change_password")
     .eq("user_id", user.id)
     .single();
   if (
     profileError ||
     !profile ||
+    profile.access_disabled || profile.must_change_password ||
     !["admin", "editor"].includes(profile.app_role)
     || typeof profile.church_id !== "string"
   ) {

@@ -295,4 +295,6 @@ or raw staff-only notes to `public_directory_entries`.
 
 The full app is https://ministryvolunteers.worf.app and requires staff login. The public report is /directory; the church website iframe uses /embed. Deploy with `pnpm run deploy` after Wrangler login. Data and Planning Center remain in the existing Supabase project. Configure Supabase Auth custom SMTP with smtp.resend.com, port 465, username resend, sender invitations@worf.app, and a Resend sending key restricted to worf.app. Never commit the SMTP key. Replies use Cloudflare Email Routing to jaworf@gmail.com.
 
-Version 1.1 (build 2) of the Apple apps uses the new password setup URL. Focus uses a rolling six-month term window; vote-required assignments without a vote date are valid and appear in Needing Votes.
+Version 1.1 (build 3) of the Apple apps uses the new password setup URL. Focus uses a rolling six-month term window; vote-required assignments without a vote date are valid and appear in Needing Votes.
+
+Administrators manage enrolled and pending accounts in Settings → Manage App Users. Permission changes and reversible access removal are scoped to the church and audited; self-removal, protected platform-admin changes, and last-admin removal are rejected. Temporary-password accounts must change their password before database access is granted. A server-side Auth password-change trigger clears that restriction. App Store review accounts may retain a fixed password when explicitly selected by the platform administrator. Emailed setup and recovery links expire after 24 hours.

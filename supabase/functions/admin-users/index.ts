@@ -8,7 +8,7 @@ const jsonHeaders = {
 };
 
 const defaultPasswordSetupURL =
-  "https://riverview-ministry-directory.jaworf.chatgpt.site/reset-password";
+  "https://ministryvolunteers.worf.app/reset-password";
 
 type InvitationRole = "admin" | "editor" | "viewer";
 
@@ -80,19 +80,46 @@ Deno.serve(async (request: Request) => {
 
     const { data: profile, error: profileError } = await admin
       .from("profiles")
-      .select("app_role,church_id,is_platform_admin")
+      .select("app_role,church_id,is_platform_admin,access_disabled,must_change_password")
       .eq("user_id", user.id)
       .single();
-    if (profileError || profile?.app_role !== "admin") {
-      return json(403, { error: "Only an administrator can create app users." });
+    if (profileError || profile?.app_role !== "admin" || profile.access_disabled || profile.must_change_password) {
+      return json(403, { error: "Only an active administrator can manage app users." });
     }
 
     const payload = (await request.json().catch(() => null)) as {
+      action?: unknown;
+      user_id?: unknown;
+      disabled?: unknown;
+      review_account?: unknown;
       email?: unknown;
       role?: unknown;
       church_id?: unknown;
       temporary_password?: unknown;
     } | null;
+    if (payload?.action === "list") {
+      let query = admin.from("profiles").select("user_id,display_name,app_role,church_id,is_platform_admin,access_disabled,must_change_password");
+      if (!profile.is_platform_admin) query = query.eq("church_id", profile.church_id);
+      const { data: profiles, error } = await query.order("display_name");
+      if (error) throw error;
+      const users = await Promise.all((profiles ?? []).map(async p => {
+        const { data, error } = await admin.auth.admin.getUserById(p.user_id);
+        if (error) throw error;
+        return { ...p, email: data.user.email, enrolled: Boolean(data.user.email_confirmed_at), last_sign_in_at: data.user.last_sign_in_at ?? null };
+      }));
+      return json(200, { users });
+    }
+    if (["update_role", "remove_access", "restore_access"].includes(String(payload?.action))) {
+      if (typeof payload?.user_id !== "string") return json(400, { error: "Choose an app user." });
+      const { error } = await admin.rpc("manage_app_user_access", {
+        p_actor_id: user.id, p_user_id: payload.user_id,
+        p_role: payload.action === "update_role" ? payload.role : null,
+        p_disabled: payload.action === "remove_access" ? true : payload.action === "restore_access" ? false : null,
+      });
+      if (error) return json(400, { error: error.message });
+      return json(200, { message: "App access updated." });
+    }
+    if (payload?.action && payload.action !== "invite") return json(400, { error: "Unknown user-management action." });
     const email =
       typeof payload?.email === "string"
         ? payload.email.trim().toLowerCase()
@@ -117,9 +144,8 @@ Deno.serve(async (request: Request) => {
       typeof payload?.temporary_password === "string"
         ? payload.temporary_password
         : "";
-    if (temporaryPassword && !profile.is_platform_admin) {
-      return json(403, { error: "Only the platform administrator can create a password-based review account." });
-    }
+    const reviewAccount = payload?.review_account === true;
+    if (reviewAccount && !profile.is_platform_admin) return json(403, { error: "Only the platform administrator can create review accounts." });
     if (temporaryPassword && temporaryPassword.length < 14) {
       return json(400, { error: "The temporary password must contain at least 14 characters." });
     }
@@ -135,6 +161,12 @@ Deno.serve(async (request: Request) => {
     const redirectTo =
       Deno.env.get("APP_PASSWORD_RESET_URL") ?? defaultPasswordSetupURL;
     const existingUser = await findUserByEmail(admin, email);
+    if (existingUser) {
+      const { data: existingProfile } = await admin.from("profiles").select("church_id,is_platform_admin,access_disabled,app_role").eq("user_id",existingUser.id).maybeSingle();
+      if (existingProfile?.access_disabled) return json(409, { error: "This user's app access was removed. Restore access from the user list first." });
+      if (existingUser.id === user.id && temporaryPassword) return json(400, { error: "Change your own password through password recovery." });
+      if (existingProfile?.is_platform_admin || (!profile.is_platform_admin && existingProfile && (existingProfile.church_id !== churchId || existingProfile.app_role === "admin"))) return json(403, { error: "You cannot change this account." });
+    }
     let userId: string;
     let responseStatus = 201;
     let responseMessage = "Setup email sent.";
@@ -147,7 +179,7 @@ Deno.serve(async (request: Request) => {
       if (updateError) return json(400, { error: updateError.message });
       userId = existingUser.id;
       responseStatus = 200;
-      responseMessage = "Review account password updated.";
+      responseMessage = reviewAccount ? "Review account password updated." : "Temporary password set. The user must change it at first login.";
     } else if (existingUser) {
       if (existingUser.email_confirmed_at) {
         return json(409, { error: "That email already has an active app account." });
@@ -165,13 +197,13 @@ Deno.serve(async (request: Request) => {
         email,
         password: temporaryPassword,
         email_confirm: true,
-        user_metadata: { full_name: "App Review" },
+        user_metadata: { full_name: reviewAccount ? "App Review" : email.split("@")[0] },
       });
       if (createError || !created.user) {
         return json(400, { error: createError?.message ?? "Supabase could not create the review user." });
       }
       userId = created.user.id;
-      responseMessage = "Password-based review account created.";
+      responseMessage = reviewAccount ? "Password-based review account created." : "Account created. The user must change the temporary password at first login.";
     } else {
       const { data: invitation, error: invitationError } =
         await admin.auth.admin.inviteUserByEmail(email, {
@@ -191,9 +223,10 @@ Deno.serve(async (request: Request) => {
       .upsert(
         {
           user_id: userId,
-          display_name: email.split("@")[0],
+          ...(!existingUser ? { display_name: email.split("@")[0] } : {}),
           app_role: role as InvitationRole,
           church_id: churchId,
+          ...(temporaryPassword ? { must_change_password: !reviewAccount } : {}),
         },
         { onConflict: "user_id" },
       );
