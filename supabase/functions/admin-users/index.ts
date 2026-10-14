@@ -83,7 +83,7 @@ Deno.serve(async (request: Request) => {
       .select("app_role,church_id,is_platform_admin,access_disabled,must_change_password")
       .eq("user_id", user.id)
       .single();
-    if (profileError || profile?.app_role !== "admin" || profile.access_disabled || profile.must_change_password) {
+    if (profileError || profile?.app_role !== "admin" || profile.access_disabled || profile.must_change_password || !profile.church_id) {
       return json(403, { error: "Only an active administrator can manage app users." });
     }
 
@@ -98,7 +98,7 @@ Deno.serve(async (request: Request) => {
       temporary_password?: unknown;
     } | null;
     if (payload?.action === "list") {
-      let query = admin.from("profiles").select("user_id,display_name,app_role,church_id,is_platform_admin,access_disabled,must_change_password");
+      let query = admin.from("profiles").select("user_id,display_name,app_role,church_id,is_platform_admin,access_disabled,must_change_password").not("church_id", "is", null);
       if (!profile.is_platform_admin) query = query.eq("church_id", profile.church_id);
       const { data: profiles, error } = await query.order("display_name");
       if (error) throw error;
@@ -163,6 +163,8 @@ Deno.serve(async (request: Request) => {
     const existingUser = await findUserByEmail(admin, email);
     if (existingUser) {
       const { data: existingProfile } = await admin.from("profiles").select("church_id,is_platform_admin,access_disabled,app_role").eq("user_id",existingUser.id).maybeSingle();
+      if (existingProfile?.church_id && (existingProfile.church_id !== churchId || existingProfile.app_role !== role)) return json(409, { error: "This account already exists. Change its permissions in Manage App Users; existing church membership is preserved." });
+      if (existingUser.email_confirmed_at && temporaryPassword && !reviewAccount) return json(409, { error: "This account is already active. Use Manage App Users for permissions, or password recovery to change its password." });
       if (existingProfile?.access_disabled) return json(409, { error: "This user's app access was removed. Restore access from the user list first." });
       if (existingUser.id === user.id && temporaryPassword) return json(400, { error: "Change your own password through password recovery." });
       if (existingProfile?.is_platform_admin || (!profile.is_platform_admin && existingProfile && (existingProfile.church_id !== churchId || existingProfile.app_role === "admin"))) return json(403, { error: "You cannot change this account." });

@@ -21,6 +21,7 @@ settings:
     INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: true
     INFOPLIST_KEY_UILaunchScreen_Generation: true
     CODE_SIGN_STYLE: Automatic
+    "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": RiverviewMinistry/macOS.entitlements
 
 targets:
   RiverviewMinistry:
