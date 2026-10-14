@@ -29,6 +29,14 @@ const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
+    if (url.hostname === "ministryvolunteers.worf.app" && url.pathname === "/") {
+      url.pathname = "/admin";
+      return new Response(null, {
+        status: 302,
+        headers: { Location: url.toString(), "Cache-Control": "no-store" },
+      });
+    }
+
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
       return handleImageOptimization(request, {

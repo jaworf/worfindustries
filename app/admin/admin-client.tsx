@@ -206,6 +206,17 @@ function normalizeError(error: unknown) {
   return "The request could not be completed.";
 }
 
+async function loadAllPeople(supabase: SupabaseClient) {
+  const people: Person[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabase.from("people").select("*")
+      .order("last_name").order("first_name").order("id").range(offset, offset + 999);
+    if (error) return { data: null, error };
+    people.push(...(data as Person[]));
+    if (data.length < 1000) return { data: people, error: null };
+  }
+}
+
 async function functionErrorMessage(error: unknown) {
   if (typeof error === "object" && error && "context" in error) {
     const context = (error as { context?: unknown }).context;
@@ -291,7 +302,7 @@ export function MinistryAdmin({
                   .select("user_id,display_name,app_role,church_id,is_platform_admin,churches(name,slug,support_email)")
                   .eq("user_id", userId)
                   .single(),
-                supabase.from("people").select("*").order("last_name").order("first_name"),
+                loadAllPeople(supabase),
                 supabase.from("roles").select("*").order("display_order").order("name"),
                 supabase.from("sub_roles").select("*").order("leadership_rank").order("name"),
                 supabase.from("terms").select("*").order("end_date", { ascending: false }),
