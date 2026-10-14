@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.110.8";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.110.8";
 import { corsHeaders } from "npm:@supabase/supabase-js@2.110.8/cors";
 
 const jsonHeaders = {
@@ -41,7 +41,7 @@ function serviceKey(): string {
 }
 
 async function findUserByEmail(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   email: string,
 ) {
   for (let page = 1; page <= 10; page += 1) {

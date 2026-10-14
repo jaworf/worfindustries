@@ -354,6 +354,12 @@ declare
   matched_count integer;
   ready_count integer;
 begin
+  -- A clean development database has no imported church roster. The historical
+  -- vote reconciliation is a no-op there; populated databases retain the strict
+  -- 93-assignment checks below.
+  if not exists (select 1 from public.people) then
+    return;
+  end if;
   select count(*)
   into matched_count
   from nomination_vote_targets t

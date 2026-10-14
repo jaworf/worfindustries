@@ -24,7 +24,7 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.2.0
-      - run: deno check supabase/functions/admin-users/index.ts supabase/functions/planning-center-sync/index.ts supabase/functions/planning-center-webhook/index.ts
+      - run: deno check --node-modules-dir=auto supabase/functions/admin-users/index.ts supabase/functions/planning-center-sync/index.ts supabase/functions/planning-center-webhook/index.ts
   database-security:
     runs-on: ubuntu-latest
     steps:
