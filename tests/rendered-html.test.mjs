@@ -26,7 +26,7 @@ async function render(pathname = "/") {
 }
 
 test("server-renders the public ministry directory", async () => {
-  const response = await render("/");
+  const response = await render("/directory");
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   assert.equal(
@@ -89,7 +89,7 @@ test("recovers from a briefly future-issued JWT without leaving a blank portal",
     "utf8",
   );
 
-  assert.match(adminClient, /isFutureJwtError/);
+  assert.match(await readFile(new URL("app/admin/admin-shared.ts", root), "utf8"), /isFutureJwtError/);
   assert.match(adminClient, /attempt < 3/);
   assert.match(adminClient, /await wait\(\(attempt \+ 1\) \* 1_200\)/);
   assert.match(adminClient, /Reconnect to ministry data/);
@@ -124,7 +124,7 @@ test("keeps public data limited to approved directory fields", async () => {
   assert.doesNotMatch(client, /<th>Term<\/th>/);
   assert.doesNotMatch(client, /data-label="Term"/);
   assert.doesNotMatch(client, /is_ordained|ordination/i);
-  const page = await readFile(new URL("app/page.tsx", root), "utf8");
+  const page = await readFile(new URL("app/directory/page.tsx", root), "utf8");
   assert.match(page, /SUPABASE_PUBLISHABLE_KEY/);
   assert.doesNotMatch(client, /service[_-]?role/i);
   assert.match(layout, /\/ministry-logo\.png/);
@@ -152,10 +152,10 @@ test("keeps ordination on people and out of the public iframe", async () => {
   );
 
   assert.match(adminClient, /is_ordained_deacon/);
-  assert.match(adminClient, /permanent person record/i);
+  assert.match(await readFile(new URL("app/admin/assign-view.tsx", root), "utf8"), /permanent person record/i);
   assert.match(adminClient, /Ordained Deacons/);
   assert.match(adminClient, /Ordination action/i);
-  assert.match(adminClient, /Awaiting ordination/i);
+  assert.match(adminClient, /Ordination Actions/i);
   assert.match(adminClient, /ordination status are intentionally excluded/i);
   assert.doesNotMatch(adminClient, /service[_-]?role/i);
   assert.match(models, /var isOrdainedDeacon: Bool/);

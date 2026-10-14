@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B611F0010000000000000001 /* FocusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B611F0010000000000000002 /* FocusView.swift */; };
 		01FEE2DE9B15976446ED19D0 /* PDFKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 404558B33BD2F1EEF561EED3 /* PDFKit.framework */; };
 		E21A4D961A5C4A11B87291F0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D17E386DE31D4E02A4C99124 /* Assets.xcassets */; };
 		10548F89AF5556FA03A54BC6 /* ReportGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B0229A245EA2E42F5C7BACE /* ReportGenerator.swift */; };
@@ -34,6 +35,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B611F0010000000000000002 /* FocusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusView.swift; sourceTree = "<group>"; };
 		113F77FA38284B131B948F77 /* RiverviewMinistryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiverviewMinistryApp.swift; sourceTree = "<group>"; };
 		12729D6DCEF8B428DB530DA5 /* DirectoryAndReportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectoryAndReportsView.swift; sourceTree = "<group>"; };
 		205A4DABAED0C73F2958D714 /* Riverview Ministry Volunteers.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Riverview Ministry Volunteers.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -82,6 +84,7 @@
 				3831A2FE9F60FCC270E859CD /* AssignmentEntryView.swift */,
 				FBD0A9251FACF249D4834243 /* CSVParser.swift */,
 				12729D6DCEF8B428DB530DA5 /* DirectoryAndReportsView.swift */,
+				B611F0010000000000000002 /* FocusView.swift */,
 				A8192A129B768735625B720D /* KeychainStore.swift */,
 				4678E027F70CE6D1FE1C0082 /* ManageAndSettingsView.swift */,
 				41FA8ACFBB66E3CDE9BDD599 /* Models.swift */,
@@ -224,6 +227,7 @@
 				9A2147F3F31FD5CA999B6216 /* AssignmentEntryView.swift in Sources */,
 				CA473992AF8FA0559047E3FF /* CSVParser.swift in Sources */,
 				6898E71C024D006078D4745F /* DirectoryAndReportsView.swift in Sources */,
+				B611F0010000000000000001 /* FocusView.swift in Sources */,
 				B513FCEB934B66E31E57BAF5 /* KeychainStore.swift in Sources */,
 				D4F83FC0D8EBD68E85139E71 /* ManageAndSettingsView.swift in Sources */,
 				6E0D194C1A92586FA9A9CD32 /* Models.swift in Sources */,

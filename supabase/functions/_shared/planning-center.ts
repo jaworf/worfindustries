@@ -167,7 +167,7 @@ function planningCenterHeaders(credentials?: PlanningCenterCredentials): Headers
     Accept: "application/json",
     Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
     "User-Agent":
-      "Riverview Ministry Volunteers (jason.worf@riverviewadventist.org)",
+      "Ministry Volunteers",
     "X-PCO-API-Version": planningCenterApiVersion,
   };
 }
@@ -321,11 +321,12 @@ export async function fetchPeoplePage(
 
 export async function fetchPerson(
   personId: string,
+  credentials?: PlanningCenterCredentials,
 ): Promise<{ externalId: string; record: MinistryPersonRecord }> {
   const url =
     `https://api.planningcenteronline.com/people/v2/people/${encodeURIComponent(personId)}` +
     "?include=emails,phone_numbers,addresses,name_suffix";
-  const response = await planningCenterRequest(url);
+  const response = await planningCenterRequest(url, credentials);
   if (Array.isArray(response.data)) {
     throw new Error("Expected one Planning Center person.");
   }

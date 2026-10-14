@@ -11,7 +11,9 @@
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
     "test": "pnpm run build && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "deploy": "pnpm run build && wrangler deploy --config dist/server/wrangler.json"
+    "deploy": "pnpm run build && wrangler deploy --config dist/server/wrangler.json",
+    "typecheck": "tsc --noEmit --incremental false",
+    "test:backend": "node --experimental-vm-modules --test tests/backend/*.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.110.8",

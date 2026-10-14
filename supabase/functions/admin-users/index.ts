@@ -162,7 +162,10 @@ Deno.serve(async (request: Request) => {
       Deno.env.get("APP_PASSWORD_RESET_URL") ?? defaultPasswordSetupURL;
     const existingUser = await findUserByEmail(admin, email);
     if (existingUser) {
-      const { data: existingProfile } = await admin.from("profiles").select("church_id,is_platform_admin,access_disabled,app_role").eq("user_id",existingUser.id).maybeSingle();
+      const { data: existingProfile, error: existingProfileError } = await admin.from("profiles").select("church_id,is_platform_admin,access_disabled,app_role").eq("user_id",existingUser.id).maybeSingle();
+      // Fail closed before any email, password, or membership mutation.
+      if (existingProfileError) throw existingProfileError;
+      if (!existingProfile?.church_id) return json(409, { error: "This account has no church membership. A platform administrator must resolve it separately." });
       if (existingProfile?.church_id && (existingProfile.church_id !== churchId || existingProfile.app_role !== role)) return json(409, { error: "This account already exists. Change its permissions in Manage App Users; existing church membership is preserved." });
       if (existingUser.email_confirmed_at && temporaryPassword && !reviewAccount) return json(409, { error: "This account is already active. Use Manage App Users for permissions, or password recovery to change its password." });
       if (existingProfile?.access_disabled) return json(409, { error: "This user's app access was removed. Restore access from the user list first." });
@@ -220,7 +223,11 @@ Deno.serve(async (request: Request) => {
       userId = invitation.user.id;
     }
 
-    const { error: profileUpdateError } = await admin
+    const { error: profileUpdateError } = existingUser
+      ? temporaryPassword
+        ? await admin.from("profiles").update({ must_change_password: !reviewAccount }).eq("user_id", userId).eq("church_id", churchId)
+        : { error: null }
+      : await admin
       .from("profiles")
       .upsert(
         {

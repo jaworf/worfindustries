@@ -4,11 +4,32 @@ Volunteer ministry management for Pasco Riverview Adventist Church.
 
 This repository contains:
 
-- one shared SwiftUI app for iPhone, iPad, and macOS;
+- a SwiftUI app released for iPhone and iPad (Mac users use the web app);
 - a Supabase database, security policies, seed data, and Planning Center sync;
 - a public, searchable, printable web directory with an iframe route;
 - conservative CSV import that deduplicates and enriches people without silently
   overwriting conflicting contact details.
+
+## Development and automated checks
+
+Use **Node.js 22.13.0 or newer** and pnpm 10.11.0. The minimum is recorded in
+`package.json` and `.node-version`. Install with `pnpm install --frozen-lockfile`.
+
+- `pnpm run lint`: ESLint.
+- `pnpm run typecheck`: TypeScript.
+- `pnpm run test:backend`: isolated tests against all three actual Edge Function
+  handlers, including cross-church invitations, restricted users, signature-bound
+  webhook routing, malformed payloads, and duplicate handling.
+- `pnpm test`: production web build and rendered-route checks.
+- Database regression: start disposable local Supabase, apply migrations, then
+  run `psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f tests/backend/database-security.sql`.
+  Fixtures and assertions run in a rolled-back transaction.
+
+GitHub Actions runs these checks on pushes and pull requests. No production
+credentials are needed. Web assignment state lives in `assign-view.tsx`, shared
+models/helpers in `admin-shared.ts`, and native Focus in `FocusView.swift`.
+The native macOS release is discontinued; its source is retained for historical
+reference, with no new macOS publication planned.
 
 ## What the app does
 
@@ -91,57 +112,41 @@ those mirrored fields in this database, including clearing a field that was
 cleared in Planning Center. The app never sends person changes to Planning Center;
 ministry roles, terms, votes, and assignments remain local to this app.
 
-For this one-church app, use a Planning Center Personal Access Token. This is
-the path the deployed functions currently implement, and it does not use an
-OAuth application or an authorization callback URL. Set:
+Each church connects its own Personal Access Token in Settings. These credentials
+are stored in Supabase Vault and retrieved only by service-role functions. Full
+sync uses the authenticated caller's church, never a church supplied in the body.
 
-- `PCO_CLIENT_ID` - Planning Center Personal Access Token application ID;
-- `PCO_CLIENT_SECRET` - Planning Center Personal Access Token secret;
-- `PCO_WEBHOOK_SECRET` - the webhook signing secret;
-- `PCO_API_VERSION` - optional; defaults to `2026-06-04`.
-
-The **Authorization callback URLs** field belongs only to an OAuth flow. Do not
-put the webhook URL in that field. If the app later needs to connect multiple
-churches, first add a server-side OAuth callback and token-storage flow, then
-register its exact HTTPS URL in Planning Center. A suitable future route would
-be:
-
-```text
-https://syyennvldkenqrcbvgaq.supabase.co/functions/v1/planning-center-oauth-callback
-```
-
-That callback function does not exist yet, so registering this URL by itself
-will not enable OAuth. A confidential Planning Center client secret must stay
-in Supabase and never be placed in the Apple or web app.
-
-Both functions are deployed, and the Personal Access Token credentials are set
-in the production project's Edge Function secrets. The webhook still requires a
-`PCO_WEBHOOK_SECRET` and a matching Planning Center webhook subscription before
-automatic event delivery is active.
-
-Function configuration:
-
-- `admin-users` with Supabase JWT verification enabled and an additional
-  administrator-role check inside the function;
-- `planning-center-sync` with Supabase JWT verification enabled;
-- `planning-center-webhook` with Supabase JWT verification disabled, because
-  the function verifies Planning Center's HMAC signature itself.
-
-Use this webhook endpoint in Planning Center:
+Webhooks use the endpoint:
 
 ```text
 https://syyennvldkenqrcbvgaq.supabase.co/functions/v1/planning-center-webhook
 ```
 
-Subscribe to People person-created and person-updated events. The webhook makes
-new or changed people available quickly. The app's **Sync Planning Center
-People** button performs a full reconciliation in case a webhook was missed.
+Set the server-only `PCO_WEBHOOK_CONNECTIONS` secret to a JSON array of
+`{"churchId":"church UUID","secret":"that subscription's signing secret"}`.
+Each secret must be unique. The verified signature determines church scope;
+request URL/body fields cannot select a church. That church must be active and
+have its own Planning Center credentials stored. Malformed signed payloads return
+400 before any delivery is recorded. Failed deliveries are retryable; completed
+and ignored deliveries are idempotent.
+
+For the existing single webhook, `PCO_WEBHOOK_CHURCH_ID` plus
+`PCO_WEBHOOK_SECRET` is a compatibility configuration. No church name or slug is
+hard-coded in the webhook. `PCO_API_VERSION` defaults to `2026-06-04`. The old
+`PCO_CLIENT_ID`/`PCO_CLIENT_SECRET` full-sync fallback remains restricted to the
+legacy Riverview connection; new churches must use their own Vault credentials.
+
+Deploy `admin-users` and `planning-center-sync` with JWT verification enabled.
+Deploy `planning-center-webhook` with JWT verification disabled, since Planning
+Center deliveries are authenticated with HMAC rather than Supabase sessions.
+Subscribe to People person-created and person-updated events. Use full sync to
+reconcile events missed during webhook setup.
 
 ## 3. Open the Apple app
 
 1. Open `ios/RiverviewMinistry.xcodeproj` in Xcode.
 2. Select the **RiverviewMinistry** scheme.
-3. Choose **My Mac**, an iPhone simulator, or a connected iPhone.
+3. Choose an iPhone/iPad simulator or a connected iPhone/iPad.
 4. In **Signing & Capabilities**, choose the church's Apple Developer team.
 5. Press Xcode's Run button.
 6. The production project URL and public publishable key are included in the
@@ -248,7 +253,7 @@ managed by Supabase Auth and are not stored by either web host.
 
 - Web production build: passed.
 - Web compiler/type build: passed.
-- ESLint: passed with 0 errors (one non-blocking SVG image optimization warning).
+- Historical verification below describes the initial release; current checks are defined above and in GitHub Actions.
 - Web route, privacy, print, password, and administrator-security tests: 7 passed.
 - macOS Swift type-check against Xcode 26.6 SDK: passed.
 - iOS Swift type-check against Xcode 26.6 SDK: passed.
@@ -295,6 +300,6 @@ or raw staff-only notes to `public_directory_entries`.
 
 The full app is https://ministryvolunteers.worf.app and requires staff login. The public report is /directory; the church website iframe uses /embed. Deploy with `pnpm run deploy` after Wrangler login. Data and Planning Center remain in the existing Supabase project. Configure Supabase Auth custom SMTP with smtp.resend.com, port 465, username resend, sender invitations@worf.app, and a Resend sending key restricted to worf.app. Never commit the SMTP key. Replies use Cloudflare Email Routing to jaworf@gmail.com.
 
-Version 1.1 (build 3) of the Apple apps uses the new password setup URL. Focus uses a rolling six-month term window; vote-required assignments without a vote date are valid and appear in Needing Votes.
+Version 1.1 (build 3) of the iPhone/iPad apps uses the new password setup URL. Focus uses a rolling six-month term window; vote-required assignments without a vote date are valid and appear in Needing Votes.
 
 Administrators manage enrolled and pending accounts in Settings → Manage App Users. Permission changes and reversible access removal are scoped to the church and audited; self-removal, protected platform-admin changes, and last-admin removal are rejected. Temporary-password accounts must change their password before database access is granted. A server-side Auth password-change trigger clears that restriction. App Store review accounts may retain a fixed password when explicitly selected by the platform administrator. Emailed setup and recovery links expire after 24 hours.

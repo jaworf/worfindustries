@@ -1,170 +1,115 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import {
-  adminClient,
-  fetchPerson,
-  mergePlanningCenterPerson,
-} from "../_shared/planning-center.ts";
+import { adminClient, fetchPerson, mergePlanningCenterPerson } from "../_shared/planning-center.ts";
 
-const jsonHeaders = {
-  "Content-Type": "application/json",
-};
-
-function bytesToHex(bytes: Uint8Array): string {
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+const headers = { "Content-Type": "application/json" };
+function json(status: number, value: unknown) {
+  return new Response(JSON.stringify(value), { status, headers });
 }
+type Connection = { churchId: string; secret: string };
+type Delivery = { id: string; attributes: { name: string; payload: string } };
 
-function timingSafeEqual(left: string, right: string): boolean {
-  if (left.length !== right.length) return false;
-  let mismatch = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    mismatch |= left.charCodeAt(index) ^ right.charCodeAt(index);
+function connections(): Connection[] {
+  const encoded = Deno.env.get("PCO_WEBHOOK_CONNECTIONS");
+  const configured = encoded ? JSON.parse(encoded) : [{
+    churchId: Deno.env.get("PCO_WEBHOOK_CHURCH_ID"),
+    secret: Deno.env.get("PCO_WEBHOOK_SECRET"),
+  }];
+  if (!Array.isArray(configured) || !configured.length || configured.some(item =>
+    typeof item?.churchId !== "string" || !item.churchId ||
+    typeof item?.secret !== "string" || !item.secret)) {
+    throw new Error("Configure each webhook signing secret with its church ID.");
   }
+  // A secret must identify exactly one church; URL/body fields never choose it.
+  if (new Set(configured.map(item => item.secret)).size !== configured.length) {
+    throw new Error("Each church must have a unique webhook signing secret.");
+  }
+  return configured;
+}
+async function validSignature(body: string, supplied: string, secret: string) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const bytes = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body)));
+  const expected = [...bytes].map(byte => byte.toString(16).padStart(2, "0")).join("");
+  const actual = supplied.toLowerCase().replace(/^sha256=/, "");
+  if (actual.length !== expected.length) return false;
+  let mismatch = 0;
+  for (let index = 0; index < expected.length; index++) mismatch |= expected.charCodeAt(index) ^ actual.charCodeAt(index);
   return mismatch === 0;
 }
-
-async function validSignature(body: string, supplied: string): Promise<boolean> {
-  const secret = Deno.env.get("PCO_WEBHOOK_SECRET");
-  if (!secret) throw new Error("Missing PCO_WEBHOOK_SECRET.");
-
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = new Uint8Array(
-    await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body)),
-  );
-  const expected = bytesToHex(signature);
-  const normalizedSupplied = supplied.toLowerCase().replace(/^sha256=/, "");
-  return timingSafeEqual(expected, normalizedSupplied);
+function deliveriesFrom(body: string): Delivery[] {
+  const payload = JSON.parse(body);
+  if (!Array.isArray(payload?.data) || payload.data.length > 100) throw new Error("Expected at most 100 deliveries.");
+  for (const delivery of payload.data) {
+    if (typeof delivery?.id !== "string" || !delivery.id ||
+        typeof delivery?.attributes?.name !== "string" ||
+        typeof delivery?.attributes?.payload !== "string") throw new Error("Invalid delivery structure.");
+    const nested = JSON.parse(delivery.attributes.payload);
+    if (delivery.attributes.name.match(/\.person\.(created|updated)$/) &&
+        (typeof nested?.data?.id !== "string" || !nested.data.id)) throw new Error("Webhook payload has no person ID.");
+  }
+  return payload.data;
 }
-
-type Delivery = {
-  id: string;
-  attributes: {
-    name: string;
-    payload: string;
-  };
-};
-
 Deno.serve(async (request: Request) => {
-  if (request.method !== "POST") {
-    return new Response(
-      JSON.stringify({ error: "Method not allowed." }),
-      { status: 405, headers: jsonHeaders },
-    );
-  }
-
-  const body = await request.text();
-  const suppliedSignature =
-    request.headers.get("X-PCO-Webhooks-Authenticity") ?? "";
-
-  if (!suppliedSignature || !(await validSignature(body, suppliedSignature))) {
-    return new Response(
-      JSON.stringify({ error: "Invalid webhook signature." }),
-      { status: 401, headers: jsonHeaders },
-    );
-  }
-
-  const payload = JSON.parse(body) as { data?: Delivery[] };
-  const deliveries = payload.data ?? [];
-  const supabase = adminClient();
-  // This legacy webhook endpoint belongs to Riverview's existing Planning
-  // Center webhook. Other churches use their own full sync connection.
-  const { data: riverview, error: churchError } = await supabase
-    .from("churches")
-    .select("id")
-    .eq("slug", "riverview")
-    .single();
-  if (churchError || !riverview) throw churchError ?? new Error("Riverview church not found.");
-  const results: Array<Record<string, unknown>> = [];
-
-  for (const delivery of deliveries) {
-    const eventName = delivery.attributes.name;
-    const { data: inserted, error: insertError } = await supabase
-      .from("webhook_deliveries")
-      .insert({
-        church_id: riverview.id,
-        source_system: "planning_center",
-        delivery_id: delivery.id,
-        event_name: eventName,
-        payload: delivery,
-      })
-      .select("id")
-      .maybeSingle();
-
-    if (insertError?.code === "23505") {
-      results.push({ delivery_id: delivery.id, status: "duplicate" });
-      continue;
+  if (request.method !== "POST") return json(405, { error: "Method not allowed." });
+  try {
+    const body = await request.text();
+    const signature = request.headers.get("X-PCO-Webhooks-Authenticity") ?? "";
+    if (!signature) return json(401, { error: "Invalid webhook signature." });
+    let connection: Connection | undefined;
+    for (const candidate of connections()) {
+      if (await validSignature(body, signature, candidate.secret)) connection = candidate;
     }
-    if (insertError) throw insertError;
-
-    try {
-      if (
-        !eventName.endsWith(".person.created") &&
-        !eventName.endsWith(".person.updated")
-      ) {
-        await supabase
-          .from("webhook_deliveries")
-          .update({
-            status: "ignored",
-            processed_at: new Date().toISOString(),
-          })
-          .eq("id", inserted!.id);
-        results.push({ delivery_id: delivery.id, status: "ignored" });
-        continue;
+    if (!connection) return json(401, { error: "Invalid webhook signature." });
+    let deliveries: Delivery[];
+    try { deliveries = deliveriesFrom(body); }
+    catch { return json(400, { error: "Malformed webhook payload." }); }
+    const supabase = adminClient();
+    const { data: church, error: churchError } = await supabase.from("churches")
+      .select("id,is_active").eq("id", connection.churchId).single();
+    if (churchError || !church?.is_active) return json(403, { error: "Webhook church is unavailable." });
+    const { data: rows, error: credentialsError } = await supabase.rpc("get_planning_center_credentials", { p_church_id: church.id });
+    if (credentialsError) throw credentialsError;
+    const credentials = rows?.[0];
+    if (!credentials?.application_id || !credentials?.secret) return json(503, { error: "Connect this church's Planning Center account before receiving webhooks." });
+    const results: Record<string, unknown>[] = [];
+    for (const delivery of deliveries) {
+      const eventName = delivery.attributes.name;
+      const { data: inserted, error: insertError } = await supabase.from("webhook_deliveries")
+        .insert({ church_id: church.id, source_system: "planning_center", delivery_id: delivery.id, event_name: eventName, payload: delivery })
+        .select("id").maybeSingle();
+      let deliveryRowId = inserted?.id;
+      if (insertError?.code === "23505") {
+        // Failed deliveries must remain retryable. Completed/ignored deliveries are idempotent.
+        const { data: prior, error: priorError } = await supabase.from("webhook_deliveries")
+          .select("id,status").eq("church_id", church.id).eq("source_system", "planning_center").eq("delivery_id", delivery.id).single();
+        if (priorError) throw priorError;
+        if (prior.status !== "failed") { results.push({ delivery_id: delivery.id, status: "duplicate" }); continue; }
+        deliveryRowId = prior.id;
+      } else if (insertError) throw insertError;
+      try {
+        let status = "ignored";
+        let outcome: Record<string, unknown> = {};
+        if (eventName.match(/\.person\.(created|updated)$/)) {
+          const personId = JSON.parse(delivery.attributes.payload).data.id;
+          const person = await fetchPerson(personId, { applicationId: credentials.application_id, secret: credentials.secret });
+          const merged = await mergePlanningCenterPerson(supabase, church.id, person, null);
+          if (merged.outcome === "error") throw new Error("Planning Center person merge failed.");
+          outcome = { outcome: merged.outcome, person_id: merged.person_id };
+          status = "completed";
+        }
+        const { error } = await supabase.from("webhook_deliveries").update({ status, error_message: null, processed_at: new Date().toISOString() }).eq("id", deliveryRowId).eq("church_id", church.id);
+        if (error) throw error;
+        results.push({ delivery_id: delivery.id, status, ...outcome });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const { error: saveError } = await supabase.from("webhook_deliveries").update({ status: "failed", error_message: message, processed_at: new Date().toISOString() }).eq("id", deliveryRowId).eq("church_id", church.id);
+        if (saveError) throw saveError;
+        results.push({ delivery_id: delivery.id, status: "failed" });
       }
-
-      const eventPayload = JSON.parse(delivery.attributes.payload) as {
-        data?: { id?: string };
-      };
-      const personId = eventPayload.data?.id;
-      if (!personId) throw new Error("Webhook payload has no person ID.");
-
-      const person = await fetchPerson(personId);
-      const mergeResult = await mergePlanningCenterPerson(
-        supabase,
-        riverview.id,
-        person,
-        null,
-      );
-
-      await supabase
-        .from("webhook_deliveries")
-        .update({
-          status: "completed",
-          processed_at: new Date().toISOString(),
-        })
-        .eq("id", inserted!.id);
-      results.push({
-        delivery_id: delivery.id,
-        status: "completed",
-        outcome: mergeResult.outcome,
-        person_id: mergeResult.person_id,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      await supabase
-        .from("webhook_deliveries")
-        .update({
-          status: "failed",
-          error_message: message,
-          processed_at: new Date().toISOString(),
-        })
-        .eq("id", inserted!.id);
-      results.push({
-        delivery_id: delivery.id,
-        status: "failed",
-        error: message,
-      });
     }
+    return json(results.some(result => result.status === "failed") ? 500 : 200, { deliveries: results });
+  } catch (error) {
+    console.error("Planning Center webhook failed:", error instanceof Error ? error.message : "Unexpected error");
+    return json(500, { error: "Webhook processing failed." });
   }
-
-  const failed = results.some((result) => result.status === "failed");
-  return new Response(
-    JSON.stringify({ deliveries: results }),
-    { status: failed ? 500 : 200, headers: jsonHeaders },
-  );
 });
