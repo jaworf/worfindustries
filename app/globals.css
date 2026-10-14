@@ -2000,3 +2000,7 @@ footer p {
     margin-left: auto;
   }
 }
+
+.admin-person-results { list-style:none; padding:0; margin:0; max-height:320px; overflow:auto; }
+.admin-person-results button { width:100%; text-align:left; padding:12px; border:1px solid #d1dce2; background:white; cursor:pointer; }
+.admin-person-results button:hover,.admin-person-results button:focus-visible { background:#e8f1f4; }

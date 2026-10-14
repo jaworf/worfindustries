@@ -174,29 +174,13 @@ struct AssignmentEntryView: View {
             }
 
             Section("Record details") {
+                Toggle("Record a vote date", isOn: $includeVoteDate)
+                if includeVoteDate {
+                    DatePicker("Vote date", selection: $selectedVoteDate, displayedComponents: .date)
+                }
                 if placementRequiresVote {
-                    LabeledContent("Church vote") {
-                        Text("Required")
-                            .foregroundStyle(.orange)
-                    }
-                    Text(voteRequirementDescription)
-                        .appFont(.footnote)
-                        .foregroundStyle(.secondary)
-                    DatePicker(
-                        "Vote date",
-                        selection: $selectedVoteDate,
-                        displayedComponents: .date
-                    )
-                    .onAppear { includeVoteDate = true }
-                } else {
-                    Toggle("Record a vote date", isOn: $includeVoteDate)
-                    if includeVoteDate {
-                        DatePicker(
-                            "Vote date",
-                            selection: $selectedVoteDate,
-                            displayedComponents: .date
-                        )
-                    }
+                    Text("Leave the date empty to add this placement to Needing Votes.")
+                        .appFont(.footnote).foregroundStyle(.secondary)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {

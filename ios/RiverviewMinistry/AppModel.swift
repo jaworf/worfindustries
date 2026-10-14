@@ -22,7 +22,7 @@ final class AppModel: ObservableObject {
     private let configurationKey = "supabase-configuration"
     private let sessionAccount = "supabase-session"
     private static let passwordResetURL = URL(
-        string: "https://riverview-ministry-directory.jaworf.chatgpt.site/reset-password"
+        string: "https://ministryvolunteers.worf.app/reset-password"
     )!
 
     private static var isRunningTests: Bool {

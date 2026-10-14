@@ -235,9 +235,6 @@ struct AssignmentRequirements: Equatable, Sendable {
         if requiresTerm, termId == nil {
             return "Choose a term because this ministry placement requires a church vote."
         }
-        if requiresChurchVote, voteDate == nil {
-            return "This ministry placement requires a church vote date."
-        }
         return nil
     }
 }

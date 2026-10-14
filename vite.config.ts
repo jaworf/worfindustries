@@ -12,6 +12,11 @@ const { d1, r2 } = hostingConfig;
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
 const localBindingConfig = {
+  name: "ministryvolunteers",
+  account_id: "677177c2fcb91aed88876b3ed76f12bc",
+  workers_dev: true,
+  routes: [{ pattern: "ministryvolunteers.worf.app", custom_domain: true }],
+  vars: { SUPABASE_URL: "https://syyennvldkenqrcbvgaq.supabase.co", SUPABASE_PUBLISHABLE_KEY: "sb_publishable_Nq87oxGP61lMI0QsaiXnsg_AGSjSAYT" },
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
   d1_databases: d1

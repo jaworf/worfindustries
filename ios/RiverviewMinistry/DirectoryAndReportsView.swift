@@ -1663,39 +1663,11 @@ struct FocusView: View {
         let data = makeViewData()
 
         Form {
-            Section {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 14) { summaryCards(data: data) }
-                    VStack(spacing: 10) { summaryCards(data: data) }
+            Section("Needing Votes") {
+                ForEach(model.assignments.filter { $0.isCurrentPlacement && $0.voteMissing }) { assignment in
+                    PendingVoteRow(assignment: assignment).disabled(!model.canEdit || model.isBusy)
                 }
-            } header: {
-                Text("Placement overview")
-            } footer: {
-                Text(
-                    "Queues update automatically as assignments are added, terms end, " +
-                    "or people arrive from Planning Center."
-                )
             }
-
-            Section {
-                if data.snapshot.ministryNeeds.isEmpty {
-                    Label("Every active ministry currently has coverage.", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                        .padding(.vertical, 12)
-                } else {
-                    ForEach(data.snapshot.ministryNeeds) { need in
-                        MinistryFocusRow(need: need, assign: assign)
-                    }
-                }
-            } header: {
-                Text("Ministry Watch")
-            } footer: {
-                Text(
-                    "A ministry appears here when it has no active volunteer or when the " +
-                    "most recently completed position has fewer replacements than outgoing volunteers."
-                )
-            }
-
             Section {
                 if data.ordinationNeeds.isEmpty {
                     Label(
@@ -1710,11 +1682,46 @@ struct FocusView: View {
                     }
                 }
             } header: {
-                Text("Ordination Action")
+                Text("Ordination Actions")
             } footer: {
                 Text(
                     "This queue shows current Deacons, Deaconesses, and Elders whose matching " +
                     "permanent ordination record is not checked. Ordination is never included in reports."
+                )
+            }
+
+            Section("Terms ending in the next 6 months") {
+                ForEach(model.assignments.filter { assignment in
+                    guard assignment.isCurrentPlacement, let end = assignment.endDateValue,
+                          let cutoff = Calendar.autoupdatingCurrent.date(byAdding: .month, value: 6, to: Date()) else { return false }
+                    return end >= Calendar.autoupdatingCurrent.startOfDay(for: Date()) && end <= cutoff
+                }) { assignment in
+                    Button {
+                        assign(AssignmentRoute(personId: assignment.personId, roleId: assignment.roleId, subRoleId: assignment.subRoleId))
+                    } label: {
+                        VStack(alignment: .leading) {
+                            Text(assignment.personName).fontWeight(.semibold)
+                            Text(assignment.roleName).foregroundStyle(.secondary)
+                        }
+                    }.disabled(!model.canEdit)
+                }
+            }
+            Section {
+                if data.snapshot.ministryNeeds.isEmpty {
+                    Label("Every active ministry currently has coverage.", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .padding(.vertical, 12)
+                } else {
+                    ForEach(data.snapshot.ministryNeeds) { need in
+                        MinistryFocusRow(need: need, assign: assign)
+                    }
+                }
+            } header: {
+                Text("Ministries Needing Volunteers")
+            } footer: {
+                Text(
+                    "A ministry appears here when it has no active volunteer or when the " +
+                    "most recently completed position has fewer replacements than outgoing volunteers."
                 )
             }
 

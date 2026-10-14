@@ -210,8 +210,8 @@ private struct EditRoleSheet: View {
                     Text("Available positions")
                 } footer: {
                     Text(
-                        "Each position belongs only to this ministry. A vote date is required " +
-                        "when either the ministry or the position's church-vote toggle is on."
+                        "Each position belongs only to this ministry. Leave the vote date blank " +
+                        "to place a vote-required assignment in Needing Votes."
                     )
                 }
 

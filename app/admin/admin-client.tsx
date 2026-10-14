@@ -19,6 +19,7 @@ type Tab =
   | "manage"
   | "reports"
   | "settings";
+type AssignmentRoute = { personId?: string; ministryId?: string };
 type OrdinationKind = "deacon" | "deaconess" | "elder";
 
 type Profile = {
@@ -205,6 +206,22 @@ function normalizeError(error: unknown) {
   return "The request could not be completed.";
 }
 
+async function functionErrorMessage(error: unknown) {
+  if (typeof error === "object" && error && "context" in error) {
+    const context = (error as { context?: unknown }).context;
+    if (context instanceof Response) {
+      try {
+        const body = await context.clone().json();
+        const message = body.error ?? body.message;
+        if (typeof message === "string" && message.trim()) return message;
+      } catch {
+        // Keep the SDK message if the response is not JSON.
+      }
+    }
+  }
+  return normalizeError(error);
+}
+
 function isFutureJwtError(error: unknown) {
   return normalizeError(error).toLowerCase().includes("jwt issued at future");
 }
@@ -250,6 +267,8 @@ export function MinistryAdmin({
   const [profile, setProfile] = useState<Profile | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot>(emptySnapshot);
   const [activeTab, setActiveTab] = useState<Tab>("focus");
+  const [assignmentRoute, setAssignmentRoute] = useState<AssignmentRoute>({});
+  const openAssign = (route: AssignmentRoute) => { setAssignmentRoute(route); setActiveTab("assign"); };
   const [booting, setBooting] = useState(true);
   const [loading, setLoading] = useState(false);
   const [working, setWorking] = useState(false);
@@ -297,7 +316,8 @@ export function MinistryAdmin({
               throw new Error("This login has not been assigned an app access role.");
             }
 
-            setProfile(profileResult.data as Profile);
+            const profileData = profileResult.data;
+            setProfile({ ...profileData, churches: Array.isArray(profileData.churches) ? profileData.churches[0] : profileData.churches } as Profile);
             setSnapshot({
               people: (peopleResult.data ?? []) as Person[],
               ministries: (ministryResult.data ?? []) as Ministry[],
@@ -472,6 +492,7 @@ export function MinistryAdmin({
             <>
               {activeTab === "focus" && (
                 <FocusView
+                  onAssign={openAssign}
                   supabase={supabase}
                   snapshot={snapshot}
                   canEdit={canEdit}
@@ -481,6 +502,7 @@ export function MinistryAdmin({
               )}
               {activeTab === "assign" && (
                 <AssignView
+                  initialRoute={assignmentRoute}
                   supabase={supabase}
                   snapshot={snapshot}
                   canEdit={canEdit}
@@ -656,127 +678,32 @@ function SectionHeading({ title, detail }: { title: string; detail: string }) {
   );
 }
 
-function FocusView({
-  supabase,
-  snapshot,
-  canEdit,
-  working,
-  mutate,
-}: {
-  supabase: SupabaseClient;
-  snapshot: Snapshot;
-  canEdit: boolean;
-  working: boolean;
-  mutate: MutationRunner;
+function FocusView({ supabase, snapshot, canEdit, working, mutate, onAssign }: {
+  supabase: SupabaseClient; snapshot: Snapshot; canEdit: boolean; working: boolean;
+  mutate: MutationRunner; onAssign: (route: AssignmentRoute) => void;
 }) {
-  const currentAssignments = snapshot.assignments.filter(isCurrent);
-  const occupiedMinistries = new Set(currentAssignments.map((item) => item.role_id));
-  const emptyMinistries = snapshot.ministries
-    .filter((ministry) => ministry.is_active && !occupiedMinistries.has(ministry.id))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const assignedPeople = new Set(currentAssignments.map((item) => item.person_id));
-  const unassigned = snapshot.people
-    .filter((person) => person.is_active && !assignedPeople.has(person.id))
-    .sort((a, b) => {
-      const priority = membershipPriority(a.membership_status) - membershipPriority(b.membership_status);
-      return priority || a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name);
-    });
-  const awaitingVotes = currentAssignments.filter((item) => item.vote_missing);
-  const oneYear = new Date();
-  oneYear.setFullYear(oneYear.getFullYear() + 1);
-  const oneYearISO = oneYear.toISOString().slice(0, 10);
-  const endingSoon = currentAssignments.filter(
-    (item) => item.end_date && item.end_date >= todayISO() && item.end_date <= oneYearISO,
-  );
-  const peopleById = new Map(snapshot.people.map((person) => [person.id, person]));
-  const ordinationNeedMap = new Map<
-    string,
-    { person: Person; kind: OrdinationKind; assignment: Assignment }
-  >();
-  for (const assignment of currentAssignments) {
-    const kind = ordinationKind(assignment.role_name);
-    const person = peopleById.get(assignment.person_id);
-    if (!kind || !person?.is_active || person[ordinationField(kind)]) continue;
-    ordinationNeedMap.set(`${person.id}-${kind}`, { person, kind, assignment });
-  }
-  const ordinationNeeds = [...ordinationNeedMap.values()].sort(
-    (a, b) =>
-      a.assignment.role_name.localeCompare(b.assignment.role_name) ||
-      a.person.last_name.localeCompare(b.person.last_name) ||
-      a.person.first_name.localeCompare(b.person.first_name),
-  );
-
-  return (
-    <>
-      <SectionHeading
-        title="Placement Focus"
-        detail="A prioritized view of ministries and people that need attention."
-      />
-      <div className="admin-stat-grid">
-        <StatCard value={emptyMinistries.length} label="Empty ministries" tone="urgent" />
-        <StatCard value={awaitingVotes.length} label="Awaiting church vote" tone="gold" />
-        <StatCard value={endingSoon.length} label="Terms ending within a year" tone="blue" />
-        <StatCard value={unassigned.length} label="People without a role" tone="green" />
-        <StatCard value={ordinationNeeds.length} label="Awaiting ordination" tone="urgent" />
-      </div>
-      <div className="admin-two-column">
-        <FocusList
-          title="Ministries needing a volunteer"
-          empty="Every active ministry has at least one current volunteer."
-          items={emptyMinistries.map((ministry) => ({
-            title: ministry.name,
-            detail: "No active placement",
-          }))}
-        />
-        <FocusList
-          title="Awaiting church vote"
-          empty="No active placements are waiting for a vote."
-          items={awaitingVotes.map((assignment) => ({
-            title: assignment.person_name,
-            detail: `${assignment.role_name}${assignment.sub_role_name ? ` · ${assignment.sub_role_name}` : ""}`,
-          }))}
-        />
-        <FocusList
-          title="Ordination action"
-          empty="Every current Deacon, Deaconess, and Elder is marked ordained."
-          items={ordinationNeeds.map(({ person, kind, assignment }) => ({
-            title: personName(person),
-            detail: `${assignment.role_name} · ${ordinationLabel(kind)} is not checked`,
-            actionLabel: canEdit ? `Mark ${ordinationLabel(kind)}` : undefined,
-            actionDisabled: working,
-            onAction: canEdit
-              ? () => {
-                  void mutate("Ordination record updated.", async () => {
-                    const { error } = await supabase
-                      .from("people")
-                      .update({ [ordinationField(kind)]: true })
-                      .eq("id", person.id);
-                    if (error) throw error;
-                  });
-                }
-              : undefined,
-          }))}
-        />
-        <FocusList
-          title="Terms ending within one year"
-          empty="No current terms end within the next year."
-          items={endingSoon.map((assignment) => ({
-            title: assignment.person_name,
-            detail: `${assignment.role_name} · ends ${formatDate(assignment.end_date)}`,
-          }))}
-        />
-        <FocusList
-          title="Volunteer activation"
-          empty="Every active person has a current role."
-          items={unassigned.slice(0, 80).map((person) => ({
-            title: personName(person),
-            detail: person.membership_status || "Membership status not recorded",
-            emphasized: membershipPriority(person.membership_status) === 0,
-          }))}
-        />
-      </div>
-    </>
-  );
+  const current = snapshot.assignments.filter(isCurrent);
+  const needingVotes = current.filter(a => a.vote_missing);
+  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() + 6);
+  const ending = current.filter(a => a.end_date && a.end_date >= todayISO() && a.end_date <= cutoff.toISOString().slice(0,10));
+  const assigned = new Set(current.map(a => a.person_id));
+  const unassigned = snapshot.people.filter(p => p.is_active && !assigned.has(p.id)).sort((a,b) => membershipPriority(a.membership_status)-membershipPriority(b.membership_status) || a.last_name.localeCompare(b.last_name));
+  const occupied = new Set(current.map(a => a.role_id));
+  const empty = snapshot.ministries.filter(m => m.is_active && !occupied.has(m.id));
+  const people = new Map(snapshot.people.map(p => [p.id,p]));
+  const needs = new Map<string,{person:Person;kind:OrdinationKind;assignment:Assignment}>();
+  for (const assignment of current) { const kind = ordinationKind(assignment.role_name); const person = people.get(assignment.person_id); if (kind && person?.is_active && !person[ordinationField(kind)]) needs.set(person.id+kind,{person,kind,assignment}); }
+  return <>
+    <SectionHeading title="Placement Focus" detail="Choose a person or action to resolve the items below." />
+    <section className="admin-card"><h3>Needing Votes</h3>
+      {!needingVotes.length && <p>No placements are waiting for a vote.</p>}
+      {needingVotes.map(assignment => <VoteRow key={assignment.id} assignment={assignment} canEdit={canEdit} working={working} save={async date => { await mutate("Church vote recorded.",async () => { const {error}=await supabase.from("assignments").update({vote_date:date}).eq("id",assignment.id); if(error) throw error; }); }} />)}
+    </section>
+    <FocusList title="Ordination Actions" empty="Every current Deacon, Deaconess, and Elder is marked ordained." items={[...needs.values()].map(({person,kind,assignment}) => ({title:personName(person),detail:assignment.role_name,actionLabel:canEdit ? "Mark ordained" : undefined,actionDisabled:working,onAction:() => { void mutate("Ordination record updated.",async () => { const {error}=await supabase.from("people").update({[ordinationField(kind)]:true}).eq("id",person.id); if(error) throw error; }); }}))} />
+    <FocusList title="Terms ending in the next 6 months" empty="No current terms end in the next 6 months." items={ending.map(a => ({title:a.person_name,detail:a.role_name+" · ends "+formatDate(a.end_date),actionLabel:canEdit ? "Assign ministry" : undefined,onAction:() => onAssign({personId:a.person_id,ministryId:a.role_id})}))} />
+    <FocusList title="Ministries Needing Volunteers" empty="Every active ministry has a current volunteer." items={empty.map(m => ({title:m.name,detail:"No active placement",actionLabel:canEdit ? "Assign volunteer" : undefined,onAction:() => onAssign({ministryId:m.id})}))} />
+    <FocusList title="Volunteer Activation" empty="Every active person has a current role." items={unassigned.map(p => ({title:personName(p),detail:p.membership_status || "Membership not recorded",emphasized:membershipPriority(p.membership_status)===0,actionLabel:canEdit ? "Assign ministry" : undefined,onAction:() => onAssign({personId:p.id})}))} />
+  </>;
 }
 
 function StatCard({
@@ -821,7 +748,7 @@ function FocusList({
         <ul>
           {items.map((item, index) => (
             <li key={`${item.title}-${item.detail}-${index}`} className={item.emphasized ? "priority" : ""}>
-              <strong>{item.title}</strong>
+              {item.onAction && item.actionLabel ? <button type="button" className="button button-link" disabled={item.actionDisabled} onClick={item.onAction}>{item.title}</button> : <strong>{item.title}</strong>}
               <span>{item.detail}</span>
               {item.actionLabel && item.onAction && (
                 <button
@@ -843,12 +770,14 @@ function FocusList({
 type MutationRunner = (successMessage: string, action: () => Promise<void>) => Promise<boolean>;
 
 function AssignView({
+  initialRoute,
   supabase,
   snapshot,
   canEdit,
   working,
   mutate,
 }: {
+  initialRoute: AssignmentRoute;
   supabase: SupabaseClient;
   snapshot: Snapshot;
   canEdit: boolean;
@@ -857,12 +786,12 @@ function AssignView({
 }) {
   const [newPerson, setNewPerson] = useState(false);
   const [personQuery, setPersonQuery] = useState("");
-  const [personId, setPersonId] = useState("");
+  const [personId, setPersonId] = useState(initialRoute.personId ?? "");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [ministryId, setMinistryId] = useState("");
+  const [ministryId, setMinistryId] = useState(initialRoute.ministryId ?? "");
   const [positionId, setPositionId] = useState("");
   const [termId, setTermId] = useState("");
   const [voteDate, setVoteDate] = useState("");
@@ -925,7 +854,6 @@ function AssignView({
       return setFormError("Enter the new position name.");
     }
     if (requiresVote && !termId) return setFormError("A term is required for a voted role.");
-    if (requiresVote && !voteDate) return setFormError("Enter the church vote date.");
 
     const succeeded = await mutate("Volunteer assignment saved.", async () => {
       let savedPersonId = personId;
@@ -1047,20 +975,14 @@ function AssignView({
                   type="search"
                   placeholder="Name, email, phone, or membership"
                   value={personQuery}
-                  onChange={(event) => setPersonQuery(event.target.value)}
+                  onChange={(event) => {setPersonQuery(event.target.value); setPersonId("");}}
                 />
               </label>
-              <label>
-                Person
-                <select value={personId} onChange={(event) => setPersonId(event.target.value)} required>
-                  <option value="">Choose a person</option>
-                  {people.slice(0, 200).map((person) => (
-                    <option key={person.id} value={person.id}>
-                      {personName(person)}{person.membership_status ? ` — ${person.membership_status}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="full" aria-label="Matching volunteers">
+                {personQuery.trim() && !personId && <ul className="admin-person-results">{people.slice(0,30).map(person => <li key={person.id}><button type="button" onClick={() => {setPersonId(person.id);setPersonQuery(personName(person));}}>{personName(person)}{person.membership_status ? " — "+person.membership_status : ""}</button></li>)}</ul>}
+                {personQuery.trim() && !personId && !people.length && <p>No matching volunteers.</p>}
+                {selectedPerson && <p>Selected: <strong>{personName(selectedPerson)}</strong></p>}
+              </div>
             </div>
           )}
         </fieldset>
@@ -1112,12 +1034,12 @@ function AssignView({
             </label>
             {(requiresVote || voteDate) && (
               <label>
-                Church vote date {requiresVote ? "(required)" : ""}
-                <input type="date" value={voteDate} onChange={(event) => setVoteDate(event.target.value)} required={requiresVote} />
+                Church vote date (optional)
+                <input type="date" value={voteDate} onChange={(event) => setVoteDate(event.target.value)} />
               </label>
             )}
           </div>
-          {!requiresVote && (
+          {(
             <button type="button" className="button button-link align-left" onClick={() => setVoteDate(voteDate ? "" : todayISO())}>
               {voteDate ? "Remove optional vote date" : "Add an optional vote date"}
             </button>
@@ -1135,6 +1057,7 @@ function AssignView({
           </fieldset>
         )}
 
+        <p>Leave the vote date empty to place a voted role in Needing Votes.</p>
         <fieldset disabled={!canEdit || working}>
           <legend>Assignment details</legend>
           <label>
@@ -1611,7 +1534,7 @@ function VoteView({
               save={async (voteDate) => {
                 await mutate("Church vote recorded.", async () => {
                   const { error } = await supabase.from("assignments").update({ vote_date: voteDate }).eq("id", assignment.id);
-                  if (error) throw error;
+                  if (error) throw new Error(await functionErrorMessage(error));
                 });
               }}
             />
@@ -1786,7 +1709,7 @@ function ReportsView() {
         <div>
           <h3>Printable Ministry Directory</h3>
           <p>The report includes current public placements and approved notes. Contact details and ordination status are intentionally excluded.</p>
-          <a className="button button-primary" href="/" target="_blank" rel="noreferrer">Open Full Report</a>
+          <a className="button button-primary" href="/directory" target="_blank" rel="noreferrer">Open Full Report</a>
         </div>
         <iframe className="admin-report-frame" src="/embed" title="Printable ministry directory report preview" />
       </section>
@@ -1873,7 +1796,7 @@ function SettingsView({
               <button className="button button-primary admin-check-bottom" disabled={working || !inviteEmail.trim()} onClick={async () => {
                 const succeeded = await mutate("Setup email sent. Use the newest message.", async () => {
                   const { error } = await supabase.functions.invoke("admin-users", { body: { email: inviteEmail.trim(), role: inviteRole, church_id: inviteChurchId, temporary_password: temporaryPassword || undefined } });
-                  if (error) throw error;
+                  if (error) throw new Error(await functionErrorMessage(error));
                 });
                 if (succeeded) { setInviteEmail(""); setTemporaryPassword(""); }
               }}>Create or Resend Setup Email</button>

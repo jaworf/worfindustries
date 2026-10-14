@@ -204,7 +204,7 @@ After the public site is deployed, embed the compact route on
 
 ```html
 <iframe
-  src="https://riverview-ministry-directory.jaworf.chatgpt.site/embed"
+  src="https://ministryvolunteers.worf.app/embed"
   title="Riverview volunteer ministry directory"
   width="100%"
   height="1100"
@@ -289,3 +289,10 @@ The staff app can contain personal contact information. The public web view must
 remain limited to names, ministries, positions, terms, recorded vote dates, and
 notes that staff explicitly approve for reports/web. Do not add contact columns
 or raw staff-only notes to `public_directory_entries`.
+
+
+## Cloudflare production
+
+The full app is https://ministryvolunteers.worf.app and requires staff login. The public report is /directory; the church website iframe uses /embed. Deploy with `pnpm run deploy` after Wrangler login. Data and Planning Center remain in the existing Supabase project. Configure Supabase Auth custom SMTP with smtp.resend.com, port 465, username resend, sender invitations@worf.app, and a Resend sending key restricted to worf.app. Never commit the SMTP key. Replies use Cloudflare Email Routing to jaworf@gmail.com.
+
+Version 1.1 (build 2) of the Apple apps uses the new password setup URL. Focus uses a rolling six-month term window; vote-required assignments without a vote date are valid and appear in Needing Votes.
