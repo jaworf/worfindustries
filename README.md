@@ -139,8 +139,12 @@ legacy Riverview connection; new churches must use their own Vault credentials.
 Deploy `admin-users` and `planning-center-sync` with JWT verification enabled.
 Deploy `planning-center-webhook` with JWT verification disabled, since Planning
 Center deliveries are authenticated with HMAC rather than Supabase sessions.
-Subscribe to People person-created and person-updated events. Use full sync to
-reconcile events missed during webhook setup.
+Subscribe to People person-created/person-updated events and Address, Email,
+and Phone Number created/updated/destroyed events (11 events total). Contact
+payloads identify their owning Person; the handler refreshes that person's full
+contact record, including clearing deleted contact values. Full sync reconciles
+events missed during setup. Person deletion/merger events are not subscribed:
+those require an explicit history-preserving reconciliation policy.
 
 ## 3. Open the Apple app
 

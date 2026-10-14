@@ -124,11 +124,11 @@ async function signed(body,secret='secret-b') {
   const key=await webcrypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
   return Buffer.from(await webcrypto.subtle.sign('HMAC',key,new TextEncoder().encode(body))).toString('hex');
 }
-const delivery=JSON.stringify({church_id:'church-a',data:[{id:'event-1',attributes:{name:'people.v2.person.deleted',payload:'{}'}}]});
+const delivery=JSON.stringify({church_id:'church-a',data:[{id:'event-1',attributes:{name:'people.v2.events.person.deleted',payload:'{}'}}]});
 test('webhook authenticates before any database operation',async()=>{
   const {request,calls}=await handler('planning-center-webhook');assert.equal((await request(delivery,{'X-PCO-Webhooks-Authenticity':'invalid'})).status,401);assert.equal(calls.length,0);
 });
-for(const body of ['{','{"data":{}}',JSON.stringify({data:[{id:'event',attributes:{name:'people.v2.person.updated',payload:'{'}}]})]) test('signed malformed webhook returns 400 without writes '+body,async()=>{
+for(const body of ['{','{"data":{}}',JSON.stringify({data:[{id:'event',attributes:{name:'people.v2.events.person.updated',payload:'{'}}]})]) test('signed malformed webhook returns 400 without writes '+body,async()=>{
   const {request,calls}=await handler('planning-center-webhook');assert.equal((await request(body,{'X-PCO-Webhooks-Authenticity':await signed(body)})).status,400);assert.equal(calls.length,0);
 });
 test('signature chooses church B despite forged body church A',async()=>{
@@ -143,7 +143,7 @@ test('duplicate webhook has no new person fetch',async()=>{
 test('missing or ambiguous webhook configuration returns controlled 500',async()=>{
   const {request}=await handler('planning-center-webhook',{env:{PCO_WEBHOOK_CONNECTIONS:'[]'}});assert.equal((await request(delivery,{'X-PCO-Webhooks-Authenticity':await signed(delivery)})).status,500);
 });
-const personEvent=JSON.stringify({data:[{id:'event-person',attributes:{name:'people.v2.person.updated',payload:JSON.stringify({data:{id:'pco-person'}})}}]});
+const personEvent=JSON.stringify({data:[{id:'event-person',attributes:{name:'people.v2.events.person.updated',payload:JSON.stringify({data:{id:'pco-person'}})}}]});
 test('person webhook fetch and merge both use signature-bound church credentials',async()=>{
  const {request,calls}=await handler('planning-center-webhook',{person:{type:'Person',id:'pco-person',attributes:{first_name:'Test',last_name:'Person'}}});
  assert.equal((await request(personEvent,{'X-PCO-Webhooks-Authenticity':await signed(personEvent)})).status,200);
@@ -159,4 +159,19 @@ test('database merge failure yields controlled 500 and records retryable deliver
  const {request,calls}=await handler('planning-center-webhook',{rpcData:{outcome:'error'},person:{type:'Person',id:'pco-person',attributes:{first_name:'Test',last_name:'Person'}}});
  assert.equal((await request(personEvent,{'X-PCO-Webhooks-Authenticity':await signed(personEvent)})).status,500);
  assert.equal(calls.filter(item=>item[0]==='webhook_deliveries'&&item[1]==='update').at(-1)[2].status,'failed');
+});
+
+for (const resource of ['email','phone_number','address']) {
+ for (const action of ['created','updated','destroyed']) test(`contact ${resource}.${action} refreshes its owning person`, async () => {
+  const body=JSON.stringify({data:[{id:'contact-event',attributes:{name:`people.v2.events.${resource}.${action}`,payload:JSON.stringify({data:{id:'contact-id',relationships:{person:{data:{type:'Person',id:'parent-person'}}}}})}}]});
+  const {request,calls}=await handler('planning-center-webhook',{person:{type:'Person',id:'parent-person',attributes:{first_name:'Test',last_name:'Person'}}});
+  assert.equal((await request(body,{'X-PCO-Webhooks-Authenticity':await signed(body)})).status,200);
+  assert.match(calls.find(item=>item[0]==='fetch')[1], /people\/parent-person\?/);
+  assert.equal(calls.find(item=>item[1]==='sync_planning_center_person_for_church')[2].p_church_id,'church-b');
+ });
+}
+test('contact events without their owner fail before database writes',async()=>{
+ const body=JSON.stringify({data:[{id:'contact-event',attributes:{name:'people.v2.events.email.updated',payload:JSON.stringify({data:{id:'contact-id'}})}}]});
+ const {request,calls}=await handler('planning-center-webhook');
+ assert.equal((await request(body,{'X-PCO-Webhooks-Authenticity':await signed(body)})).status,400); assert.equal(calls.length,0);
 });

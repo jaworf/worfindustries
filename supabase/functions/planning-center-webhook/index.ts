@@ -36,6 +36,21 @@ async function validSignature(body: string, supplied: string, secret: string) {
   for (let index = 0; index < expected.length; index++) mismatch |= expected.charCodeAt(index) ^ actual.charCodeAt(index);
   return mismatch === 0;
 }
+function changedPersonId(delivery: Delivery): string | null {
+  const event = delivery.attributes.name;
+  const payload = JSON.parse(delivery.attributes.payload);
+  if (/^people\.v2\.events\.person\.(created|updated)$/.test(event)) return payload?.data?.id ?? null;
+  if (/^people\.v2\.events\.(email|phone_number|address)\.(created|updated|destroyed)$/.test(event)) {
+    // The contact ID is not a Person ID. Fetch its owning person, including all
+    // current contacts, so deletions clear mirrored fields too.
+    const person = payload?.data?.relationships?.person?.data;
+    return person?.type === "Person" ? person.id : null;
+  }
+  return null;
+}
+function isPersonChange(event: string) {
+  return /^people\.v2\.events\.(person\.(created|updated)|(email|phone_number|address)\.(created|updated|destroyed))$/.test(event);
+}
 function deliveriesFrom(body: string): Delivery[] {
   const payload = JSON.parse(body);
   if (!Array.isArray(payload?.data) || payload.data.length > 100) throw new Error("Expected at most 100 deliveries.");
@@ -43,9 +58,11 @@ function deliveriesFrom(body: string): Delivery[] {
     if (typeof delivery?.id !== "string" || !delivery.id ||
         typeof delivery?.attributes?.name !== "string" ||
         typeof delivery?.attributes?.payload !== "string") throw new Error("Invalid delivery structure.");
-    const nested = JSON.parse(delivery.attributes.payload);
-    if (delivery.attributes.name.match(/\.person\.(created|updated)$/) &&
-        (typeof nested?.data?.id !== "string" || !nested.data.id)) throw new Error("Webhook payload has no person ID.");
+    JSON.parse(delivery.attributes.payload);
+    if (isPersonChange(delivery.attributes.name)) {
+      const id = changedPersonId(delivery);
+      if (typeof id !== "string" || !id) throw new Error("Webhook payload has no person ID.");
+    }
   }
   return payload.data;
 }
@@ -89,8 +106,8 @@ Deno.serve(async (request: Request) => {
       try {
         let status = "ignored";
         let outcome: Record<string, unknown> = {};
-        if (eventName.match(/\.person\.(created|updated)$/)) {
-          const personId = JSON.parse(delivery.attributes.payload).data.id;
+        if (isPersonChange(eventName)) {
+          const personId = changedPersonId(delivery)!;
           const person = await fetchPerson(personId, { applicationId: credentials.application_id, secret: credentials.secret });
           const merged = await mergePlanningCenterPerson(supabase, church.id, person, null);
           if (merged.outcome === "error") throw new Error("Planning Center person merge failed.");
