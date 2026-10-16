@@ -174,6 +174,7 @@ struct RootView: View {
                     Text("App access removed").font(.title)
                     Text("Contact your administrator to restore access.")
                     Button("Sign Out") { model.signOut() }
+                    DeleteOwnAccountButton()
                 }
             } else if model.currentProfile?.mustChangePassword == true {
                 InitialPasswordChangeView()
@@ -657,6 +658,7 @@ private struct InitialPasswordChangeView: View {
     Button("Save New Password") { Task { await model.changeInitialPassword(password) } }
       .disabled(password.count < 14 || password != confirmation || model.isBusy)
     Button("Sign Out") { model.signOut() }
+    DeleteOwnAccountButton()
    }
   }
  }

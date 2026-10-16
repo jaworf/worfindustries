@@ -220,6 +220,18 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func deleteOwnAccount() async {
+        var deleted = false
+        await perform {
+            try await requireClient().deleteOwnAccount()
+            deleted = true
+        }
+        if deleted {
+            signOut()
+            noticeMessage = "Your account has been permanently deleted."
+        }
+    }
+
     func saveAssignment(
         _ draft: AssignmentDraft,
         newPerson: PersonDraft?,
@@ -249,7 +261,8 @@ final class AppModel: ObservableObject {
             }?.requiresVote == true
             let requirements = AssignmentRequirements(
                 ministryRequiresVote: role.requiresVote,
-                positionRequiresVote: positionRequiresVote
+                positionRequiresVote: positionRequiresVote,
+                hasPosition: assignment.subRoleId != nil
             )
             if let message = requirements.validationMessage(
                 termId: assignment.termId,
@@ -258,6 +271,10 @@ final class AppModel: ObservableObject {
                 throw SupabaseClientError.invalidRequest(message)
             }
 
+            if assignment.subRoleId == nil {
+                assignment.termId = nil
+                assignment.voteDate = nil
+            }
             try await client.createAssignment(assignment)
             if let personId = assignment.personId, let ordination {
                 try await client.updatePersonOrdination(
@@ -365,10 +382,10 @@ final class AppModel: ObservableObject {
             try await client.updateAssignmentDetails(
                 assignmentId: assignmentId,
                 subRoleId: subRoleId,
-                termId: termId,
+                termId: subRoleId == nil ? nil : termId,
                 notes: notes,
                 noteIsPublic: noteIsPublic,
-                voteDate: voteDate
+                voteDate: subRoleId == nil ? nil : voteDate
             )
             try await reload(using: client)
             noticeMessage = "Assignment details updated."

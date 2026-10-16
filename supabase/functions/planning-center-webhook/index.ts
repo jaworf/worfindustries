@@ -14,16 +14,17 @@ function connections(): Connection[] {
     churchId: Deno.env.get("PCO_WEBHOOK_CHURCH_ID"),
     secret: Deno.env.get("PCO_WEBHOOK_SECRET"),
   }];
-  if (!Array.isArray(configured) || !configured.length || configured.some(item =>
-    typeof item?.churchId !== "string" || !item.churchId ||
-    typeof item?.secret !== "string" || !item.secret)) {
+  if (!Array.isArray(configured)) {
     throw new Error("Configure each webhook signing secret with its church ID.");
   }
+  const valid = configured.filter(item =>
+    typeof item?.churchId === "string" && item.churchId &&
+    typeof item?.secret === "string" && item.secret);
   // A secret must identify exactly one church; URL/body fields never choose it.
-  if (new Set(configured.map(item => item.secret)).size !== configured.length) {
-    throw new Error("Each church must have a unique webhook signing secret.");
-  }
-  return configured;
+  const unique = valid.filter(item => valid.filter(other => other.secret === item.secret).length === 1);
+  if (unique.length !== configured.length) console.error("Invalid or ambiguous webhook connections were disabled.");
+  if (!unique.length) throw new Error("No usable webhook connections configured.");
+  return unique;
 }
 async function validSignature(body: string, supplied: string, secret: string) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret),
@@ -39,7 +40,7 @@ async function validSignature(body: string, supplied: string, secret: string) {
 function changedPersonId(delivery: Delivery): string | null {
   const event = delivery.attributes.name;
   const payload = JSON.parse(delivery.attributes.payload);
-  if (/^people\.v2\.events\.person\.(created|updated)$/.test(event)) return payload?.data?.id ?? null;
+  if (/^people\.v2\.events\.person\.(created|updated|destroyed)$/.test(event)) return payload?.data?.id ?? null;
   if (/^people\.v2\.events\.(email|phone_number|address)\.(created|updated|destroyed)$/.test(event)) {
     // The contact ID is not a Person ID. Fetch its owning person, including all
     // current contacts, so deletions clear mirrored fields too.
@@ -49,7 +50,7 @@ function changedPersonId(delivery: Delivery): string | null {
   return null;
 }
 function isPersonChange(event: string) {
-  return /^people\.v2\.events\.(person\.(created|updated)|(email|phone_number|address)\.(created|updated|destroyed))$/.test(event);
+  return /^people\.v2\.events\.(person\.(created|updated|destroyed)|(email|phone_number|address)\.(created|updated|destroyed))$/.test(event);
 }
 function deliveriesFrom(body: string): Delivery[] {
   const payload = JSON.parse(body);
@@ -108,10 +109,24 @@ Deno.serve(async (request: Request) => {
         let outcome: Record<string, unknown> = {};
         if (isPersonChange(eventName)) {
           const personId = changedPersonId(delivery)!;
+          if (eventName === "people.v2.events.person.destroyed") {
+            // Preserve assignment history while removing the person from active directories.
+            const { data: link, error: linkError } = await supabase.from("person_external_ids")
+              .select("person_id").eq("church_id", church.id)
+              .eq("source_system", "planning_center").eq("external_id", personId).maybeSingle();
+            if (linkError) throw linkError;
+            if (link) {
+              const { error } = await supabase.from("people").update({ is_active: false })
+                .eq("church_id", church.id).eq("id", link.person_id);
+              if (error) throw error;
+            }
+            outcome = { outcome: link ? "deactivated" : "not_found" };
+          } else {
           const person = await fetchPerson(personId, { applicationId: credentials.application_id, secret: credentials.secret });
           const merged = await mergePlanningCenterPerson(supabase, church.id, person, null);
           if (merged.outcome === "error") throw new Error("Planning Center person merge failed.");
           outcome = { outcome: merged.outcome, person_id: merged.person_id };
+          }
           status = "completed";
         }
         const { error } = await supabase.from("webhook_deliveries").update({ status, error_message: null, processed_at: new Date().toISOString() }).eq("id", deliveryRowId).eq("church_id", church.id);

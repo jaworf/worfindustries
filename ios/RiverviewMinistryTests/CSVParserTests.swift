@@ -141,6 +141,21 @@ final class CSVParserTests: XCTestCase {
         XCTAssertNil(requirements.validationMessage(termId: termId, voteDate: Date()))
     }
 
+    func testTeamMemberNeedsNoTermOrVoteEvenWhenMinistryRequiresVote() {
+        for ministryVote in [false, true] {
+            for positionVote in [false, true] {
+                let requirements = AssignmentRequirements(
+                    ministryRequiresVote: ministryVote,
+                    positionRequiresVote: positionVote,
+                    hasPosition: false
+                )
+                XCTAssertFalse(requirements.requiresChurchVote)
+                XCTAssertFalse(requirements.requiresTerm)
+                XCTAssertNil(requirements.validationMessage(termId: nil, voteDate: nil))
+            }
+        }
+    }
+
     func testPositionVoteRequirementRequiresTermWithOptionalVoteDate() {
         let requirements = AssignmentRequirements(
             ministryRequiresVote: false,

@@ -20,7 +20,7 @@ async function handler(name, options = {}) {
         createUser: async (...args) => {calls.push(['create',...args]);return {data:{user:{id:'new-user'}},error:null};},
         inviteUserByEmail: async (...args) => {calls.push(['invite',...args]);return {data:{user:{id:'new-user'}},error:null};},
         getUserById: async id => ({data:{user:{id,email:'test@example.org'}},error:null}),
-        deleteUser: async id => {calls.push(['delete',id]);return {error:null};},
+        deleteUser: async id => {calls.push(['delete',id]);return {error:options.deleteError ?? null};},
       },
       resetPasswordForEmail: async (...args) => {calls.push(['email',...args]);return {error:null};},
     },
@@ -42,10 +42,13 @@ async function handler(name, options = {}) {
       }});
       function result() {
         if(table==='profiles') {
+          if(options.profiles && !filters.some(item=>item[1]==='user_id')) return {data:options.profiles,error:null};
           const target=filters.some(item=>item[1]==='user_id'&&item[2]!=='actor');
           return {data: target ? options.existingProfile ?? null : caller,error:target ? options.profileError ?? null : null};
         }
         if(table==='churches') return {data:{id:filters.find(item=>item[1]==='id')?.[2] ?? 'church-a',name:'Test Church',is_active:true,slug:'test-church'},error:null};
+        if(table==='person_external_ids') {calls.push(['person_lookup',filters]);return {data:options.personLink ?? null,error:null};}
+        if(table==='people') {calls.push(['people_filters',filters]);return {data:null,error:options.peopleError ?? null};}
         if(table==='import_runs') return {data:{id:'run-1'},error:null};
         if(table==='webhook_deliveries') return {data:{id:'delivery-row',status:options.priorStatus ?? 'completed'},error:operation==='insert'&&options.duplicate ? {code:'23505'} : null};
         return {data: value ?? [],error:null};
@@ -78,6 +81,38 @@ async function handler(name, options = {}) {
   return {calls,request:async (body={},headers={Authorization:'Bearer test'}) => serve(new Request('https://test/'+name,{method:'POST',headers,body:typeof body==='string'?body:JSON.stringify(body)}))};
 }
 const invite={email:'pending@example.org',role:'viewer',church_id:'church-a'};
+for(const caller of [{app_role:'viewer'}, {access_disabled:true}, {must_change_password:true}]) {
+ test('self deletion works for restricted accounts '+JSON.stringify(caller),async()=>{
+  const {request,calls}=await handler('admin-users',{caller});
+  assert.equal((await request({action:'delete_self',confirmation:'DELETE',user_id:'someone-else'})).status,200);
+  assert.deepEqual(calls,[['delete','actor']]);
+ });
+}
+test('self deletion requires explicit confirmation',async()=>{
+ const {request,calls}=await handler('admin-users');
+ assert.equal((await request({action:'delete_self'})).status,400);assert.equal(calls.length,0);
+});
+test('invalid sessions cannot delete accounts',async()=>{
+ const {request,calls}=await handler('admin-users',{invalidSession:true});
+ assert.equal((await request({action:'delete_self',confirmation:'DELETE'})).status,401);assert.equal(calls.length,0);
+});
+test('administrator deletion enforces the transactional access guard first',async()=>{
+ const {request,calls}=await handler('admin-users',{existingProfile:{access_disabled:false}});
+ assert.equal((await request({action:'delete_user',user_id:'target',confirmation:'DELETE'})).status,200);
+ assert.equal(calls[0][1],'manage_app_user_access');assert.equal(calls[0][2].p_actor_id,'actor');
+ assert.deepEqual(calls[1],['delete','target']);
+});
+test('administrator cannot delete an account rejected by the access guard',async()=>{
+ const {request,calls}=await handler('admin-users',{existingProfile:{access_disabled:false},rpcError:new Error('Other church')});
+ assert.equal((await request({action:'delete_user',user_id:'target',confirmation:'DELETE'})).status,403);
+ assert.ok(!calls.some(call=>call[0]==='delete'));
+});
+test('failed administrator deletion restores previously enabled access',async()=>{
+ const {request,calls}=await handler('admin-users',{existingProfile:{access_disabled:false},deleteError:new Error('private deletion error')});
+ const response=await request({action:'delete_user',user_id:'target',confirmation:'DELETE'});
+ assert.equal(response.status,500);assert.doesNotMatch(await response.text(),/private deletion error/);
+ assert.equal(calls.at(-1)[2].p_disabled,false);
+});
 for(const confirmed of [false,true]) {
   for(const temporary of [false,true]) test(`admin-users refuses cross-church ${confirmed?'active':'pending'} user (${temporary?'password':'email'})`,async()=>{
     const {request,calls}=await handler('admin-users',{existing:{id:'target',email:invite.email,email_confirmed_at:confirmed?'now':null},existingProfile:{church_id:'church-b',app_role:'viewer'}});
@@ -88,6 +123,17 @@ for(const confirmed of [false,true]) {
 test('profile lookup errors fail closed before changing credentials or mailing',async()=>{
   const {request,calls}=await handler('admin-users',{existing:{id:'target',email:invite.email},profileError:{message:'Database unavailable'}});
   assert.equal((await request(invite)).status,500);assert.equal(calls.length,0);
+});
+test('internal errors are not exposed in the response',async()=>{
+  const {request}=await handler('admin-users',{existing:{id:'target',email:invite.email},profileError:new Error('private database details')});
+  const response=await request(invite);
+  assert.equal(response.status,500);
+  assert.doesNotMatch(await response.text(),/private database details/);
+});
+test('existing pending accounts cannot receive administrator-set passwords',async()=>{
+  const {request,calls}=await handler('admin-users',{existing:{id:'target',email:invite.email},existingProfile:{church_id:'church-a',app_role:'viewer'}});
+  assert.equal((await request({...invite,temporary_password:'test-only-password'})).status,409);
+  assert.equal(calls.length,0);
 });
 test('unassigned existing accounts cannot be claimed',async()=>{
   const {request,calls}=await handler('admin-users',{existing:{id:'target',email:invite.email}});
@@ -143,6 +189,16 @@ test('duplicate webhook has no new person fetch',async()=>{
 test('missing or ambiguous webhook configuration returns controlled 500',async()=>{
   const {request}=await handler('planning-center-webhook',{env:{PCO_WEBHOOK_CONNECTIONS:'[]'}});assert.equal((await request(delivery,{'X-PCO-Webhooks-Authenticity':await signed(delivery)})).status,500);
 });
+test('one invalid connection does not disable another church',async()=>{
+  const {request,calls}=await handler('planning-center-webhook',{env:{PCO_WEBHOOK_CONNECTIONS:JSON.stringify([{churchId:'church-a'}, {churchId:'church-b',secret:'secret-b'}])}});
+  assert.equal((await request(delivery,{'X-PCO-Webhooks-Authenticity':await signed(delivery)})).status,200);
+  assert.equal(calls.find(item=>item[0]==='webhook_deliveries')[2].church_id,'church-b');
+});
+test('duplicate signing secrets cannot choose a church',async()=>{
+  const {request,calls}=await handler('planning-center-webhook',{env:{PCO_WEBHOOK_CONNECTIONS:JSON.stringify([{churchId:'church-a',secret:'secret-b'}, {churchId:'church-b',secret:'secret-b'}])}});
+  assert.equal((await request(delivery,{'X-PCO-Webhooks-Authenticity':await signed(delivery)})).status,500);
+  assert.equal(calls.length,0);
+});
 const personEvent=JSON.stringify({data:[{id:'event-person',attributes:{name:'people.v2.events.person.updated',payload:JSON.stringify({data:{id:'pco-person'}})}}]});
 test('person webhook fetch and merge both use signature-bound church credentials',async()=>{
  const {request,calls}=await handler('planning-center-webhook',{person:{type:'Person',id:'pco-person',attributes:{first_name:'Test',last_name:'Person'}}});
@@ -158,6 +214,23 @@ test('failed webhook delivery is retried rather than discarded as duplicate',asy
 test('database merge failure yields controlled 500 and records retryable delivery',async()=>{
  const {request,calls}=await handler('planning-center-webhook',{rpcData:{outcome:'error'},person:{type:'Person',id:'pco-person',attributes:{first_name:'Test',last_name:'Person'}}});
  assert.equal((await request(personEvent,{'X-PCO-Webhooks-Authenticity':await signed(personEvent)})).status,500);
+ assert.equal(calls.filter(item=>item[0]==='webhook_deliveries'&&item[1]==='update').at(-1)[2].status,'failed');
+});
+test('person destruction deactivates only its church-scoped linked record without fetching a deleted person',async()=>{
+ const body=JSON.stringify({data:[{id:'deleted-event',attributes:{name:'people.v2.events.person.destroyed',payload:JSON.stringify({data:{id:'deleted-pco-person'}})}}]});
+ const {request,calls}=await handler('planning-center-webhook',{personLink:{person_id:'local-person'}});
+ assert.equal((await request(body,{'X-PCO-Webhooks-Authenticity':await signed(body)})).status,200);
+ assert.equal(calls.find(item=>item[0]==='people'&&item[1]==='update')[2].is_active,false);
+ const lookup=JSON.stringify(calls.find(item=>item[0]==='person_lookup'));
+ assert.match(lookup,/church-b/);assert.match(lookup,/deleted-pco-person/);
+ const filters=JSON.stringify(calls.find(item=>item[0]==='people_filters'));
+ assert.match(filters,/church-b/);assert.match(filters,/local-person/);
+ assert.ok(!calls.some(item=>item[0]==='fetch'));
+});
+test('person destruction database failures remain retryable',async()=>{
+ const body=JSON.stringify({data:[{id:'deleted-event',attributes:{name:'people.v2.events.person.destroyed',payload:JSON.stringify({data:{id:'deleted-pco-person'}})}}]});
+ const {request,calls}=await handler('planning-center-webhook',{personLink:{person_id:'local-person'},peopleError:new Error('unavailable')});
+ assert.equal((await request(body,{'X-PCO-Webhooks-Authenticity':await signed(body)})).status,500);
  assert.equal(calls.filter(item=>item[0]==='webhook_deliveries'&&item[1]==='update').at(-1)[2].status,'failed');
 });
 

@@ -223,8 +223,8 @@ struct AssignmentDraft: Sendable {
 struct AssignmentRequirements: Equatable, Sendable {
     let requiresChurchVote: Bool
 
-    init(ministryRequiresVote: Bool, positionRequiresVote: Bool) {
-        requiresChurchVote = ministryRequiresVote || positionRequiresVote
+    init(ministryRequiresVote: Bool, positionRequiresVote: Bool, hasPosition: Bool = true) {
+        requiresChurchVote = hasPosition && (ministryRequiresVote || positionRequiresVote)
     }
 
     var requiresTerm: Bool {

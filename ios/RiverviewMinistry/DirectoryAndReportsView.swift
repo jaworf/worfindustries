@@ -979,9 +979,15 @@ private struct AssignmentEditor: View {
                     LabeledContent("Ministry", value: assignment.roleName)
 
                     Picker("Position", selection: $subRoleId) {
-                        Text("Choose a position").tag(UUID?.none)
+                        Text("No position — team member").tag(UUID?.none)
                         ForEach(availablePositions) { position in
                             Text(position.name).tag(Optional(position.id))
+                        }
+                    }
+                    .onChange(of: subRoleId) { _, value in
+                        if value == nil {
+                            termId = nil
+                            hasVoteDate = false
                         }
                     }
 
@@ -997,13 +1003,16 @@ private struct AssignmentEditor: View {
                                 .tag(Optional(term.id))
                         }
                     }
+                    .disabled(subRoleId == nil)
 
                     if placementRequirements.requiresTerm {
                         Text("A term is required because this placement requires a church vote.")
                             .appFont(.footnote)
                             .foregroundStyle(.secondary)
                     } else {
-                        Text("A term is optional because this placement does not require a church vote.")
+                        Text(subRoleId == nil
+                            ? "Team members do not need a position, term, or church vote."
+                            : "A term is optional because this placement does not require a church vote.")
                             .appFont(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -1025,6 +1034,7 @@ private struct AssignmentEditor: View {
                             )
                     }
                     Toggle("Church vote recorded", isOn: $hasVoteDate)
+                        .disabled(subRoleId == nil)
                     if hasVoteDate {
                         DatePicker(
                             "Vote date",
@@ -1190,14 +1200,12 @@ private struct AssignmentEditor: View {
     private var placementRequirements: AssignmentRequirements {
         AssignmentRequirements(
             ministryRequiresVote: ministryRequiresVote,
-            positionRequiresVote: positionRequiresVote
+            positionRequiresVote: positionRequiresVote,
+            hasPosition: subRoleId != nil
         )
     }
 
     private var saveRequirementMessage: String? {
-        if subRoleId == nil {
-            return "Choose a position before saving."
-        }
         if placementRequirements.requiresTerm, termId == nil {
             return "Choose a term because this placement requires a church vote."
         }
@@ -1205,7 +1213,8 @@ private struct AssignmentEditor: View {
     }
 
     private var voteRequirementLabel: String {
-        switch (ministryRequiresVote, positionRequiresVote) {
+        guard subRoleId != nil else { return "Not required for team membership" }
+        return switch (ministryRequiresVote, positionRequiresVote) {
         case (true, true): "Required by ministry and position"
         case (true, false): "Required by ministry"
         case (false, true): "Required by position"

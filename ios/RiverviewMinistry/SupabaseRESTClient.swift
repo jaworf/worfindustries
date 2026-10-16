@@ -218,8 +218,16 @@ actor SupabaseRESTClient {
     }
     func updateAppUser(_ userId: UUID, action: String, role: AppUserRole? = nil) async throws {
         var payload = ["action": action, "user_id": userId.uuidString]
+        if action == "delete_user" { payload["confirmation"] = "DELETE" }
         if let role { payload["role"] = role.rawValue }
         let _: AppAccessResult = try await send(method: "POST", path: "functions/v1/admin-users", body: encoder.encode(payload))
+    }
+    func deleteOwnAccount() async throws {
+        let _: AppAccessResult = try await send(
+            method: "POST", path: "functions/v1/admin-users",
+            body: encoder.encode(["action": "delete_self", "confirmation": "DELETE"])
+        )
+        session = nil
     }
     func changeInitialPassword(_ password: String) async throws {
         let _: SupabaseUser = try await send(method: "PUT", path: "auth/v1/user", body: encoder.encode(["password": password]))

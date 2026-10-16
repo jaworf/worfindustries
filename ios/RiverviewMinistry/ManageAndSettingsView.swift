@@ -533,6 +533,7 @@ struct SettingsView: View {
     @State private var importKind: CSVImportKind = .members
     @State private var showingImporter = false
     @State private var showingConnection = false
+    @State private var showingDeleteAccount = false
     @State private var inviteEmail = ""
     @State private var temporaryPassword = ""
     @State private var appUsers: [ManagedAppUser] = []
@@ -724,6 +725,12 @@ struct SettingsView: View {
                 Button("Sign Out", role: .destructive) {
                     model.signOut()
                 }
+                Button("Delete My Account", role: .destructive) {
+                    showingDeleteAccount = true
+                }
+                .disabled(model.isBusy)
+            } footer: {
+                Text("Deleting your account permanently removes your login and account profile. Church-owned volunteer records and assignments remain with the church; Planning Center records are not changed.")
             }
         }
         .task {
@@ -735,6 +742,14 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity)
         .background(AppTheme.pageBackground)
         .navigationTitle("Settings & Import")
+        .confirmationDialog("Permanently delete your account?", isPresented: $showingDeleteAccount, titleVisibility: .visible) {
+            Button("Delete My Account Permanently", role: .destructive) {
+                Task { await model.deleteOwnAccount() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This cannot be undone. Your login and account profile will be deleted and you will be signed out. Church-owned records are retained. If you are the only administrator, arrange another administrator first so your church can continue managing its records.")
+        }
         .sheet(isPresented: $showingConnection) {
             ConfigurationView(isInitialSetup: false)
                 .environmentObject(model)
@@ -781,6 +796,7 @@ private struct AppAccessRow: View {
  let user: ManagedAppUser
  let refresh: () async -> Void
  @State private var role: AppUserRole
+ @State private var showingDeleteUser = false
  init(user: ManagedAppUser, refresh: @escaping () async -> Void) { self.user=user; self.refresh=refresh; _role=State(initialValue:user.appRole) }
  private var protectedUser: Bool { user.userId == model.currentProfile?.userId || user.isPlatformAdmin || (model.currentProfile?.isPlatformAdmin != true && user.appRole == .admin) }
  var body: some View {
@@ -794,6 +810,34 @@ private struct AppAccessRow: View {
    }.disabled(protectedUser || user.accessDisabled || model.isBusy)
    Button("Save Permissions") { Task { if await model.updateAppUser(user.userId, action: "update_role", role: role) { await refresh() } } }.disabled(protectedUser || user.accessDisabled || model.isBusy || role == user.appRole)
    Button(user.accessDisabled ? "Restore Access" : "Remove Access") { Task { if await model.updateAppUser(user.userId, action: user.accessDisabled ? "restore_access" : "remove_access") { await refresh() } } }.disabled(protectedUser || model.isBusy)
+   Button("Delete User Permanently", role: .destructive) { showingDeleteUser = true }
+    .disabled(protectedUser || model.isBusy)
+  }
+  .confirmationDialog("Delete \(user.email) permanently?", isPresented: $showingDeleteUser, titleVisibility: .visible) {
+   Button("Delete User Permanently", role: .destructive) {
+    Task { if await model.updateAppUser(user.userId, action: "delete_user") { await refresh() } }
+   }
+   Button("Cancel", role: .cancel) {}
+  } message: {
+   Text("This deletes the user's login and account profile. Church-owned volunteer records and assignments are preserved. This cannot be undone.")
   }
  }
+}
+
+struct DeleteOwnAccountButton: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var confirming = false
+
+    var body: some View {
+        Button("Delete My Account", role: .destructive) { confirming = true }
+            .disabled(model.isBusy)
+            .confirmationDialog("Permanently delete your account?", isPresented: $confirming, titleVisibility: .visible) {
+                Button("Delete My Account Permanently", role: .destructive) {
+                    Task { await model.deleteOwnAccount() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This permanently deletes your login and account profile. Church-owned volunteer records and assignments remain with the church; Planning Center records are not changed.")
+            }
+    }
 }

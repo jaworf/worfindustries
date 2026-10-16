@@ -12,6 +12,7 @@ import {
 import { type AppRole, type Tab, type AssignmentRoute, type OrdinationKind, type Profile, type Church, type Person, type Ministry, type Position, type Term, type Assignment, type Snapshot, emptySnapshot, navItems, personName, ordinationKind, ordinationLabels, ordinationField, todayISO, formatDate, isCurrent, normalizeError, loadAllPeople, functionErrorMessage, isFutureJwtError, adminErrorMessage, wait, membershipPriority, type MutationRunner } from "./admin-shared";
 import { AssignView } from "./assign-view";
 import { SectionHeading } from "./section-heading";
+import { DeleteAccountButton } from "./delete-account";
 
 export function MinistryAdmin({
   projectUrl,
@@ -189,7 +190,7 @@ export function MinistryAdmin({
     return <AdminLogin supabase={supabase} notice={notice} setNotice={setNotice} />;
   }
 
-  if (profile?.access_disabled) return <main className="admin-login-shell"><section className="admin-login-card"><h1>App access removed</h1><p>Contact your administrator to restore access.</p><button className="button" onClick={() => void supabase.auth.signOut()}>Sign Out</button></section></main>;
+  if (profile?.access_disabled) return <main className="admin-login-shell"><section className="admin-login-card"><h1>App access removed</h1><p>Contact your administrator to restore access.</p><DeleteAccountButton supabase={supabase} /><button className="button" onClick={() => void supabase.auth.signOut()}>Sign Out</button></section></main>;
   if (profile?.must_change_password) return <InitialPasswordChange supabase={supabase} complete={() => loadData(session.user.id)} />;
 
   return (
@@ -335,7 +336,7 @@ export function MinistryAdmin({
 
 function InitialPasswordChange({supabase,complete}:{supabase:SupabaseClient;complete:()=>Promise<void>}) {
   const [password,setPassword]=useState(""); const [confirmation,setConfirmation]=useState(""); const [busy,setBusy]=useState(false); const [error,setError]=useState<string|null>(null);
-  return <main className="admin-login-shell"><section className="admin-login-card"><h1>Change your temporary password</h1><p>Choose a new password before using the app. Use at least 14 characters.</p><form className="admin-form-stack" onSubmit={async event=>{event.preventDefault(); if(password.length<14 || password!==confirmation){setError("Enter matching passwords with at least 14 characters.");return;} setBusy(true); const {error}=await supabase.auth.updateUser({password}); if(error)setError(error.message); else await complete(); setBusy(false);}}><label>New password<input type="password" autoComplete="new-password" minLength={14} value={password} onChange={e=>setPassword(e.target.value)} required /></label><label>Confirm new password<input type="password" autoComplete="new-password" value={confirmation} onChange={e=>setConfirmation(e.target.value)} required /></label>{error&&<p role="alert">{error}</p>}<button className="button button-primary" disabled={busy}>Save New Password</button><button type="button" className="button" onClick={()=>void supabase.auth.signOut()}>Sign Out</button></form></section></main>;
+  return <main className="admin-login-shell"><section className="admin-login-card"><DeleteAccountButton supabase={supabase} /><h1>Change your temporary password</h1><p>Choose a new password before using the app. Use at least 14 characters.</p><form className="admin-form-stack" onSubmit={async event=>{event.preventDefault(); if(password.length<14 || password!==confirmation){setError("Enter matching passwords with at least 14 characters.");return;} setBusy(true); const {error}=await supabase.auth.updateUser({password}); if(error)setError(error.message); else await complete(); setBusy(false);}}><label>New password<input type="password" autoComplete="new-password" minLength={14} value={password} onChange={e=>setPassword(e.target.value)} required /></label><label>Confirm new password<input type="password" autoComplete="new-password" value={confirmation} onChange={e=>setConfirmation(e.target.value)} required /></label>{error&&<p role="alert">{error}</p>}<button className="button button-primary" disabled={busy}>Save New Password</button><button type="button" className="button" onClick={()=>void supabase.auth.signOut()}>Sign Out</button></form></section></main>;
 }
 
 type ManagedAppUser = {user_id:string;email:string;app_role:AppRole;church_id:string;is_platform_admin:boolean;access_disabled:boolean;must_change_password:boolean;enrolled:boolean};
@@ -352,8 +353,8 @@ function AppUserManagement({supabase,profile,session,working,mutate}:{supabase:S
    });
    return () => {active = false;};
  }, [supabase, profile]);
- async function change(user:ManagedAppUser,action:string,role?:AppRole){if(await mutate("App access updated.",async()=>{const {error}=await supabase.functions.invoke("admin-users",{body:{action,user_id:user.user_id,role}});if(error)throw new Error(await functionErrorMessage(error));}))await load();}
- return <section className="admin-card full-panel"><h3>Manage App Users</h3><p>Changes apply to existing accounts. Remove access keeps records and can be reversed.</p><button className="button" onClick={()=>void load()}>Refresh Users</button>{error&&<p role="alert">{error}</p>}<ul className="admin-focus-list">{users.map(user=>{const protectedUser=user.user_id===session.user.id||user.is_platform_admin||(!profile.is_platform_admin&&user.app_role==="admin");return <li key={user.user_id}><strong>{user.email}</strong><p>{user.access_disabled?"Access removed":user.must_change_password?"Password change required":user.enrolled?"Active":"Invitation pending"}</p><label>Permissions for {user.email}<select value={user.app_role} disabled={working||protectedUser||user.access_disabled} onChange={e=>void change(user,"update_role",e.target.value as AppRole)}>{profile.is_platform_admin&&<option value="admin">Administrator</option>}<option value="editor">Editor</option><option value="viewer">Viewer</option></select></label><button className="button" disabled={working||protectedUser} onClick={()=>void change(user,user.access_disabled?"restore_access":"remove_access")}>{user.access_disabled?"Restore Access":"Remove Access"}</button>{!user.enrolled&&!user.access_disabled&&<button className="button" disabled={working} onClick={async()=>{await mutate("New setup email sent.",async()=>{const {error}=await supabase.functions.invoke("admin-users",{body:{email:user.email,role:user.app_role,church_id:user.church_id}});if(error)throw new Error(await functionErrorMessage(error));});}}>Resend Setup Email</button>}</li>;})}</ul></section>;
+ async function change(user:ManagedAppUser,action:string,role?:AppRole){if(await mutate("App access updated.",async()=>{const {error}=await supabase.functions.invoke("admin-users",{body:{action,user_id:user.user_id,role,...(action==="delete_user"?{confirmation:"DELETE"}:{})}});if(error)throw new Error(await functionErrorMessage(error));}))await load();}
+ return <section className="admin-card full-panel"><h3>Manage App Users</h3><p>Changes apply to existing accounts. Remove access keeps records and can be reversed.</p><button className="button" onClick={()=>void load()}>Refresh Users</button>{error&&<p role="alert">{error}</p>}<ul className="admin-focus-list">{users.map(user=>{const protectedUser=user.user_id===session.user.id||user.is_platform_admin||(!profile.is_platform_admin&&user.app_role==="admin");return <li key={user.user_id}><strong>{user.email}</strong><p>{user.access_disabled?"Access removed":user.must_change_password?"Password change required":user.enrolled?"Active":"Invitation pending"}</p><label>Permissions for {user.email}<select value={user.app_role} disabled={working||protectedUser||user.access_disabled} onChange={e=>void change(user,"update_role",e.target.value as AppRole)}>{profile.is_platform_admin&&<option value="admin">Administrator</option>}<option value="editor">Editor</option><option value="viewer">Viewer</option></select></label><button className="button" disabled={working||protectedUser} onClick={()=>void change(user,user.access_disabled?"restore_access":"remove_access")}>{user.access_disabled?"Restore Access":"Remove Access"}</button>{!user.enrolled&&!user.access_disabled&&<button className="button" disabled={working} onClick={async()=>{await mutate("New setup email sent.",async()=>{const {error}=await supabase.functions.invoke("admin-users",{body:{email:user.email,role:user.app_role,church_id:user.church_id}});if(error)throw new Error(await functionErrorMessage(error));});}}>Resend Setup Email</button>}<button className="button button-danger" disabled={working||protectedUser} onClick={()=>{if(window.confirm(`Permanently delete ${user.email}? This deletes their login and account profile. Church-owned volunteer records and assignments are preserved. This cannot be undone.`))void change(user,"delete_user");}}>Delete User Permanently</button></li>;})}</ul></section>;
 }
 
 function AdminLoading({ label, compact = false }: { label: string; compact?: boolean }) {
@@ -675,7 +676,7 @@ function AssignmentEditor({
   const [notes, setNotes] = useState(assignment.notes ?? "");
   const [notePublic, setNotePublic] = useState(assignment.note_is_public);
   const selectedPosition = positions.find((item) => item.id === positionId);
-  const requiresVote = assignment.ministry_requires_vote || selectedPosition?.requires_vote;
+  const requiresVote = Boolean(positionId && (assignment.ministry_requires_vote || selectedPosition?.requires_vote));
 
   return (
     <div className="admin-modal-backdrop" role="presentation" onMouseDown={onClose}>
@@ -690,14 +691,17 @@ function AssignmentEditor({
         <div className="admin-form-stack">
           <label>
             Position
-            <select value={positionId} onChange={(event) => setPositionId(event.target.value)}>
-              <option value="">No position</option>
+            <select value={positionId} onChange={(event) => {
+              setPositionId(event.target.value);
+              if (!event.target.value) { setTermId(""); setVoteDate(""); }
+            }}>
+              <option value="">No position — team member</option>
               {positions.map((position) => <option key={position.id} value={position.id}>{position.name}</option>)}
             </select>
           </label>
           <label>
             Term {requiresVote ? "(required)" : "(optional)"}
-            <select value={termId} onChange={(event) => setTermId(event.target.value)}>
+            <select value={termId} onChange={(event) => setTermId(event.target.value)} disabled={!positionId}>
               <option value="">No term</option>
               {terms.map((term) => <option key={term.id} value={term.id}>{term.name}</option>)}
             </select>
@@ -730,8 +734,8 @@ function AssignmentEditor({
               onClick={() =>
                 onSave({
                   sub_role_id: positionId || null,
-                  term_id: termId || null,
-                  vote_date: voteDate || null,
+                  term_id: positionId ? termId || null : null,
+                  vote_date: positionId ? voteDate || null : null,
                   notes: notes.trim() || null,
                   note_is_public: Boolean(notes.trim()) && notePublic,
                 })
@@ -1226,6 +1230,7 @@ function SettingsView({
           <h3>Your account</h3>
           <dl><dt>Email</dt><dd>{session.user.email}</dd><dt>Access</dt><dd>{profile.app_role}</dd></dl>
           <button className="button" onClick={() => void supabase.auth.signOut()}>Sign Out</button>
+          <DeleteAccountButton supabase={supabase} />
         </section>
         <section className="admin-card admin-settings-card">
           <h3>Planning Center People</h3>

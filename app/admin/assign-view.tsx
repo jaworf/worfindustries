@@ -47,9 +47,9 @@ export function AssignView({
   const selectedPosition = availablePositions.find((item) => item.id === positionId);
   const kind = ordinationKind(selectedMinistry?.name);
   const requiresVote = Boolean(
-    selectedMinistry?.requires_vote ||
+    positionId && (selectedMinistry?.requires_vote ||
       selectedPosition?.requires_vote ||
-      (positionId === "add" && newPositionVote),
+      (positionId === "add" && newPositionVote)),
   );
   const people = snapshot.people.filter((person) => {
     if (!person.is_active) return false;
@@ -81,7 +81,6 @@ export function AssignView({
     setFormError(null);
     if (!canEdit) return setFormError("Your account has view-only access.");
     if (!ministryId) return setFormError("Choose a ministry.");
-    if (!positionId) return setFormError("Choose a position.");
     if (newPerson && (!firstName.trim() || !lastName.trim())) {
       return setFormError("Enter the new person's first and last name.");
     }
@@ -139,9 +138,9 @@ export function AssignView({
       const { error } = await supabase.from("assignments").insert({
         person_id: savedPersonId,
         role_id: ministryId,
-        sub_role_id: savedPositionId,
-        term_id: termId || null,
-        vote_date: voteDate || null,
+        sub_role_id: savedPositionId || null,
+        term_id: savedPositionId ? termId || null : null,
+        vote_date: savedPositionId ? voteDate || null : null,
         notes: notes.trim() || null,
         note_is_public: Boolean(notes.trim()) && notePublic,
         status: "active",
@@ -237,8 +236,11 @@ export function AssignView({
             </label>
             <label>
               Position
-              <select value={positionId} onChange={(event) => setPositionId(event.target.value)} required disabled={!ministryId}>
-                <option value="">Choose a position</option>
+              <select value={positionId} onChange={(event) => {
+                setPositionId(event.target.value);
+                if (!event.target.value) { setTermId(""); setVoteDate(""); }
+              }} disabled={!ministryId}>
+                <option value="">No position — team member</option>
                 {availablePositions.map((position) => (
                   <option key={position.id} value={position.id}>{position.name}</option>
                 ))}
@@ -259,7 +261,7 @@ export function AssignView({
             )}
             <label>
               Term {requiresVote ? "(required)" : "(optional)"}
-              <select value={termId} onChange={(event) => setTermId(event.target.value)} required={requiresVote}>
+              <select value={termId} onChange={(event) => setTermId(event.target.value)} required={requiresVote} disabled={!positionId}>
                 <option value="">{requiresVote ? "Choose a term" : "No term"}</option>
                 {snapshot.terms.filter((term) => term.is_active).map((term) => (
                   <option key={term.id} value={term.id}>
@@ -268,14 +270,14 @@ export function AssignView({
                 ))}
               </select>
             </label>
-            {(requiresVote || voteDate) && (
+            {positionId && (requiresVote || voteDate) && (
               <label>
                 Church vote date (optional)
                 <input type="date" value={voteDate} onChange={(event) => setVoteDate(event.target.value)} />
               </label>
             )}
           </div>
-          {(
+          {positionId && (
             <button type="button" className="button button-link align-left" onClick={() => setVoteDate(voteDate ? "" : todayISO())}>
               {voteDate ? "Remove optional vote date" : "Add an optional vote date"}
             </button>

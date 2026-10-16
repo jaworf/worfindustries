@@ -28,8 +28,9 @@ Use **Node.js 22.13.0 or newer** and pnpm 10.11.0. The minimum is recorded in
 GitHub Actions runs these checks on pushes and pull requests. No production
 credentials are needed. Web assignment state lives in `assign-view.tsx`, shared
 models/helpers in `admin-shared.ts`, and native Focus in `FocusView.swift`.
-The native macOS release is discontinued; its source is retained for historical
-reference, with no new macOS publication planned.
+Native macOS publication is discontinued. The shared Xcode project still includes
+a macOS build destination and signing entitlements; retaining that build support
+does not mean a new Mac App Store release is planned.
 
 ## What the app does
 
@@ -139,12 +140,13 @@ legacy Riverview connection; new churches must use their own Vault credentials.
 Deploy `admin-users` and `planning-center-sync` with JWT verification enabled.
 Deploy `planning-center-webhook` with JWT verification disabled, since Planning
 Center deliveries are authenticated with HMAC rather than Supabase sessions.
-Subscribe to People person-created/person-updated events and Address, Email,
-and Phone Number created/updated/destroyed events (11 events total). Contact
+Subscribe to People person-created/person-updated/person-destroyed events and Address, Email,
+and Phone Number created/updated/destroyed events (12 events total). Contact
 payloads identify their owning Person; the handler refreshes that person's full
 contact record, including clearing deleted contact values. Full sync reconciles
-events missed during setup. Person deletion/merger events are not subscribed:
-those require an explicit history-preserving reconciliation policy.
+events missed during setup. Person-destroyed deliveries deactivate the linked
+church-scoped person without deleting assignment history. Configure the new
+subscription in Planning Center; deploying the handler alone does not subscribe it.
 
 ## 3. Open the Apple app
 
@@ -210,6 +212,12 @@ handled by the members-only page that contains the iframe.
 
 After the public site is deployed, embed the compact route on
 `riverviewadventist.org`:
+
+For other church websites, set the Cloudflare Worker variable
+`EMBED_ALLOWED_ORIGINS` to a comma- or whitespace-separated list of exact HTTPS
+origins. Include Riverview's origins if they should remain allowed. Wildcards,
+paths, and non-HTTPS values are rejected. This setting only controls which sites
+may frame the public directory; it does not make directory data private.
 
 ```html
 <iframe

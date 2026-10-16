@@ -78,15 +78,6 @@ Deno.serve(async (request: Request) => {
       return json(401, { error: "The Supabase session is invalid." });
     }
 
-    const { data: profile, error: profileError } = await admin
-      .from("profiles")
-      .select("app_role,church_id,is_platform_admin,access_disabled,must_change_password")
-      .eq("user_id", user.id)
-      .single();
-    if (profileError || profile?.app_role !== "admin" || profile.access_disabled || profile.must_change_password || !profile.church_id) {
-      return json(403, { error: "Only an active administrator can manage app users." });
-    }
-
     const payload = (await request.json().catch(() => null)) as {
       action?: unknown;
       user_id?: unknown;
@@ -96,17 +87,69 @@ Deno.serve(async (request: Request) => {
       role?: unknown;
       church_id?: unknown;
       temporary_password?: unknown;
+      confirmation?: unknown;
     } | null;
+
+    // Self-deletion is available to every authenticated account, including
+    // viewers and accounts whose church access has been removed.
+    if (payload?.action === "delete_self") {
+      if (payload.confirmation !== "DELETE") {
+        return json(400, { error: "Confirm permanent account deletion." });
+      }
+      const { error } = await admin.auth.admin.deleteUser(user.id);
+      if (error) throw error;
+      return json(200, { message: "Your account and sign-in profile have been permanently deleted." });
+    }
+
+    const { data: profile, error: profileError } = await admin
+      .from("profiles")
+      .select("app_role,church_id,is_platform_admin,access_disabled,must_change_password")
+      .eq("user_id", user.id)
+      .single();
+    if (profileError || profile?.app_role !== "admin" || profile.access_disabled || profile.must_change_password || !profile.church_id) {
+      return json(403, { error: "Only an active administrator can manage app users." });
+    }
+
+    if (payload?.action === "delete_user") {
+      if (typeof payload.user_id !== "string" || payload.confirmation !== "DELETE") {
+        return json(400, { error: "Choose a user and confirm permanent deletion." });
+      }
+      const { data: target, error: lookupError } = await admin.from("profiles")
+        .select("access_disabled").eq("user_id", payload.user_id).single();
+      if (lookupError) throw lookupError;
+      // The same transactional guard protects church boundaries, platform
+      // administrators, self-management, and the last active administrator.
+      const { error: guardError } = await admin.rpc("manage_app_user_access", {
+        p_actor_id: user.id, p_user_id: payload.user_id, p_role: null, p_disabled: true,
+      });
+      if (guardError) return json(403, { error: "This account cannot be deleted by this administrator. Check church membership and administrator protections." });
+      const { error: deleteError } = await admin.auth.admin.deleteUser(payload.user_id);
+      if (deleteError) {
+        if (!target.access_disabled) {
+          const { error: restoreError } = await admin.rpc("manage_app_user_access", {
+            p_actor_id: user.id, p_user_id: payload.user_id, p_role: null, p_disabled: false,
+          });
+          if (restoreError) console.error("Could not restore access after unsuccessful account deletion:", restoreError);
+        }
+        throw deleteError;
+      }
+      return json(200, { message: "User account permanently deleted. Church records are preserved." });
+    }
     if (payload?.action === "list") {
       let query = admin.from("profiles").select("user_id,display_name,app_role,church_id,is_platform_admin,access_disabled,must_change_password").not("church_id", "is", null);
       if (!profile.is_platform_admin) query = query.eq("church_id", profile.church_id);
       const { data: profiles, error } = await query.order("display_name");
       if (error) throw error;
-      const users = await Promise.all((profiles ?? []).map(async p => {
+      const users = [];
+      // Bound Auth API traffic even when a church has many accounts.
+      const rows = profiles ?? [];
+      for (let offset = 0; offset < rows.length; offset += 5) {
+        users.push(...await Promise.all(rows.slice(offset, offset + 5).map(async p => {
         const { data, error } = await admin.auth.admin.getUserById(p.user_id);
         if (error) throw error;
         return { ...p, email: data.user.email, enrolled: Boolean(data.user.email_confirmed_at), last_sign_in_at: data.user.last_sign_in_at ?? null };
-      }));
+        })));
+      }
       return json(200, { users });
     }
     if (["update_role", "remove_access", "restore_access"].includes(String(payload?.action))) {
@@ -177,14 +220,9 @@ Deno.serve(async (request: Request) => {
     let responseMessage = "Setup email sent.";
 
     if (existingUser && temporaryPassword) {
-      const { error: updateError } = await admin.auth.admin.updateUserById(
-        existingUser.id,
-        { password: temporaryPassword, email_confirm: true },
-      );
-      if (updateError) return json(400, { error: updateError.message });
-      userId = existingUser.id;
-      responseStatus = 200;
-      responseMessage = reviewAccount ? "Review account password updated." : "Temporary password set. The user must change it at first login.";
+      return json(409, {
+        error: "This account already exists. Use password recovery to change its password.",
+      });
     } else if (existingUser) {
       if (existingUser.email_confirmed_at) {
         return json(409, { error: "That email already has an active app account." });
@@ -257,8 +295,9 @@ Deno.serve(async (request: Request) => {
       message: responseMessage,
     });
   } catch (error) {
+    console.error("Admin user management failed:", error);
     return json(500, {
-      error: error instanceof Error ? error.message : "Unexpected server error.",
+      error: "User management failed. Please try again.",
     });
   }
 });
