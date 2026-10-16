@@ -207,7 +207,7 @@ final class AppModel: ObservableObject {
         var succeeded = false
         await perform {
             try await requireClient().updateAppUser(userId, action: action, role: role)
-            noticeMessage = "App access updated."
+            noticeMessage = action == "delete_user" ? "User account permanently deleted." : "App access updated."
             succeeded = true
         }
         return succeeded

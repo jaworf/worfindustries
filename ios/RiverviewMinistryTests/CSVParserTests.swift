@@ -2,6 +2,39 @@ import XCTest
 @testable import RiverviewMinistry
 
 final class CSVParserTests: XCTestCase {
+    func testAccountDeletionRequestsRequireExplicitConfirmation() async throws {
+        DeletionRequestURLProtocol.reset()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [DeletionRequestURLProtocol.self]
+        let client = SupabaseRESTClient(
+            configuration: SupabaseConfiguration(
+                projectURL: "https://example.supabase.co",
+                publishableKey: "sb_publishable_test"
+            ),
+            session: SupabaseSession(
+                accessToken: "test-access-token",
+                refreshToken: "test-refresh-token",
+                expiresAt: Date().timeIntervalSince1970 + 3600,
+                user: SupabaseUser(id: UUID(), email: "reviewer@example.com")
+            ),
+            urlSession: URLSession(configuration: configuration)
+        )
+        let targetId = UUID()
+        try await client.updateAppUser(targetId, action: "delete_user")
+        try await client.deleteOwnAccount()
+
+        let requests = DeletionRequestURLProtocol.requests
+        XCTAssertEqual(requests.count, 2)
+        let adminRequest = try XCTUnwrap(requests.first)
+        let selfRequest = try XCTUnwrap(requests.last)
+        XCTAssertEqual(adminRequest["action"], "delete_user")
+        XCTAssertEqual(adminRequest["user_id"], targetId.uuidString)
+        XCTAssertEqual(adminRequest["confirmation"], "DELETE")
+        XCTAssertEqual(selfRequest["action"], "delete_self")
+        XCTAssertNil(selfRequest["user_id"])
+        XCTAssertEqual(selfRequest["confirmation"], "DELETE")
+    }
+
     func testQuotedCommasAndNewlinesArePreserved() throws {
         let source = """
         id,First Name,Last Name,Notes
@@ -377,6 +410,57 @@ final class CSVParserTests: XCTestCase {
             createdAt: nil
         )
     }
+}
+
+private final class DeletionRequestURLProtocol: URLProtocol, @unchecked Sendable {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var storedRequests: [[String: String]] = []
+
+    static var requests: [[String: String]] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedRequests
+    }
+
+    static func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+        storedRequests = []
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        do {
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/functions/v1/admin-users")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
+            var body = request.httpBody ?? Data()
+            if let stream = request.httpBodyStream {
+                stream.open()
+                defer { stream.close() }
+                var buffer = [UInt8](repeating: 0, count: 1024)
+                while stream.hasBytesAvailable {
+                    let count = stream.read(&buffer, maxLength: buffer.count)
+                    if count <= 0 { break }
+                    body.append(contentsOf: buffer.prefix(count))
+                }
+            }
+            let payload = try JSONDecoder().decode([String: String].self, from: body)
+            Self.lock.lock()
+            Self.storedRequests.append(payload)
+            Self.lock.unlock()
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: Data("{\"message\":\"Account deleted\"}".utf8))
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
 }
 
 private final class RefreshCoalescingURLProtocol: URLProtocol, @unchecked Sendable {
