@@ -792,7 +792,26 @@ struct SettingsView: View {
 }
 
 private struct AppAccessRow: View {
+    let user: ManagedAppUser
+    let refresh: () async -> Void
+
+    var body: some View {
+        NavigationLink {
+            AppUserAccessView(user: user, refresh: refresh)
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(user.email).fontWeight(.semibold)
+                Text("Permissions, access, and account deletion")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+private struct AppUserAccessView: View {
  @EnvironmentObject private var model: AppModel
+ @Environment(\.dismiss) private var dismiss
  let user: ManagedAppUser
  let refresh: () async -> Void
  @State private var role: AppUserRole
@@ -800,22 +819,40 @@ private struct AppAccessRow: View {
  init(user: ManagedAppUser, refresh: @escaping () async -> Void) { self.user=user; self.refresh=refresh; _role=State(initialValue:user.appRole) }
  private var protectedUser: Bool { user.userId == model.currentProfile?.userId || user.isPlatformAdmin || (model.currentProfile?.isPlatformAdmin != true && user.appRole == .admin) }
  var body: some View {
-  VStack(alignment: .leading, spacing: 10) {
+  Form {
+   Section("Account") {
    Text(user.email).fontWeight(.semibold)
    Text(user.accessDisabled ? "Access removed" : user.mustChangePassword ? "Password change required" : user.enrolled ? "Active" : "Invitation pending").foregroundStyle(.secondary)
+   }
+   Section("Permissions") {
    Picker("Permissions", selection: $role) {
     if model.currentProfile?.isPlatformAdmin == true { Text("Administrator").tag(AppUserRole.admin) }
     Text("Editor").tag(AppUserRole.editor)
     Text("Viewer").tag(AppUserRole.viewer)
    }.disabled(protectedUser || user.accessDisabled || model.isBusy)
    Button("Save Permissions") { Task { if await model.updateAppUser(user.userId, action: "update_role", role: role) { await refresh() } } }.disabled(protectedUser || user.accessDisabled || model.isBusy || role == user.appRole)
-   Button(user.accessDisabled ? "Restore Access" : "Remove Access") { Task { if await model.updateAppUser(user.userId, action: user.accessDisabled ? "restore_access" : "remove_access") { await refresh() } } }.disabled(protectedUser || model.isBusy)
+   }
+   Section("Account Access") {
+   Button(user.accessDisabled ? "Restore Access" : "Remove Access") { Task { if await model.updateAppUser(user.userId, action: user.accessDisabled ? "restore_access" : "remove_access") { await refresh(); dismiss() } } }.disabled(protectedUser || model.isBusy)
+   }
+   Section {
    Button("Delete User Permanently", role: .destructive) { showingDeleteUser = true }
     .disabled(protectedUser || model.isBusy)
+   } footer: {
+    if user.userId == model.currentProfile?.userId {
+     Text("To delete your own account, return to Settings and choose Delete My Account.")
+    } else if protectedUser {
+     Text("This administrator account is protected. A platform administrator must manage its access.")
+    } else {
+     Text("Permanently deletes this user's login and account profile. Church volunteer records and assignments are preserved.")
+    }
+   }
   }
+  .navigationTitle("Manage User")
+  .buttonStyle(.borderless)
   .confirmationDialog("Delete \(user.email) permanently?", isPresented: $showingDeleteUser, titleVisibility: .visible) {
    Button("Delete User Permanently", role: .destructive) {
-    Task { if await model.updateAppUser(user.userId, action: "delete_user") { await refresh() } }
+    Task { if await model.updateAppUser(user.userId, action: "delete_user") { await refresh(); dismiss() } }
    }
    Button("Cancel", role: .cancel) {}
   } message: {

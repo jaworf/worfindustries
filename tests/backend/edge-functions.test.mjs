@@ -5,6 +5,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 import ts from 'typescript';
+import {createClient} from '@supabase/supabase-js';
 
 // Run the real TypeScript handlers in isolation. All auth, database, and PCO
 // boundaries are replaced; tests never send mail or touch production records.
@@ -20,7 +21,20 @@ async function handler(name, options = {}) {
         createUser: async (...args) => {calls.push(['create',...args]);return {data:{user:{id:'new-user'}},error:null};},
         inviteUserByEmail: async (...args) => {calls.push(['invite',...args]);return {data:{user:{id:'new-user'}},error:null};},
         getUserById: async id => ({data:{user:{id,email:'test@example.org'}},error:null}),
-        deleteUser: async id => {calls.push(['delete',id]);return {error:options.deleteError ?? null};},
+        deleteUser: async id => {
+          calls.push(['delete',id]);
+          if (options.realDeletionSDK) {
+            const sdk = createClient('https://test.supabase.co', 'test-service', {
+              auth: {persistSession:false, autoRefreshToken:false},
+              global: {fetch: async url => {
+                calls.push(['auth-delete-url',String(url)]);
+                return new Response(JSON.stringify({id}), {status:200,headers:{'Content-Type':'application/json'}});
+              }},
+            });
+            return sdk.auth.admin.deleteUser(id);
+          }
+          return {error:options.deleteError ?? null};
+        },
       },
       resetPasswordForEmail: async (...args) => {calls.push(['email',...args]);return {error:null};},
     },
@@ -81,6 +95,20 @@ async function handler(name, options = {}) {
   return {calls,request:async (body={},headers={Authorization:'Bearer test'}) => serve(new Request('https://test/'+name,{method:'POST',headers,body:typeof body==='string'?body:JSON.stringify(body)}))};
 }
 const invite={email:'pending@example.org',role:'viewer',church_id:'church-a'};
+const deletionTarget='abcdefab-1234-4567-89ab-abcdefabcdef';
+test('iOS uppercase UUID deletes through the real Auth SDK after normalization',async()=>{
+ const {request,calls}=await handler('admin-users',{existingProfile:{access_disabled:false},realDeletionSDK:true});
+ const response=await request({action:'delete_user',user_id:deletionTarget.toUpperCase(),confirmation:'DELETE'});
+ assert.equal(response.status,200);
+ assert.equal(calls[0][2].p_user_id,deletionTarget);
+ assert.deepEqual(calls[1],['delete',deletionTarget]);
+ assert.ok(calls.some(call=>call[0]==='auth-delete-url' && call[1].endsWith('/admin/users/'+deletionTarget)));
+});
+test('malformed deletion IDs fail before changing access or calling Auth',async()=>{
+ const {request,calls}=await handler('admin-users');
+ assert.equal((await request({action:'delete_user',user_id:'not-a-uuid',confirmation:'DELETE'})).status,400);
+ assert.equal(calls.length,0);
+});
 for(const caller of [{app_role:'viewer'}, {access_disabled:true}, {must_change_password:true}]) {
  test('self deletion works for restricted accounts '+JSON.stringify(caller),async()=>{
   const {request,calls}=await handler('admin-users',{caller});
@@ -98,18 +126,18 @@ test('invalid sessions cannot delete accounts',async()=>{
 });
 test('administrator deletion enforces the transactional access guard first',async()=>{
  const {request,calls}=await handler('admin-users',{existingProfile:{access_disabled:false}});
- assert.equal((await request({action:'delete_user',user_id:'target',confirmation:'DELETE'})).status,200);
+ assert.equal((await request({action:'delete_user',user_id:deletionTarget,confirmation:'DELETE'})).status,200);
  assert.equal(calls[0][1],'manage_app_user_access');assert.equal(calls[0][2].p_actor_id,'actor');
- assert.deepEqual(calls[1],['delete','target']);
+ assert.deepEqual(calls[1],['delete',deletionTarget]);
 });
 test('administrator cannot delete an account rejected by the access guard',async()=>{
  const {request,calls}=await handler('admin-users',{existingProfile:{access_disabled:false},rpcError:new Error('Other church')});
- assert.equal((await request({action:'delete_user',user_id:'target',confirmation:'DELETE'})).status,403);
+ assert.equal((await request({action:'delete_user',user_id:deletionTarget,confirmation:'DELETE'})).status,403);
  assert.ok(!calls.some(call=>call[0]==='delete'));
 });
 test('failed administrator deletion restores previously enabled access',async()=>{
  const {request,calls}=await handler('admin-users',{existingProfile:{access_disabled:false},deleteError:new Error('private deletion error')});
- const response=await request({action:'delete_user',user_id:'target',confirmation:'DELETE'});
+ const response=await request({action:'delete_user',user_id:deletionTarget,confirmation:'DELETE'});
  assert.equal(response.status,500);assert.doesNotMatch(await response.text(),/private deletion error/);
  assert.equal(calls.at(-1)[2].p_disabled,false);
 });
