@@ -253,6 +253,8 @@ private struct MessageBanner: View {
                     model.noticeMessage = nil
                 } label: {
                     Image(systemName: "xmark")
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Dismiss")
@@ -272,6 +274,7 @@ private struct MessageBanner: View {
                             ? AppTheme.riverBlue.opacity(0.28)
                             : Color.red.opacity(0.28)
                     )
+                    .allowsHitTesting(false)
             }
             .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
             .padding()

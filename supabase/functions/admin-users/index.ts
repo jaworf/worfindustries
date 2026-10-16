@@ -96,7 +96,7 @@ Deno.serve(async (request: Request) => {
       if (payload.confirmation !== "DELETE") {
         return json(400, { error: "Confirm permanent account deletion." });
       }
-      const { error } = await admin.auth.admin.deleteUser(user.id);
+      const { error } = await admin.auth.admin.deleteUser(user.id.toLowerCase());
       if (error) throw error;
       return json(200, { message: "Your account and sign-in profile have been permanently deleted." });
     }
@@ -111,23 +111,26 @@ Deno.serve(async (request: Request) => {
     }
 
     if (payload?.action === "delete_user") {
-      if (typeof payload.user_id !== "string" || payload.confirmation !== "DELETE") {
+      if (typeof payload.user_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.user_id) || payload.confirmation !== "DELETE") {
         return json(400, { error: "Choose a user and confirm permanent deletion." });
       }
+      // Foundation UUID.uuidString uses uppercase; Auth's UUID validator only
+      // accepts lowercase. Use one canonical ID for the guard and deletion.
+      const targetUserId = payload.user_id.toLowerCase();
       const { data: target, error: lookupError } = await admin.from("profiles")
-        .select("access_disabled").eq("user_id", payload.user_id).single();
+        .select("access_disabled").eq("user_id", targetUserId).single();
       if (lookupError) throw lookupError;
       // The same transactional guard protects church boundaries, platform
       // administrators, self-management, and the last active administrator.
       const { error: guardError } = await admin.rpc("manage_app_user_access", {
-        p_actor_id: user.id, p_user_id: payload.user_id, p_role: null, p_disabled: true,
+        p_actor_id: user.id, p_user_id: targetUserId, p_role: null, p_disabled: true,
       });
       if (guardError) return json(403, { error: "This account cannot be deleted by this administrator. Check church membership and administrator protections." });
-      const { error: deleteError } = await admin.auth.admin.deleteUser(payload.user_id);
+      const { error: deleteError } = await admin.auth.admin.deleteUser(targetUserId);
       if (deleteError) {
         if (!target.access_disabled) {
           const { error: restoreError } = await admin.rpc("manage_app_user_access", {
-            p_actor_id: user.id, p_user_id: payload.user_id, p_role: null, p_disabled: false,
+            p_actor_id: user.id, p_user_id: targetUserId, p_role: null, p_disabled: false,
           });
           if (restoreError) console.error("Could not restore access after unsuccessful account deletion:", restoreError);
         }
