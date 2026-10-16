@@ -49,7 +49,8 @@ struct AssignmentEntryView: View {
     private var placementRequirements: AssignmentRequirements {
         AssignmentRequirements(
             ministryRequiresVote: selectedRole?.requiresVote == true,
-            positionRequiresVote: selectedPosition?.requiresVote == true
+            positionRequiresVote: selectedPosition?.requiresVote == true,
+            hasPosition: assignment.subRoleId != nil
         )
     }
 
@@ -130,7 +131,7 @@ struct AssignmentEntryView: View {
                 }
 
                 Picker("Position", selection: positionPickerChoice) {
-                    Text("Choose a position").tag(PositionPickerChoice.none)
+                    Text("No position — team member").tag(PositionPickerChoice.none)
                     ForEach(availableSubRoles) { subRole in
                         Text(subRole.name)
                             .tag(PositionPickerChoice.position(subRole.id))
@@ -147,12 +148,15 @@ struct AssignmentEntryView: View {
                             .tag(Optional(term.id))
                     }
                 }
+                .disabled(assignment.subRoleId == nil)
                 if placementRequirements.requiresTerm {
                     Text("A term is required because this placement requires a church vote.")
                         .appFont(.footnote)
                         .foregroundStyle(.secondary)
                 } else {
-                    Text("A term is optional for placements that do not require a church vote.")
+                    Text(assignment.subRoleId == nil
+                        ? "Team members do not need a position, term, or church vote."
+                        : "A term is optional for placements that do not require a church vote.")
                         .appFont(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -174,29 +178,14 @@ struct AssignmentEntryView: View {
             }
 
             Section("Record details") {
+                Toggle("Record a vote date", isOn: $includeVoteDate)
+                    .disabled(assignment.subRoleId == nil)
+                if includeVoteDate {
+                    DatePicker("Vote date", selection: $selectedVoteDate, displayedComponents: .date)
+                }
                 if placementRequiresVote {
-                    LabeledContent("Church vote") {
-                        Text("Required")
-                            .foregroundStyle(.orange)
-                    }
-                    Text(voteRequirementDescription)
-                        .appFont(.footnote)
-                        .foregroundStyle(.secondary)
-                    DatePicker(
-                        "Vote date",
-                        selection: $selectedVoteDate,
-                        displayedComponents: .date
-                    )
-                    .onAppear { includeVoteDate = true }
-                } else {
-                    Toggle("Record a vote date", isOn: $includeVoteDate)
-                    if includeVoteDate {
-                        DatePicker(
-                            "Vote date",
-                            selection: $selectedVoteDate,
-                            displayedComponents: .date
-                        )
-                    }
+                    Text("Leave the date empty to add this placement to Needing Votes.")
+                        .appFont(.footnote).foregroundStyle(.secondary)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -279,6 +268,10 @@ struct AssignmentEntryView: View {
             includeVoteDate = placementRequiresVote
         }
         .onChange(of: assignment.subRoleId) { _, _ in
+            if assignment.subRoleId == nil {
+                assignment.termId = nil
+                assignment.voteDate = nil
+            }
             includeVoteDate = placementRequiresVote
         }
         .onChange(of: assignment.personId) { _, _ in
@@ -304,7 +297,10 @@ struct AssignmentEntryView: View {
     }
 
     private var voteRequirementDescription: String {
-        switch (selectedRole?.requiresVote == true, selectedPosition?.requiresVote == true) {
+        guard assignment.subRoleId != nil else {
+            return "Team members without a position do not require a term or church vote."
+        }
+        return switch (selectedRole?.requiresVote == true, selectedPosition?.requiresVote == true) {
         case (true, true):
             "Both this ministry and this position require a church vote."
         case (true, false):
@@ -420,9 +416,6 @@ struct AssignmentEntryView: View {
         }
         if assignment.roleId == nil {
             return "Choose a ministry before saving."
-        }
-        if assignment.subRoleId == nil {
-            return "Choose a position before saving."
         }
         if placementRequirements.requiresTerm, assignment.termId == nil {
             return "Choose a term because this placement requires a church vote."

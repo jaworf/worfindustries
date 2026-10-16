@@ -132,12 +132,13 @@ export async function requireEditor(
 
   const { data: profile, error: profileError } = await client
     .from("profiles")
-    .select("app_role,church_id")
+    .select("app_role,church_id,access_disabled,must_change_password")
     .eq("user_id", user.id)
     .single();
   if (
     profileError ||
     !profile ||
+    profile.access_disabled || profile.must_change_password ||
     !["admin", "editor"].includes(profile.app_role)
     || typeof profile.church_id !== "string"
   ) {
@@ -166,7 +167,7 @@ function planningCenterHeaders(credentials?: PlanningCenterCredentials): Headers
     Accept: "application/json",
     Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
     "User-Agent":
-      "Riverview Ministry Volunteers (jason.worf@riverviewadventist.org)",
+      "Ministry Volunteers",
     "X-PCO-API-Version": planningCenterApiVersion,
   };
 }
@@ -320,11 +321,12 @@ export async function fetchPeoplePage(
 
 export async function fetchPerson(
   personId: string,
+  credentials?: PlanningCenterCredentials,
 ): Promise<{ externalId: string; record: MinistryPersonRecord }> {
   const url =
     `https://api.planningcenteronline.com/people/v2/people/${encodeURIComponent(personId)}` +
     "?include=emails,phone_numbers,addresses,name_suffix";
-  const response = await planningCenterRequest(url);
+  const response = await planningCenterRequest(url, credentials);
   if (Array.isArray(response.data)) {
     throw new Error("Expected one Planning Center person.");
   }

@@ -22,7 +22,7 @@ final class AppModel: ObservableObject {
     private let configurationKey = "supabase-configuration"
     private let sessionAccount = "supabase-session"
     private static let passwordResetURL = URL(
-        string: "https://riverview-ministry-directory.jaworf.chatgpt.site/reset-password"
+        string: "https://ministryvolunteers.worf.app/reset-password"
     )!
 
     private static var isRunningTests: Bool {
@@ -32,9 +32,10 @@ final class AppModel: ObservableObject {
 
     var isConfigured: Bool { configuration.isValid }
     var isSignedIn: Bool { session != nil }
-    var isAdministrator: Bool { currentProfile?.appRole == .admin }
+    var accessIsReady: Bool { currentProfile?.accessDisabled != true && currentProfile?.mustChangePassword != true }
+    var isAdministrator: Bool { accessIsReady && currentProfile?.appRole == .admin }
     var canEdit: Bool {
-        currentProfile?.appRole == .admin || currentProfile?.appRole == .editor
+        accessIsReady && (currentProfile?.appRole == .admin || currentProfile?.appRole == .editor)
     }
 
     init() {
@@ -166,7 +167,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func inviteAppUser(email: String, role: AppUserRole) async -> Bool {
+    func inviteAppUser(email: String, role: AppUserRole, temporaryPassword: String? = nil) async -> Bool {
         var succeeded = false
         await perform {
             guard isAdministrator else {
@@ -176,7 +177,7 @@ final class AppModel: ObservableObject {
             }
             guard role != .admin else {
                 throw SupabaseClientError.invalidRequest(
-                    "New administrator access must be granted directly in Supabase."
+                    "Use Manage App Users to grant administrator access from a platform administrator account."
                 )
             }
             guard
@@ -188,13 +189,47 @@ final class AppModel: ObservableObject {
 
             let invitation = try await requireClient().inviteAppUser(
                 email: normalizedEmail,
-                role: role
+                role: role, temporaryPassword: temporaryPassword
             )
             noticeMessage =
                 "\(invitation.message) \(invitation.email) has \(invitation.role.label) access."
             succeeded = true
         }
         return succeeded
+    }
+
+    func loadAppUsers() async -> [ManagedAppUser] {
+        var users: [ManagedAppUser] = []
+        await perform { users = try await requireClient().loadAppUsers() }
+        return users
+    }
+    func updateAppUser(_ userId: UUID, action: String, role: AppUserRole? = nil) async -> Bool {
+        var succeeded = false
+        await perform {
+            try await requireClient().updateAppUser(userId, action: action, role: role)
+            noticeMessage = "App access updated."
+            succeeded = true
+        }
+        return succeeded
+    }
+    func changeInitialPassword(_ password: String) async {
+        await perform {
+            try await requireClient().changeInitialPassword(password)
+            try await reload(using: requireClient())
+            noticeMessage = "Password updated."
+        }
+    }
+
+    func deleteOwnAccount() async {
+        var deleted = false
+        await perform {
+            try await requireClient().deleteOwnAccount()
+            deleted = true
+        }
+        if deleted {
+            signOut()
+            noticeMessage = "Your account has been permanently deleted."
+        }
     }
 
     func saveAssignment(
@@ -226,7 +261,8 @@ final class AppModel: ObservableObject {
             }?.requiresVote == true
             let requirements = AssignmentRequirements(
                 ministryRequiresVote: role.requiresVote,
-                positionRequiresVote: positionRequiresVote
+                positionRequiresVote: positionRequiresVote,
+                hasPosition: assignment.subRoleId != nil
             )
             if let message = requirements.validationMessage(
                 termId: assignment.termId,
@@ -235,6 +271,10 @@ final class AppModel: ObservableObject {
                 throw SupabaseClientError.invalidRequest(message)
             }
 
+            if assignment.subRoleId == nil {
+                assignment.termId = nil
+                assignment.voteDate = nil
+            }
             try await client.createAssignment(assignment)
             if let personId = assignment.personId, let ordination {
                 try await client.updatePersonOrdination(
@@ -342,10 +382,10 @@ final class AppModel: ObservableObject {
             try await client.updateAssignmentDetails(
                 assignmentId: assignmentId,
                 subRoleId: subRoleId,
-                termId: termId,
+                termId: subRoleId == nil ? nil : termId,
                 notes: notes,
                 noteIsPublic: noteIsPublic,
-                voteDate: voteDate
+                voteDate: subRoleId == nil ? nil : voteDate
             )
             try await reload(using: client)
             noticeMessage = "Assignment details updated."
@@ -529,9 +569,14 @@ final class AppModel: ObservableObject {
     }
 
     private func reload(using client: SupabaseRESTClient) async throws {
-        async let snapshotRequest = client.loadSnapshot()
-        async let profileRequest = client.loadCurrentProfile()
-        let (snapshot, profile) = try await (snapshotRequest, profileRequest)
+        let profile = try await client.loadCurrentProfile()
+        currentProfile = profile
+        if profile.accessDisabled == true || profile.mustChangePassword == true {
+            people = []; roles = []; subRoles = []; terms = []; assignments = []
+            currentChurch = nil
+            return
+        }
+        let snapshot = try await client.loadSnapshot()
         let church = try await client.loadChurch(id: profile.churchId)
         people = snapshot.people
         roles = snapshot.roles

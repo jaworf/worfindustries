@@ -9,224 +9,10 @@ import {
   useState,
 } from "react";
 
-type AppRole = "admin" | "editor" | "viewer";
-type Tab =
-  | "focus"
-  | "assign"
-  | "ministries"
-  | "people"
-  | "votes"
-  | "manage"
-  | "reports"
-  | "settings";
-type OrdinationKind = "deacon" | "deaconess" | "elder";
-
-type Profile = {
-  user_id: string;
-  display_name: string | null;
-  app_role: AppRole;
-  church_id: string;
-  is_platform_admin: boolean;
-  churches: { name: string; slug: string; support_email: string | null } | null;
-};
-
-type Church = { id: string; name: string; slug: string };
-
-type Person = {
-  id: string;
-  first_name: string;
-  middle_name: string | null;
-  last_name: string;
-  preferred_name: string | null;
-  suffix: string | null;
-  email: string | null;
-  mobile_phone: string | null;
-  home_phone: string | null;
-  membership_status: string | null;
-  is_active: boolean;
-  is_public: boolean;
-  is_ordained_deacon: boolean;
-  is_ordained_deaconess: boolean;
-  is_ordained_elder: boolean;
-  source_created_at: string | null;
-  created_at: string | null;
-};
-
-type Ministry = {
-  id: string;
-  name: string;
-  description: string | null;
-  requires_vote: boolean;
-  is_active: boolean;
-  is_public: boolean;
-  display_order: number;
-  archived_at: string | null;
-};
-
-type Position = {
-  id: string;
-  role_id: string | null;
-  name: string;
-  leadership_rank: number;
-  requires_vote: boolean;
-  is_active: boolean;
-};
-
-type Term = {
-  id: string;
-  name: string;
-  start_date: string | null;
-  end_date: string | null;
-  term_type: string;
-  is_active: boolean;
-};
-
-type Assignment = {
-  id: string;
-  person_id: string;
-  first_name: string;
-  preferred_name: string | null;
-  last_name: string;
-  person_name: string;
-  email: string | null;
-  mobile_phone: string | null;
-  home_phone: string | null;
-  role_id: string;
-  role_name: string;
-  sub_role_id: string | null;
-  sub_role_name: string | null;
-  leadership_rank: number;
-  term_id: string | null;
-  term_name: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  term_type: string | null;
-  vote_date: string | null;
-  ministry_requires_vote: boolean;
-  position_requires_vote: boolean;
-  requires_vote: boolean;
-  vote_missing: boolean;
-  status: string;
-  is_public: boolean;
-  notes: string | null;
-  note_is_public: boolean;
-  archived_at: string | null;
-  ministry_is_active: boolean;
-  ministry_archived_at: string | null;
-};
-
-type Snapshot = {
-  people: Person[];
-  ministries: Ministry[];
-  positions: Position[];
-  terms: Term[];
-  assignments: Assignment[];
-};
-
-const emptySnapshot: Snapshot = {
-  people: [],
-  ministries: [],
-  positions: [],
-  terms: [],
-  assignments: [],
-};
-
-const navItems: Array<{ id: Tab; label: string; short: string }> = [
-  { id: "focus", label: "Focus", short: "Focus" },
-  { id: "assign", label: "Assign", short: "Assign" },
-  { id: "ministries", label: "Ministry Directory", short: "Ministries" },
-  { id: "people", label: "People Directory", short: "People" },
-  { id: "votes", label: "Awaiting Vote", short: "Votes" },
-  { id: "manage", label: "Manage", short: "Manage" },
-  { id: "reports", label: "Reports", short: "Reports" },
-  { id: "settings", label: "Settings", short: "Settings" },
-];
-
-function personName(person: Person) {
-  return [person.preferred_name || person.first_name, person.last_name, person.suffix]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function ordinationKind(ministryName: string | undefined): OrdinationKind | null {
-  const normalized = ministryName?.trim().toLowerCase();
-  return normalized === "deacon" || normalized === "deaconess" || normalized === "elder"
-    ? normalized
-    : null;
-}
-
-function ordinationLabel(kind: OrdinationKind) {
-  return `Ordained ${kind[0].toUpperCase()}${kind.slice(1)}`;
-}
-
-function ordinationLabels(person: Person) {
-  const labels: string[] = [];
-  if (person.is_ordained_deacon) labels.push("Ordained Deacon");
-  if (person.is_ordained_deaconess) labels.push("Ordained Deaconess");
-  if (person.is_ordained_elder) labels.push("Ordained Elder");
-  return labels;
-}
-
-function ordinationField(kind: OrdinationKind) {
-  return `is_ordained_${kind}` as
-    | "is_ordained_deacon"
-    | "is_ordained_deaconess"
-    | "is_ordained_elder";
-}
-
-function todayISO() {
-  const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 10);
-}
-
-function formatDate(value: string | null | undefined) {
-  if (!value) return "No end date";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(`${value}T12:00:00`));
-}
-
-function isCurrent(assignment: Assignment) {
-  return (
-    assignment.status === "active" &&
-    assignment.ministry_is_active &&
-    (!assignment.end_date || assignment.end_date >= todayISO())
-  );
-}
-
-function normalizeError(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object" && error && "message" in error) {
-    return String((error as { message: unknown }).message);
-  }
-  return "The request could not be completed.";
-}
-
-function isFutureJwtError(error: unknown) {
-  return normalizeError(error).toLowerCase().includes("jwt issued at future");
-}
-
-function adminErrorMessage(error: unknown) {
-  if (isFutureJwtError(error)) {
-    return "The secure session is still synchronizing. Check that this device sets its date and time automatically, then try again.";
-  }
-  return normalizeError(error);
-}
-
-function wait(milliseconds: number) {
-  return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
-}
-
-function membershipPriority(value: string | null) {
-  const normalized = value?.trim().toLowerCase() ?? "";
-  if (normalized === "riverview member") return 0;
-  if (normalized.includes("riverview") && normalized.includes("member")) return 1;
-  if (normalized.includes("member")) return 2;
-  return 3;
-}
+import { type AppRole, type Tab, type AssignmentRoute, type OrdinationKind, type Profile, type Church, type Person, type Ministry, type Position, type Term, type Assignment, type Snapshot, emptySnapshot, navItems, personName, ordinationKind, ordinationLabels, ordinationField, todayISO, formatDate, isCurrent, normalizeError, loadAllPeople, functionErrorMessage, isFutureJwtError, adminErrorMessage, wait, membershipPriority, type MutationRunner } from "./admin-shared";
+import { AssignView } from "./assign-view";
+import { SectionHeading } from "./section-heading";
+import { DeleteAccountButton } from "./delete-account";
 
 export function MinistryAdmin({
   projectUrl,
@@ -250,7 +36,9 @@ export function MinistryAdmin({
   const [profile, setProfile] = useState<Profile | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot>(emptySnapshot);
   const [activeTab, setActiveTab] = useState<Tab>("focus");
-  const [booting, setBooting] = useState(true);
+  const [assignmentRoute, setAssignmentRoute] = useState<AssignmentRoute>({});
+  const openAssign = (route: AssignmentRoute) => { setAssignmentRoute(route); setActiveTab("assign"); };
+  const [booting, setBooting] = useState(Boolean(supabase));
   const [loading, setLoading] = useState(false);
   const [working, setWorking] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -269,10 +57,10 @@ export function MinistryAdmin({
               await Promise.all([
                 supabase
                   .from("profiles")
-                  .select("user_id,display_name,app_role,church_id,is_platform_admin,churches(name,slug,support_email)")
+                  .select("user_id,display_name,app_role,church_id,is_platform_admin,access_disabled,must_change_password,churches(name,slug,support_email)")
                   .eq("user_id", userId)
                   .single(),
-                supabase.from("people").select("*").order("last_name").order("first_name"),
+                loadAllPeople(supabase),
                 supabase.from("roles").select("*").order("display_order").order("name"),
                 supabase.from("sub_roles").select("*").order("leadership_rank").order("name"),
                 supabase.from("terms").select("*").order("end_date", { ascending: false }),
@@ -297,7 +85,8 @@ export function MinistryAdmin({
               throw new Error("This login has not been assigned an app access role.");
             }
 
-            setProfile(profileResult.data as Profile);
+            const profileData = profileResult.data;
+            setProfile({ ...profileData, churches: Array.isArray(profileData.churches) ? profileData.churches[0] : profileData.churches } as Profile);
             setSnapshot({
               people: (peopleResult.data ?? []) as Person[],
               ministries: (ministryResult.data ?? []) as Ministry[],
@@ -326,10 +115,7 @@ export function MinistryAdmin({
   );
 
   useEffect(() => {
-    if (!supabase) {
-      setBooting(false);
-      return;
-    }
+    if (!supabase) return;
     let active = true;
     void supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
@@ -401,8 +187,11 @@ export function MinistryAdmin({
   }
 
   if (!session) {
-    return <AdminLogin supabase={supabase} setNotice={setNotice} />;
+    return <AdminLogin supabase={supabase} notice={notice} setNotice={setNotice} />;
   }
+
+  if (profile?.access_disabled) return <main className="admin-login-shell"><section className="admin-login-card"><h1>App access removed</h1><p>Contact your administrator to restore access.</p><DeleteAccountButton supabase={supabase} /><button className="button" onClick={() => void supabase.auth.signOut()}>Sign Out</button></section></main>;
+  if (profile?.must_change_password) return <InitialPasswordChange supabase={supabase} complete={() => loadData(session.user.id)} />;
 
   return (
     <div className="admin-app-shell">
@@ -472,6 +261,7 @@ export function MinistryAdmin({
             <>
               {activeTab === "focus" && (
                 <FocusView
+                  onAssign={openAssign}
                   supabase={supabase}
                   snapshot={snapshot}
                   canEdit={canEdit}
@@ -481,6 +271,7 @@ export function MinistryAdmin({
               )}
               {activeTab === "assign" && (
                 <AssignView
+                  initialRoute={assignmentRoute}
                   supabase={supabase}
                   snapshot={snapshot}
                   canEdit={canEdit}
@@ -543,6 +334,29 @@ export function MinistryAdmin({
   );
 }
 
+function InitialPasswordChange({supabase,complete}:{supabase:SupabaseClient;complete:()=>Promise<void>}) {
+  const [password,setPassword]=useState(""); const [confirmation,setConfirmation]=useState(""); const [busy,setBusy]=useState(false); const [error,setError]=useState<string|null>(null);
+  return <main className="admin-login-shell"><section className="admin-login-card"><DeleteAccountButton supabase={supabase} /><h1>Change your temporary password</h1><p>Choose a new password before using the app. Use at least 14 characters.</p><form className="admin-form-stack" onSubmit={async event=>{event.preventDefault(); if(password.length<14 || password!==confirmation){setError("Enter matching passwords with at least 14 characters.");return;} setBusy(true); const {error}=await supabase.auth.updateUser({password}); if(error)setError(error.message); else await complete(); setBusy(false);}}><label>New password<input type="password" autoComplete="new-password" minLength={14} value={password} onChange={e=>setPassword(e.target.value)} required /></label><label>Confirm new password<input type="password" autoComplete="new-password" value={confirmation} onChange={e=>setConfirmation(e.target.value)} required /></label>{error&&<p role="alert">{error}</p>}<button className="button button-primary" disabled={busy}>Save New Password</button><button type="button" className="button" onClick={()=>void supabase.auth.signOut()}>Sign Out</button></form></section></main>;
+}
+
+type ManagedAppUser = {user_id:string;email:string;app_role:AppRole;church_id:string;is_platform_admin:boolean;access_disabled:boolean;must_change_password:boolean;enrolled:boolean};
+function AppUserManagement({supabase,profile,session,working,mutate}:{supabase:SupabaseClient;profile:Profile;session:Session;working:boolean;mutate:MutationRunner}) {
+ const [users,setUsers]=useState<ManagedAppUser[]>([]); const [error,setError]=useState<string|null>(null);
+ const load=useCallback(async()=>{const {data,error}=await supabase.functions.invoke("admin-users",{body:{action:"list"}}); if(error)setError(await functionErrorMessage(error)); else{setUsers(data.users);setError(null);}},[supabase]);
+ useEffect(() => {
+   let active = true;
+   void supabase.functions.invoke("admin-users", {body: {action: "list"}}).then(async ({data, error}) => {
+     const message = error ? await functionErrorMessage(error) : null;
+     if (!active) return;
+     setError(message);
+     if (!error) setUsers(data.users);
+   });
+   return () => {active = false;};
+ }, [supabase, profile]);
+ async function change(user:ManagedAppUser,action:string,role?:AppRole){if(await mutate("App access updated.",async()=>{const {error}=await supabase.functions.invoke("admin-users",{body:{action,user_id:user.user_id,role,...(action==="delete_user"?{confirmation:"DELETE"}:{})}});if(error)throw new Error(await functionErrorMessage(error));}))await load();}
+ return <section className="admin-card full-panel"><h3>Manage App Users</h3><p>Changes apply to existing accounts. Remove access keeps records and can be reversed.</p><button className="button" onClick={()=>void load()}>Refresh Users</button>{error&&<p role="alert">{error}</p>}<ul className="admin-focus-list">{users.map(user=>{const protectedUser=user.user_id===session.user.id||user.is_platform_admin||(!profile.is_platform_admin&&user.app_role==="admin");return <li key={user.user_id}><strong>{user.email}</strong><p>{user.access_disabled?"Access removed":user.must_change_password?"Password change required":user.enrolled?"Active":"Invitation pending"}</p><label>Permissions for {user.email}<select value={user.app_role} disabled={working||protectedUser||user.access_disabled} onChange={e=>void change(user,"update_role",e.target.value as AppRole)}>{profile.is_platform_admin&&<option value="admin">Administrator</option>}<option value="editor">Editor</option><option value="viewer">Viewer</option></select></label><button className="button" disabled={working||protectedUser} onClick={()=>void change(user,user.access_disabled?"restore_access":"remove_access")}>{user.access_disabled?"Restore Access":"Remove Access"}</button>{!user.enrolled&&!user.access_disabled&&<button className="button" disabled={working} onClick={async()=>{await mutate("New setup email sent.",async()=>{const {error}=await supabase.functions.invoke("admin-users",{body:{email:user.email,role:user.app_role,church_id:user.church_id}});if(error)throw new Error(await functionErrorMessage(error));});}}>Resend Setup Email</button>}<button className="button button-danger" disabled={working||protectedUser} onClick={()=>{if(window.confirm(`Permanently delete ${user.email}? This deletes their login and account profile. Church-owned volunteer records and assignments are preserved. This cannot be undone.`))void change(user,"delete_user");}}>Delete User Permanently</button></li>;})}</ul></section>;
+}
+
 function AdminLoading({ label, compact = false }: { label: string; compact?: boolean }) {
   return (
     <main className={compact ? "admin-inline-loading" : "admin-login-shell"} aria-busy="true">
@@ -554,9 +368,11 @@ function AdminLoading({ label, compact = false }: { label: string; compact?: boo
 
 function AdminLogin({
   supabase,
+  notice,
   setNotice,
 }: {
   supabase: SupabaseClient;
+  notice: string | null;
   setNotice: (message: string | null) => void;
 }) {
   const [email, setEmail] = useState("");
@@ -629,6 +445,7 @@ function AdminLogin({
             />
           </label>
           {error && <p className="admin-form-error">{error}</p>}
+          {notice && <p role="status">{notice}</p>}
           <button className="button button-primary" disabled={busy}>
             {busy ? "Signing in…" : "Sign In"}
           </button>
@@ -644,139 +461,32 @@ function AdminLogin({
   );
 }
 
-function SectionHeading({ title, detail }: { title: string; detail: string }) {
-  return (
-    <header className="admin-section-heading">
-      <div>
-        <p className="eyebrow">Riverview Ministry Volunteers</p>
-        <h2>{title}</h2>
-      </div>
-      <p>{detail}</p>
-    </header>
-  );
-}
-
-function FocusView({
-  supabase,
-  snapshot,
-  canEdit,
-  working,
-  mutate,
-}: {
-  supabase: SupabaseClient;
-  snapshot: Snapshot;
-  canEdit: boolean;
-  working: boolean;
-  mutate: MutationRunner;
+function FocusView({ supabase, snapshot, canEdit, working, mutate, onAssign }: {
+  supabase: SupabaseClient; snapshot: Snapshot; canEdit: boolean; working: boolean;
+  mutate: MutationRunner; onAssign: (route: AssignmentRoute) => void;
 }) {
-  const currentAssignments = snapshot.assignments.filter(isCurrent);
-  const occupiedMinistries = new Set(currentAssignments.map((item) => item.role_id));
-  const emptyMinistries = snapshot.ministries
-    .filter((ministry) => ministry.is_active && !occupiedMinistries.has(ministry.id))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const assignedPeople = new Set(currentAssignments.map((item) => item.person_id));
-  const unassigned = snapshot.people
-    .filter((person) => person.is_active && !assignedPeople.has(person.id))
-    .sort((a, b) => {
-      const priority = membershipPriority(a.membership_status) - membershipPriority(b.membership_status);
-      return priority || a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name);
-    });
-  const awaitingVotes = currentAssignments.filter((item) => item.vote_missing);
-  const oneYear = new Date();
-  oneYear.setFullYear(oneYear.getFullYear() + 1);
-  const oneYearISO = oneYear.toISOString().slice(0, 10);
-  const endingSoon = currentAssignments.filter(
-    (item) => item.end_date && item.end_date >= todayISO() && item.end_date <= oneYearISO,
-  );
-  const peopleById = new Map(snapshot.people.map((person) => [person.id, person]));
-  const ordinationNeedMap = new Map<
-    string,
-    { person: Person; kind: OrdinationKind; assignment: Assignment }
-  >();
-  for (const assignment of currentAssignments) {
-    const kind = ordinationKind(assignment.role_name);
-    const person = peopleById.get(assignment.person_id);
-    if (!kind || !person?.is_active || person[ordinationField(kind)]) continue;
-    ordinationNeedMap.set(`${person.id}-${kind}`, { person, kind, assignment });
-  }
-  const ordinationNeeds = [...ordinationNeedMap.values()].sort(
-    (a, b) =>
-      a.assignment.role_name.localeCompare(b.assignment.role_name) ||
-      a.person.last_name.localeCompare(b.person.last_name) ||
-      a.person.first_name.localeCompare(b.person.first_name),
-  );
-
-  return (
-    <>
-      <SectionHeading
-        title="Placement Focus"
-        detail="A prioritized view of ministries and people that need attention."
-      />
-      <div className="admin-stat-grid">
-        <StatCard value={emptyMinistries.length} label="Empty ministries" tone="urgent" />
-        <StatCard value={awaitingVotes.length} label="Awaiting church vote" tone="gold" />
-        <StatCard value={endingSoon.length} label="Terms ending within a year" tone="blue" />
-        <StatCard value={unassigned.length} label="People without a role" tone="green" />
-        <StatCard value={ordinationNeeds.length} label="Awaiting ordination" tone="urgent" />
-      </div>
-      <div className="admin-two-column">
-        <FocusList
-          title="Ministries needing a volunteer"
-          empty="Every active ministry has at least one current volunteer."
-          items={emptyMinistries.map((ministry) => ({
-            title: ministry.name,
-            detail: "No active placement",
-          }))}
-        />
-        <FocusList
-          title="Awaiting church vote"
-          empty="No active placements are waiting for a vote."
-          items={awaitingVotes.map((assignment) => ({
-            title: assignment.person_name,
-            detail: `${assignment.role_name}${assignment.sub_role_name ? ` · ${assignment.sub_role_name}` : ""}`,
-          }))}
-        />
-        <FocusList
-          title="Ordination action"
-          empty="Every current Deacon, Deaconess, and Elder is marked ordained."
-          items={ordinationNeeds.map(({ person, kind, assignment }) => ({
-            title: personName(person),
-            detail: `${assignment.role_name} · ${ordinationLabel(kind)} is not checked`,
-            actionLabel: canEdit ? `Mark ${ordinationLabel(kind)}` : undefined,
-            actionDisabled: working,
-            onAction: canEdit
-              ? () => {
-                  void mutate("Ordination record updated.", async () => {
-                    const { error } = await supabase
-                      .from("people")
-                      .update({ [ordinationField(kind)]: true })
-                      .eq("id", person.id);
-                    if (error) throw error;
-                  });
-                }
-              : undefined,
-          }))}
-        />
-        <FocusList
-          title="Terms ending within one year"
-          empty="No current terms end within the next year."
-          items={endingSoon.map((assignment) => ({
-            title: assignment.person_name,
-            detail: `${assignment.role_name} · ends ${formatDate(assignment.end_date)}`,
-          }))}
-        />
-        <FocusList
-          title="Volunteer activation"
-          empty="Every active person has a current role."
-          items={unassigned.slice(0, 80).map((person) => ({
-            title: personName(person),
-            detail: person.membership_status || "Membership status not recorded",
-            emphasized: membershipPriority(person.membership_status) === 0,
-          }))}
-        />
-      </div>
-    </>
-  );
+  const current = snapshot.assignments.filter(isCurrent);
+  const needingVotes = current.filter(a => a.vote_missing);
+  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() + 6);
+  const ending = current.filter(a => a.end_date && a.end_date >= todayISO() && a.end_date <= cutoff.toISOString().slice(0,10));
+  const assigned = new Set(current.map(a => a.person_id));
+  const unassigned = snapshot.people.filter(p => p.is_active && !assigned.has(p.id)).sort((a,b) => membershipPriority(a.membership_status)-membershipPriority(b.membership_status) || a.last_name.localeCompare(b.last_name));
+  const occupied = new Set(current.map(a => a.role_id));
+  const empty = snapshot.ministries.filter(m => m.is_active && !occupied.has(m.id));
+  const people = new Map(snapshot.people.map(p => [p.id,p]));
+  const needs = new Map<string,{person:Person;kind:OrdinationKind;assignment:Assignment}>();
+  for (const assignment of current) { const kind = ordinationKind(assignment.role_name); const person = people.get(assignment.person_id); if (kind && person?.is_active && !person[ordinationField(kind)]) needs.set(person.id+kind,{person,kind,assignment}); }
+  return <>
+    <SectionHeading title="Placement Focus" detail="Choose a person or action to resolve the items below." />
+    <section className="admin-card"><h3>Needing Votes</h3>
+      {!needingVotes.length && <p>No placements are waiting for a vote.</p>}
+      {needingVotes.map(assignment => <VoteRow key={assignment.id} assignment={assignment} canEdit={canEdit} working={working} save={async date => { await mutate("Church vote recorded.",async () => { const {error}=await supabase.from("assignments").update({vote_date:date}).eq("id",assignment.id); if(error) throw error; }); }} />)}
+    </section>
+    <FocusList title="Ordination Actions" empty="Every current Deacon, Deaconess, and Elder is marked ordained." items={[...needs.values()].map(({person,kind,assignment}) => ({title:personName(person),detail:assignment.role_name,actionLabel:canEdit ? "Mark ordained" : undefined,actionDisabled:working,onAction:() => { void mutate("Ordination record updated.",async () => { const {error}=await supabase.from("people").update({[ordinationField(kind)]:true}).eq("id",person.id); if(error) throw error; }); }}))} />
+    <FocusList title="Terms ending in the next 6 months" empty="No current terms end in the next 6 months." items={ending.map(a => ({title:a.person_name,detail:a.role_name+" · ends "+formatDate(a.end_date),actionLabel:canEdit ? "Assign ministry" : undefined,onAction:() => onAssign({personId:a.person_id,ministryId:a.role_id})}))} />
+    <FocusList title="Ministries Needing Volunteers" empty="Every active ministry has a current volunteer." items={empty.map(m => ({title:m.name,detail:"No active placement",actionLabel:canEdit ? "Assign volunteer" : undefined,onAction:() => onAssign({ministryId:m.id})}))} />
+    <FocusList title="Volunteer Activation" empty="Every active person has a current role." items={unassigned.map(p => ({title:personName(p),detail:p.membership_status || "Membership not recorded",emphasized:membershipPriority(p.membership_status)===0,actionLabel:canEdit ? "Assign ministry" : undefined,onAction:() => onAssign({personId:p.id})}))} />
+  </>;
 }
 
 function StatCard({
@@ -821,7 +531,7 @@ function FocusList({
         <ul>
           {items.map((item, index) => (
             <li key={`${item.title}-${item.detail}-${index}`} className={item.emphasized ? "priority" : ""}>
-              <strong>{item.title}</strong>
+              {item.onAction && item.actionLabel ? <button type="button" className="button button-link" disabled={item.actionDisabled} onClick={item.onAction}>{item.title}</button> : <strong>{item.title}</strong>}
               <span>{item.detail}</span>
               {item.actionLabel && item.onAction && (
                 <button
@@ -837,327 +547,6 @@ function FocusList({
         </ul>
       )}
     </section>
-  );
-}
-
-type MutationRunner = (successMessage: string, action: () => Promise<void>) => Promise<boolean>;
-
-function AssignView({
-  supabase,
-  snapshot,
-  canEdit,
-  working,
-  mutate,
-}: {
-  supabase: SupabaseClient;
-  snapshot: Snapshot;
-  canEdit: boolean;
-  working: boolean;
-  mutate: MutationRunner;
-}) {
-  const [newPerson, setNewPerson] = useState(false);
-  const [personQuery, setPersonQuery] = useState("");
-  const [personId, setPersonId] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [ministryId, setMinistryId] = useState("");
-  const [positionId, setPositionId] = useState("");
-  const [termId, setTermId] = useState("");
-  const [voteDate, setVoteDate] = useState("");
-  const [notes, setNotes] = useState("");
-  const [notePublic, setNotePublic] = useState(false);
-  const [assignmentPublic, setAssignmentPublic] = useState(true);
-  const [personPublic, setPersonPublic] = useState(true);
-  const [newPositionName, setNewPositionName] = useState("");
-  const [newPositionVote, setNewPositionVote] = useState(false);
-  const [ordained, setOrdained] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-
-  const activeMinistries = snapshot.ministries.filter((item) => item.is_active);
-  const selectedMinistry = activeMinistries.find((item) => item.id === ministryId);
-  const selectedPerson = snapshot.people.find((item) => item.id === personId);
-  const availablePositions = snapshot.positions.filter(
-    (item) => item.is_active && item.role_id === ministryId,
-  );
-  const selectedPosition = availablePositions.find((item) => item.id === positionId);
-  const kind = ordinationKind(selectedMinistry?.name);
-  const requiresVote = Boolean(
-    selectedMinistry?.requires_vote ||
-      selectedPosition?.requires_vote ||
-      (positionId === "add" && newPositionVote),
-  );
-  const people = snapshot.people.filter((person) => {
-    if (!person.is_active) return false;
-    const query = personQuery.trim().toLowerCase();
-    if (!query) return true;
-    return [personName(person), person.email, person.mobile_phone, person.membership_status]
-      .filter(Boolean)
-      .some((value) => value!.toLowerCase().includes(query));
-  });
-
-  useEffect(() => {
-    setPositionId("");
-    setNewPositionName("");
-    setNewPositionVote(false);
-  }, [ministryId]);
-
-  useEffect(() => {
-    if (!kind || newPerson) {
-      setOrdained(false);
-      return;
-    }
-    setOrdained(Boolean(selectedPerson?.[ordinationField(kind)]));
-  }, [kind, newPerson, selectedPerson]);
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setFormError(null);
-    if (!canEdit) return setFormError("Your account has view-only access.");
-    if (!ministryId) return setFormError("Choose a ministry.");
-    if (!positionId) return setFormError("Choose a position.");
-    if (newPerson && (!firstName.trim() || !lastName.trim())) {
-      return setFormError("Enter the new person's first and last name.");
-    }
-    if (!newPerson && !personId) return setFormError("Choose a person.");
-    if (positionId === "add" && !newPositionName.trim()) {
-      return setFormError("Enter the new position name.");
-    }
-    if (requiresVote && !termId) return setFormError("A term is required for a voted role.");
-    if (requiresVote && !voteDate) return setFormError("Enter the church vote date.");
-
-    const succeeded = await mutate("Volunteer assignment saved.", async () => {
-      let savedPersonId = personId;
-      if (newPerson) {
-        const { data, error } = await supabase
-          .from("people")
-          .insert({
-            first_name: firstName.trim(),
-            last_name: lastName.trim(),
-            email: email.trim() || null,
-            mobile_phone: phone.trim() || null,
-            is_active: true,
-            is_public: personPublic,
-            is_ordained_deacon: kind === "deacon" ? ordained : false,
-            is_ordained_deaconess: kind === "deaconess" ? ordained : false,
-            is_ordained_elder: kind === "elder" ? ordained : false,
-          })
-          .select("id")
-          .single();
-        if (error) throw error;
-        savedPersonId = data.id;
-      } else if (kind) {
-        const { error } = await supabase
-          .from("people")
-          .update({ [ordinationField(kind)]: ordained })
-          .eq("id", savedPersonId);
-        if (error) throw error;
-      }
-
-      let savedPositionId = positionId;
-      if (positionId === "add") {
-        const { data, error } = await supabase
-          .from("sub_roles")
-          .insert({
-            role_id: ministryId,
-            name: newPositionName.trim(),
-            leadership_rank: 100,
-            requires_vote: newPositionVote,
-            is_active: true,
-          })
-          .select("id")
-          .single();
-        if (error) throw error;
-        savedPositionId = data.id;
-      }
-
-      const { error } = await supabase.from("assignments").insert({
-        person_id: savedPersonId,
-        role_id: ministryId,
-        sub_role_id: savedPositionId,
-        term_id: termId || null,
-        vote_date: voteDate || null,
-        notes: notes.trim() || null,
-        note_is_public: Boolean(notes.trim()) && notePublic,
-        status: "active",
-        is_public: assignmentPublic,
-      });
-      if (error) throw error;
-    });
-
-    if (succeeded) {
-      setPersonId("");
-      setPersonQuery("");
-      setFirstName("");
-      setLastName("");
-      setEmail("");
-      setPhone("");
-      setMinistryId("");
-      setPositionId("");
-      setTermId("");
-      setVoteDate("");
-      setNotes("");
-      setNotePublic(false);
-      setOrdained(false);
-    }
-  }
-
-  return (
-    <>
-      <SectionHeading
-        title="Assign a Volunteer"
-        detail="Choose an existing person or create a new person, then record the placement."
-      />
-      <form className="admin-card admin-editor-form" onSubmit={submit}>
-        <fieldset disabled={!canEdit || working}>
-          <legend>Volunteer</legend>
-          <label className="admin-check-row">
-            <input type="checkbox" checked={newPerson} onChange={(event) => setNewPerson(event.target.checked)} />
-            Enter a new person
-          </label>
-          {newPerson ? (
-            <div className="admin-form-grid">
-              <label>
-                First name
-                <input value={firstName} onChange={(event) => setFirstName(event.target.value)} required />
-              </label>
-              <label>
-                Last name
-                <input value={lastName} onChange={(event) => setLastName(event.target.value)} required />
-              </label>
-              <label>
-                Email
-                <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-              </label>
-              <label>
-                Mobile phone
-                <input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} />
-              </label>
-              <label className="admin-check-row full">
-                <input type="checkbox" checked={personPublic} onChange={(event) => setPersonPublic(event.target.checked)} />
-                Allow this person's name in the public directory
-              </label>
-            </div>
-          ) : (
-            <div className="admin-form-grid">
-              <label>
-                Find a person
-                <input
-                  type="search"
-                  placeholder="Name, email, phone, or membership"
-                  value={personQuery}
-                  onChange={(event) => setPersonQuery(event.target.value)}
-                />
-              </label>
-              <label>
-                Person
-                <select value={personId} onChange={(event) => setPersonId(event.target.value)} required>
-                  <option value="">Choose a person</option>
-                  {people.slice(0, 200).map((person) => (
-                    <option key={person.id} value={person.id}>
-                      {personName(person)}{person.membership_status ? ` — ${person.membership_status}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          )}
-        </fieldset>
-
-        <fieldset disabled={!canEdit || working}>
-          <legend>Ministry placement</legend>
-          <div className="admin-form-grid">
-            <label>
-              Ministry
-              <select value={ministryId} onChange={(event) => setMinistryId(event.target.value)} required>
-                <option value="">Choose a ministry</option>
-                {activeMinistries.map((ministry) => (
-                  <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Position
-              <select value={positionId} onChange={(event) => setPositionId(event.target.value)} required disabled={!ministryId}>
-                <option value="">Choose a position</option>
-                {availablePositions.map((position) => (
-                  <option key={position.id} value={position.id}>{position.name}</option>
-                ))}
-                <option value="add">＋ Add a position…</option>
-              </select>
-            </label>
-            {positionId === "add" && (
-              <>
-                <label>
-                  New position name
-                  <input value={newPositionName} onChange={(event) => setNewPositionName(event.target.value)} required />
-                </label>
-                <label className="admin-check-row admin-check-bottom">
-                  <input type="checkbox" checked={newPositionVote} onChange={(event) => setNewPositionVote(event.target.checked)} />
-                  Position requires church vote
-                </label>
-              </>
-            )}
-            <label>
-              Term {requiresVote ? "(required)" : "(optional)"}
-              <select value={termId} onChange={(event) => setTermId(event.target.value)} required={requiresVote}>
-                <option value="">{requiresVote ? "Choose a term" : "No term"}</option>
-                {snapshot.terms.filter((term) => term.is_active).map((term) => (
-                  <option key={term.id} value={term.id}>
-                    {term.name}{term.end_date ? ` — ends ${formatDate(term.end_date)}` : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {(requiresVote || voteDate) && (
-              <label>
-                Church vote date {requiresVote ? "(required)" : ""}
-                <input type="date" value={voteDate} onChange={(event) => setVoteDate(event.target.value)} required={requiresVote} />
-              </label>
-            )}
-          </div>
-          {!requiresVote && (
-            <button type="button" className="button button-link align-left" onClick={() => setVoteDate(voteDate ? "" : todayISO())}>
-              {voteDate ? "Remove optional vote date" : "Add an optional vote date"}
-            </button>
-          )}
-        </fieldset>
-
-        {kind && (
-          <fieldset disabled={!canEdit || working} className="admin-ordination-fieldset">
-            <legend>Ordination</legend>
-            <label className="admin-check-row">
-              <input type="checkbox" checked={ordained} onChange={(event) => setOrdained(event.target.checked)} />
-              {ordinationLabel(kind)}
-            </label>
-            <p>This permanent person record remains after the placement is archived.</p>
-          </fieldset>
-        )}
-
-        <fieldset disabled={!canEdit || working}>
-          <legend>Assignment details</legend>
-          <label>
-            Note
-            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} placeholder="Optional staff note" />
-          </label>
-          <label className="admin-check-row">
-            <input type="checkbox" checked={notePublic} onChange={(event) => setNotePublic(event.target.checked)} disabled={!notes.trim()} />
-            Include this note in reports and the public web directory
-          </label>
-          <label className="admin-check-row">
-            <input type="checkbox" checked={assignmentPublic} onChange={(event) => setAssignmentPublic(event.target.checked)} />
-            Show this assignment in the public directory
-          </label>
-        </fieldset>
-
-        {formError && <p className="admin-form-error">{formError}</p>}
-        {!canEdit && <p className="admin-readonly">Your viewer account cannot save changes.</p>}
-        <button className="button button-primary button-wide" disabled={!canEdit || working}>
-          {working ? "Saving…" : "Save Assignment"}
-        </button>
-      </form>
-    </>
   );
 }
 
@@ -1287,7 +676,7 @@ function AssignmentEditor({
   const [notes, setNotes] = useState(assignment.notes ?? "");
   const [notePublic, setNotePublic] = useState(assignment.note_is_public);
   const selectedPosition = positions.find((item) => item.id === positionId);
-  const requiresVote = assignment.ministry_requires_vote || selectedPosition?.requires_vote;
+  const requiresVote = Boolean(positionId && (assignment.ministry_requires_vote || selectedPosition?.requires_vote));
 
   return (
     <div className="admin-modal-backdrop" role="presentation" onMouseDown={onClose}>
@@ -1302,14 +691,17 @@ function AssignmentEditor({
         <div className="admin-form-stack">
           <label>
             Position
-            <select value={positionId} onChange={(event) => setPositionId(event.target.value)}>
-              <option value="">No position</option>
+            <select value={positionId} onChange={(event) => {
+              setPositionId(event.target.value);
+              if (!event.target.value) { setTermId(""); setVoteDate(""); }
+            }}>
+              <option value="">No position — team member</option>
               {positions.map((position) => <option key={position.id} value={position.id}>{position.name}</option>)}
             </select>
           </label>
           <label>
             Term {requiresVote ? "(required)" : "(optional)"}
-            <select value={termId} onChange={(event) => setTermId(event.target.value)}>
+            <select value={termId} onChange={(event) => setTermId(event.target.value)} disabled={!positionId}>
               <option value="">No term</option>
               {terms.map((term) => <option key={term.id} value={term.id}>{term.name}</option>)}
             </select>
@@ -1342,8 +734,8 @@ function AssignmentEditor({
               onClick={() =>
                 onSave({
                   sub_role_id: positionId || null,
-                  term_id: termId || null,
-                  vote_date: voteDate || null,
+                  term_id: positionId ? termId || null : null,
+                  vote_date: positionId ? voteDate || null : null,
                   notes: notes.trim() || null,
                   note_is_public: Boolean(notes.trim()) && notePublic,
                 })
@@ -1611,7 +1003,7 @@ function VoteView({
               save={async (voteDate) => {
                 await mutate("Church vote recorded.", async () => {
                   const { error } = await supabase.from("assignments").update({ vote_date: voteDate }).eq("id", assignment.id);
-                  if (error) throw error;
+                  if (error) throw new Error(await functionErrorMessage(error));
                 });
               }}
             />
@@ -1786,7 +1178,7 @@ function ReportsView() {
         <div>
           <h3>Printable Ministry Directory</h3>
           <p>The report includes current public placements and approved notes. Contact details and ordination status are intentionally excluded.</p>
-          <a className="button button-primary" href="/" target="_blank" rel="noreferrer">Open Full Report</a>
+          <a className="button button-primary" href="/directory" target="_blank" rel="noreferrer">Open Full Report</a>
         </div>
         <iframe className="admin-report-frame" src="/embed" title="Printable ministry directory report preview" />
       </section>
@@ -1814,6 +1206,7 @@ function SettingsView({
   const [churches, setChurches] = useState<Church[]>([]);
   const [inviteChurchId, setInviteChurchId] = useState(profile.church_id);
   const [temporaryPassword, setTemporaryPassword] = useState("");
+  const [reviewAccount,setReviewAccount]=useState(false);
   const [pcoApplicationId, setPcoApplicationId] = useState("");
   const [pcoSecret, setPcoSecret] = useState("");
   const [pcoConnected, setPcoConnected] = useState<boolean | null>(null);
@@ -1837,6 +1230,7 @@ function SettingsView({
           <h3>Your account</h3>
           <dl><dt>Email</dt><dd>{session.user.email}</dd><dt>Access</dt><dd>{profile.app_role}</dd></dl>
           <button className="button" onClick={() => void supabase.auth.signOut()}>Sign Out</button>
+          <DeleteAccountButton supabase={supabase} />
         </section>
         <section className="admin-card admin-settings-card">
           <h3>Planning Center People</h3>
@@ -1864,22 +1258,24 @@ function SettingsView({
         {profile.app_role === "admin" && (
           <section className="admin-card admin-settings-card full-panel">
             <h3>Create or resend an app user</h3>
-            <p>Create a new account, or send a fresh setup link to an invited user who has not finished enrollment. Always use the newest email. This section is visible only to administrators.</p>
+            <p>Leave the temporary password blank to email a setup link valid for 24 hours. Enter a temporary password to create an account that requires a password change at first login. Provide that password to the user separately.</p>
             <div className="admin-form-grid invite-grid">
               <label>Email<input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} /></label>
               <label>Access<select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as AppRole)}>{profile.is_platform_admin && <option value="admin">Administrator</option>}<option value="editor">Editor</option><option value="viewer">Viewer</option></select></label>
               {profile.is_platform_admin && <label>Church<select value={inviteChurchId} onChange={(event) => setInviteChurchId(event.target.value)}>{churches.map((church) => <option key={church.id} value={church.id}>{church.name}</option>)}</select></label>}
-              {profile.is_platform_admin && <label>Temporary password (review accounts only)<input type="password" autoComplete="new-password" value={temporaryPassword} onChange={(event) => setTemporaryPassword(event.target.value)} /></label>}
+              {<label>Temporary password (optional; change required at first login)<input type="password" autoComplete="new-password" value={temporaryPassword} onChange={(event) => setTemporaryPassword(event.target.value)} /></label>}
+              {profile.is_platform_admin && <label><input type="checkbox" checked={reviewAccount} onChange={e=>setReviewAccount(e.target.checked)} />App Store review account (fixed password)</label>}
               <button className="button button-primary admin-check-bottom" disabled={working || !inviteEmail.trim()} onClick={async () => {
-                const succeeded = await mutate("Setup email sent. Use the newest message.", async () => {
-                  const { error } = await supabase.functions.invoke("admin-users", { body: { email: inviteEmail.trim(), role: inviteRole, church_id: inviteChurchId, temporary_password: temporaryPassword || undefined } });
-                  if (error) throw error;
+                const succeeded = await mutate(temporaryPassword ? (reviewAccount ? "Review account password saved." : "Temporary password saved. Password change is required at first login.") : "Setup email sent. Use the newest message.", async () => {
+                  const { error } = await supabase.functions.invoke("admin-users", { body: { email: inviteEmail.trim(), role: inviteRole, church_id: inviteChurchId, temporary_password: temporaryPassword || undefined, review_account: reviewAccount } });
+                  if (error) throw new Error(await functionErrorMessage(error));
                 });
                 if (succeeded) { setInviteEmail(""); setTemporaryPassword(""); }
-              }}>Create or Resend Setup Email</button>
+              }}>{temporaryPassword ? "Create with Temporary Password" : "Create or Resend Setup Email"}</button>
             </div>
           </section>
         )}
+        {profile.app_role === "admin" && <AppUserManagement supabase={supabase} profile={profile} session={session} working={working} mutate={mutate} />}
       </div>
     </>
   );

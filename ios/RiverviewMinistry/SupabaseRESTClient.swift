@@ -157,7 +157,7 @@ actor SupabaseRESTClient {
             method: "GET",
             path: "rest/v1/profiles",
             query: [
-                .init(name: "select", value: "user_id,display_name,app_role,church_id,is_platform_admin"),
+                .init(name: "select", value: "user_id,display_name,app_role,church_id,is_platform_admin,access_disabled,must_change_password"),
                 .init(name: "user_id", value: "eq.\(userId.uuidString)")
             ]
         )
@@ -200,14 +200,37 @@ actor SupabaseRESTClient {
 
     func inviteAppUser(
         email: String,
-        role: AppUserRole
+        role: AppUserRole,
+        temporaryPassword: String? = nil
     ) async throws -> AppUserInvitationResult {
-        let body = try encoder.encode(AppUserInvitationRequest(email: email, role: role))
+        let body = try encoder.encode(AppUserInvitationRequest(email: email, role: role, temporaryPassword: temporaryPassword))
         return try await send(
             method: "POST",
             path: "functions/v1/admin-users",
             body: body
         )
+    }
+
+    func loadAppUsers() async throws -> [ManagedAppUser] {
+        let body = try encoder.encode(["action": "list"])
+        let result: ManagedAppUsersResult = try await send(method: "POST", path: "functions/v1/admin-users", body: body)
+        return result.users
+    }
+    func updateAppUser(_ userId: UUID, action: String, role: AppUserRole? = nil) async throws {
+        var payload = ["action": action, "user_id": userId.uuidString]
+        if action == "delete_user" { payload["confirmation"] = "DELETE" }
+        if let role { payload["role"] = role.rawValue }
+        let _: AppAccessResult = try await send(method: "POST", path: "functions/v1/admin-users", body: encoder.encode(payload))
+    }
+    func deleteOwnAccount() async throws {
+        let _: AppAccessResult = try await send(
+            method: "POST", path: "functions/v1/admin-users",
+            body: encoder.encode(["action": "delete_self", "confirmation": "DELETE"])
+        )
+        session = nil
+    }
+    func changeInitialPassword(_ password: String) async throws {
+        let _: SupabaseUser = try await send(method: "PUT", path: "auth/v1/user", body: encoder.encode(["password": password]))
     }
 
     func createPerson(_ draft: PersonDraft) async throws -> Person {
@@ -769,6 +792,7 @@ private struct PasswordResetRequest: Encodable {
 private struct AppUserInvitationRequest: Encodable {
     let email: String
     let role: AppUserRole
+    let temporaryPassword: String?
 }
 
 private struct RefreshRequest: Encodable {

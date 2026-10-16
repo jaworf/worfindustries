@@ -223,8 +223,8 @@ struct AssignmentDraft: Sendable {
 struct AssignmentRequirements: Equatable, Sendable {
     let requiresChurchVote: Bool
 
-    init(ministryRequiresVote: Bool, positionRequiresVote: Bool) {
-        requiresChurchVote = ministryRequiresVote || positionRequiresVote
+    init(ministryRequiresVote: Bool, positionRequiresVote: Bool, hasPosition: Bool = true) {
+        requiresChurchVote = hasPosition && (ministryRequiresVote || positionRequiresVote)
     }
 
     var requiresTerm: Bool {
@@ -234,9 +234,6 @@ struct AssignmentRequirements: Equatable, Sendable {
     func validationMessage(termId: UUID?, voteDate: Date?) -> String? {
         if requiresTerm, termId == nil {
             return "Choose a term because this ministry placement requires a church vote."
-        }
-        if requiresChurchVote, voteDate == nil {
-            return "This ministry placement requires a church vote date."
         }
         return nil
     }
@@ -391,6 +388,8 @@ struct AppProfile: Codable, Sendable {
     let appRole: AppUserRole
     let churchId: UUID
     let isPlatformAdmin: Bool
+    var accessDisabled: Bool? = nil
+    var mustChangePassword: Bool? = nil
 }
 
 struct Church: Codable, Identifiable, Sendable {
@@ -473,3 +472,17 @@ extension Optional where Wrapped == String {
         return trimmed.isEmpty ? nil : trimmed
     }
 }
+
+struct ManagedAppUser: Codable, Identifiable, Sendable {
+ let userId: UUID
+ let email: String
+ let appRole: AppUserRole
+ let churchId: UUID
+ let isPlatformAdmin: Bool
+ let accessDisabled: Bool
+ let mustChangePassword: Bool
+ let enrolled: Bool
+ var id: UUID { userId }
+}
+struct ManagedAppUsersResult: Decodable { let users: [ManagedAppUser] }
+struct AppAccessResult: Decodable { let message: String }

@@ -169,6 +169,15 @@ struct RootView: View {
                 ConfigurationView(isInitialSetup: true)
             } else if !model.isSignedIn {
                 LoginView()
+            } else if model.currentProfile?.accessDisabled == true {
+                VStack(spacing: 20) {
+                    Text("App access removed").font(.title)
+                    Text("Contact your administrator to restore access.")
+                    Button("Sign Out") { model.signOut() }
+                    DeleteOwnAccountButton()
+                }
+            } else if model.currentProfile?.mustChangePassword == true {
+                InitialPasswordChangeView()
             } else {
                 MainShellView()
                     .task {
@@ -634,4 +643,23 @@ extension View {
         self
         #endif
     }
+}
+
+private struct InitialPasswordChangeView: View {
+ @EnvironmentObject private var model: AppModel
+ @State private var password = ""
+ @State private var confirmation = ""
+ var body: some View {
+  Form {
+   Section("Change your temporary password") {
+    Text("Choose a new password with at least 14 characters before using the app.")
+    SecureField("New password", text: $password).textContentType(.newPassword)
+    SecureField("Confirm new password", text: $confirmation).textContentType(.newPassword)
+    Button("Save New Password") { Task { await model.changeInitialPassword(password) } }
+      .disabled(password.count < 14 || password != confirmation || model.isBusy)
+    Button("Sign Out") { model.signOut() }
+    DeleteOwnAccountButton()
+   }
+  }
+ }
 }

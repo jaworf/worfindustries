@@ -3,6 +3,7 @@ import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } fr
 import handler from "vinext/server/app-router-entry";
 
 interface Env {
+  EMBED_ALLOWED_ORIGINS?: string;
   ASSETS: Fetcher;
   DB: D1Database;
   IMAGES: {
@@ -29,6 +30,14 @@ const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
+    if (url.hostname === "ministryvolunteers.worf.app" && url.pathname === "/") {
+      url.pathname = "/admin";
+      return new Response(null, {
+        status: 302,
+        headers: { Location: url.toString(), "Cache-Control": "no-store" },
+      });
+    }
+
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
       return handleImageOptimization(request, {
@@ -49,7 +58,7 @@ const worker = {
       headers.delete("X-Frame-Options");
       headers.set(
         "Content-Security-Policy",
-        "frame-ancestors 'self' https://riverviewadventist.org https://www.riverviewadventist.org",
+        `frame-ancestors 'self' ${embedOrigins(env.EMBED_ALLOWED_ORIGINS).join(" ")}`,
       );
     } else {
       headers.set("Content-Security-Policy", "frame-ancestors 'self'");
@@ -64,3 +73,15 @@ const worker = {
 };
 
 export default worker;
+
+function embedOrigins(configured?: string): string[] {
+  const origins = configured ?? "https://riverviewadventist.org https://www.riverviewadventist.org";
+  return origins.split(/[\s,]+/).filter(value => {
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" && url.origin === value;
+    } catch {
+      return false;
+    }
+  });
+}

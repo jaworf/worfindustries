@@ -128,7 +128,7 @@ final class CSVParserTests: XCTestCase {
         XCTAssertNil(requirements.validationMessage(termId: nil, voteDate: nil))
     }
 
-    func testMinistryVoteRequirementAlsoRequiresTermAndVoteDate() {
+    func testMinistryVoteRequirementRequiresTermWithOptionalVoteDate() {
         let requirements = AssignmentRequirements(
             ministryRequiresVote: true,
             positionRequiresVote: false
@@ -137,11 +137,26 @@ final class CSVParserTests: XCTestCase {
 
         XCTAssertTrue(requirements.requiresTerm)
         XCTAssertNotNil(requirements.validationMessage(termId: nil, voteDate: Date()))
-        XCTAssertNotNil(requirements.validationMessage(termId: termId, voteDate: nil))
+        XCTAssertNil(requirements.validationMessage(termId: termId, voteDate: nil))
         XCTAssertNil(requirements.validationMessage(termId: termId, voteDate: Date()))
     }
 
-    func testPositionVoteRequirementAlsoRequiresTermAndVoteDate() {
+    func testTeamMemberNeedsNoTermOrVoteEvenWhenMinistryRequiresVote() {
+        for ministryVote in [false, true] {
+            for positionVote in [false, true] {
+                let requirements = AssignmentRequirements(
+                    ministryRequiresVote: ministryVote,
+                    positionRequiresVote: positionVote,
+                    hasPosition: false
+                )
+                XCTAssertFalse(requirements.requiresChurchVote)
+                XCTAssertFalse(requirements.requiresTerm)
+                XCTAssertNil(requirements.validationMessage(termId: nil, voteDate: nil))
+            }
+        }
+    }
+
+    func testPositionVoteRequirementRequiresTermWithOptionalVoteDate() {
         let requirements = AssignmentRequirements(
             ministryRequiresVote: false,
             positionRequiresVote: true

@@ -210,8 +210,8 @@ private struct EditRoleSheet: View {
                     Text("Available positions")
                 } footer: {
                     Text(
-                        "Each position belongs only to this ministry. A vote date is required " +
-                        "when either the ministry or the position's church-vote toggle is on."
+                        "Each position belongs only to this ministry. Leave the vote date blank " +
+                        "to place a vote-required assignment in Needing Votes."
                     )
                 }
 
@@ -533,7 +533,10 @@ struct SettingsView: View {
     @State private var importKind: CSVImportKind = .members
     @State private var showingImporter = false
     @State private var showingConnection = false
+    @State private var showingDeleteAccount = false
     @State private var inviteEmail = ""
+    @State private var temporaryPassword = ""
+    @State private var appUsers: [ManagedAppUser] = []
     @State private var inviteRole: AppUserRole = .editor
     @State private var pcoApplicationId = ""
     @State private var pcoSecret = ""
@@ -638,6 +641,8 @@ struct SettingsView: View {
                         }
                     }
 
+                    SecureField("Temporary password (optional)", text: $temporaryPassword)
+                    Text("Temporary passwords must have at least 14 characters. The user must change it at first login.")
                     Text(inviteRole.invitationDescription)
                         .foregroundStyle(.secondary)
 
@@ -645,27 +650,38 @@ struct SettingsView: View {
                         Task {
                             if await model.inviteAppUser(
                                 email: inviteEmail,
-                                role: inviteRole
+                                role: inviteRole, temporaryPassword: temporaryPassword.nilIfBlank
                             ) {
                                 inviteEmail = ""
+                                temporaryPassword = ""
+                                appUsers = await model.loadAppUsers()
                             }
                         }
                     } label: {
                         Label(
-                            "Create or Resend Setup Email",
+                            temporaryPassword.isEmpty ? "Create or Resend Setup Email" : "Create with Temporary Password",
                             systemImage: "person.badge.plus"
                         )
                     }
-                    .disabled(inviteEmail.nilIfBlank == nil || model.isBusy)
+                    .disabled(inviteEmail.nilIfBlank == nil || model.isBusy || (!temporaryPassword.isEmpty && temporaryPassword.count < 14))
                 } header: {
                     Text("Team Access")
                 } footer: {
                     Text(
-                        "Administrator only. This creates a new account, or sends a fresh " +
-                        "setup link when that email has a pending invitation. Always use the " +
-                        "newest email. Editor and Viewer accounts cannot see this section."
+                        "Administrator only. Leave the temporary password blank for a setup " +
+                        "email valid for 24 hours, or provide a temporary password separately. " +
+                        "Password accounts must change their password at first login."
                     )
                 }
+            }
+
+            if model.isAdministrator {
+                Section("Manage App Users") {
+                    Button("Refresh Users") { Task { appUsers = await model.loadAppUsers() } }
+                    ForEach(appUsers) { user in
+                        AppAccessRow(user: user) { appUsers = await model.loadAppUsers() }
+                    }
+                }.task { appUsers = await model.loadAppUsers() }
             }
 
             Section {
@@ -709,6 +725,12 @@ struct SettingsView: View {
                 Button("Sign Out", role: .destructive) {
                     model.signOut()
                 }
+                Button("Delete My Account", role: .destructive) {
+                    showingDeleteAccount = true
+                }
+                .disabled(model.isBusy)
+            } footer: {
+                Text("Deleting your account permanently removes your login and account profile. Church-owned volunteer records and assignments remain with the church; Planning Center records are not changed.")
             }
         }
         .task {
@@ -720,6 +742,14 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity)
         .background(AppTheme.pageBackground)
         .navigationTitle("Settings & Import")
+        .confirmationDialog("Permanently delete your account?", isPresented: $showingDeleteAccount, titleVisibility: .visible) {
+            Button("Delete My Account Permanently", role: .destructive) {
+                Task { await model.deleteOwnAccount() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This cannot be undone. Your login and account profile will be deleted and you will be signed out. Church-owned records are retained. If you are the only administrator, arrange another administrator first so your church can continue managing its records.")
+        }
         .sheet(isPresented: $showingConnection) {
             ConfigurationView(isInitialSetup: false)
                 .environmentObject(model)
@@ -758,5 +788,56 @@ struct SettingsView: View {
 
     private var selectedTextSize: AppTextSize {
         AppTextSize(rawValue: textSizeRaw) ?? .large
+    }
+}
+
+private struct AppAccessRow: View {
+ @EnvironmentObject private var model: AppModel
+ let user: ManagedAppUser
+ let refresh: () async -> Void
+ @State private var role: AppUserRole
+ @State private var showingDeleteUser = false
+ init(user: ManagedAppUser, refresh: @escaping () async -> Void) { self.user=user; self.refresh=refresh; _role=State(initialValue:user.appRole) }
+ private var protectedUser: Bool { user.userId == model.currentProfile?.userId || user.isPlatformAdmin || (model.currentProfile?.isPlatformAdmin != true && user.appRole == .admin) }
+ var body: some View {
+  VStack(alignment: .leading, spacing: 10) {
+   Text(user.email).fontWeight(.semibold)
+   Text(user.accessDisabled ? "Access removed" : user.mustChangePassword ? "Password change required" : user.enrolled ? "Active" : "Invitation pending").foregroundStyle(.secondary)
+   Picker("Permissions", selection: $role) {
+    if model.currentProfile?.isPlatformAdmin == true { Text("Administrator").tag(AppUserRole.admin) }
+    Text("Editor").tag(AppUserRole.editor)
+    Text("Viewer").tag(AppUserRole.viewer)
+   }.disabled(protectedUser || user.accessDisabled || model.isBusy)
+   Button("Save Permissions") { Task { if await model.updateAppUser(user.userId, action: "update_role", role: role) { await refresh() } } }.disabled(protectedUser || user.accessDisabled || model.isBusy || role == user.appRole)
+   Button(user.accessDisabled ? "Restore Access" : "Remove Access") { Task { if await model.updateAppUser(user.userId, action: user.accessDisabled ? "restore_access" : "remove_access") { await refresh() } } }.disabled(protectedUser || model.isBusy)
+   Button("Delete User Permanently", role: .destructive) { showingDeleteUser = true }
+    .disabled(protectedUser || model.isBusy)
+  }
+  .confirmationDialog("Delete \(user.email) permanently?", isPresented: $showingDeleteUser, titleVisibility: .visible) {
+   Button("Delete User Permanently", role: .destructive) {
+    Task { if await model.updateAppUser(user.userId, action: "delete_user") { await refresh() } }
+   }
+   Button("Cancel", role: .cancel) {}
+  } message: {
+   Text("This deletes the user's login and account profile. Church-owned volunteer records and assignments are preserved. This cannot be undone.")
+  }
+ }
+}
+
+struct DeleteOwnAccountButton: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var confirming = false
+
+    var body: some View {
+        Button("Delete My Account", role: .destructive) { confirming = true }
+            .disabled(model.isBusy)
+            .confirmationDialog("Permanently delete your account?", isPresented: $confirming, titleVisibility: .visible) {
+                Button("Delete My Account Permanently", role: .destructive) {
+                    Task { await model.deleteOwnAccount() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This permanently deletes your login and account profile. Church-owned volunteer records and assignments remain with the church; Planning Center records are not changed.")
+            }
     }
 }

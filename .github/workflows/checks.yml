@@ -1,0 +1,39 @@
+name: Checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  web-and-functions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - run: pnpm run test:backend
+      - run: pnpm test
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.2.0
+      - run: deno check --node-modules-dir=auto supabase/functions/admin-users/index.ts supabase/functions/planning-center-sync/index.ts supabase/functions/planning-center-webhook/index.ts
+  database-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - run: supabase start
+      - run: supabase db reset --local
+      - run: psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f tests/backend/database-security.sql
+      - if: always()
+        run: supabase stop --no-backup
