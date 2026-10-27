@@ -145,9 +145,9 @@ final class CSVParserTests: XCTestCase {
         }
     }
 
-    func testOnlyNonAdministratorRolesAreAvailableForInvitations() {
-        XCTAssertEqual(AppUserRole.invitationChoices, [.editor, .viewer])
-        XCTAssertFalse(AppUserRole.invitationChoices.contains(.admin))
+    func testChurchAdministratorsCanDelegateAllSupportedRoles() {
+        XCTAssertEqual(AppUserRole.invitationChoices, [.admin, .editor, .viewer])
+        XCTAssertTrue(AppUserRole.invitationChoices.contains(.admin))
     }
 
     @MainActor
