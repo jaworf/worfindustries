@@ -4,3 +4,5 @@
 
 /* Keep discovery controls consistent within the existing admin styles. */
 .admin-main .discovery-staff{padding:24px;margin:18px 0 28px}.discovery-staff h3{font-size:1.2rem;font-weight:700;line-height:1.35;margin:0 0 12px}.discovery-staff h4{font-weight:700;margin:20px 0 8px}.discovery-staff p{line-height:1.6;margin:12px 0}.discovery-staff label{align-self:start}.discovery-staff select{min-height:46px;appearance:auto}.discovery-staff .discovery-check{justify-content:flex-start;align-items:center;gap:10px}.discovery-staff .discovery-check input[type=checkbox]{flex:0 0 18px;width:18px;height:18px;margin:0}.discovery-filter-grid>.button{align-self:end;margin:18px 0}.discovery-staff .admin-modal{max-height:90vh;overflow:auto}
+
+.discovery-account-nav{display:flex;align-items:center;justify-content:flex-end;gap:16px;flex-wrap:wrap}.discovery-success{border:1px solid #86c8ac;border-left:4px solid #0f766e;background:#ecfdf5;color:#115e49;border-radius:8px;padding:16px 20px;font-weight:700;margin:0 0 24px}
