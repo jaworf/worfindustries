@@ -1,0 +1,2063 @@
+{
+  "version": "2026-10-26.1",
+  "questions": {
+    "bigfive": [
+      {
+        "id": "N1-1",
+        "scale": "N1",
+        "text": "Worry about things.",
+        "key": "+"
+      },
+      {
+        "id": "N1-2",
+        "scale": "N1",
+        "text": "Fear for the worst.",
+        "key": "+"
+      },
+      {
+        "id": "N1-3",
+        "scale": "N1",
+        "text": "Am afraid of many things.",
+        "key": "+"
+      },
+      {
+        "id": "N1-4",
+        "scale": "N1",
+        "text": "Get stressed out easily.",
+        "key": "+"
+      },
+      {
+        "id": "N2-1",
+        "scale": "N2",
+        "text": "Get angry easily.",
+        "key": "+"
+      },
+      {
+        "id": "N2-2",
+        "scale": "N2",
+        "text": "Get irritated easily.",
+        "key": "+"
+      },
+      {
+        "id": "N2-3",
+        "scale": "N2",
+        "text": "Lose my temper.",
+        "key": "+"
+      },
+      {
+        "id": "N2-4",
+        "scale": "N2",
+        "text": "Am not easily annoyed.",
+        "key": "-"
+      },
+      {
+        "id": "N3-1",
+        "scale": "N3",
+        "text": "Often feel blue.",
+        "key": "+"
+      },
+      {
+        "id": "N3-2",
+        "scale": "N3",
+        "text": "Dislike myself.",
+        "key": "+"
+      },
+      {
+        "id": "N3-3",
+        "scale": "N3",
+        "text": "Am often down in the dumps.",
+        "key": "+"
+      },
+      {
+        "id": "N3-4",
+        "scale": "N3",
+        "text": "Feel comfortable with myself.",
+        "key": "-"
+      },
+      {
+        "id": "N4-1",
+        "scale": "N4",
+        "text": "Find it difficult to approach others.",
+        "key": "+"
+      },
+      {
+        "id": "N4-2",
+        "scale": "N4",
+        "text": "Am afraid to draw attention to myself.",
+        "key": "+"
+      },
+      {
+        "id": "N4-3",
+        "scale": "N4",
+        "text": "Only feel comfortable with friends.",
+        "key": "+"
+      },
+      {
+        "id": "N4-4",
+        "scale": "N4",
+        "text": "Am not bothered by difficult social situations.",
+        "key": "-"
+      },
+      {
+        "id": "N5-1",
+        "scale": "N5",
+        "text": "Go on binges.",
+        "key": "+"
+      },
+      {
+        "id": "N5-2",
+        "scale": "N5",
+        "text": "Rarely overindulge.",
+        "key": "-"
+      },
+      {
+        "id": "N5-3",
+        "scale": "N5",
+        "text": "Easily resist temptations.",
+        "key": "-"
+      },
+      {
+        "id": "N5-4",
+        "scale": "N5",
+        "text": "Am able to control my cravings.",
+        "key": "-"
+      },
+      {
+        "id": "N6-1",
+        "scale": "N6",
+        "text": "Panic easily.",
+        "key": "+"
+      },
+      {
+        "id": "N6-2",
+        "scale": "N6",
+        "text": "Become overwhelmed by events.",
+        "key": "+"
+      },
+      {
+        "id": "N6-3",
+        "scale": "N6",
+        "text": "Feel that I'm unable to deal with things.",
+        "key": "+"
+      },
+      {
+        "id": "N6-4",
+        "scale": "N6",
+        "text": "Remain calm under pressure.",
+        "key": "-"
+      },
+      {
+        "id": "E1-1",
+        "scale": "E1",
+        "text": "Make friends easily.",
+        "key": "+"
+      },
+      {
+        "id": "E1-2",
+        "scale": "E1",
+        "text": "Feel comfortable around people.",
+        "key": "+"
+      },
+      {
+        "id": "E1-3",
+        "scale": "E1",
+        "text": "Avoid contacts with others.",
+        "key": "-"
+      },
+      {
+        "id": "E1-4",
+        "scale": "E1",
+        "text": "Keep others at a distance.",
+        "key": "-"
+      },
+      {
+        "id": "E2-1",
+        "scale": "E2",
+        "text": "Love large parties.",
+        "key": "+"
+      },
+      {
+        "id": "E2-2",
+        "scale": "E2",
+        "text": "Talk to a lot of different people at parties.",
+        "key": "+"
+      },
+      {
+        "id": "E2-3",
+        "scale": "E2",
+        "text": "Prefer to be alone.",
+        "key": "-"
+      },
+      {
+        "id": "E2-4",
+        "scale": "E2",
+        "text": "Avoid crowds.",
+        "key": "-"
+      },
+      {
+        "id": "E3-1",
+        "scale": "E3",
+        "text": "Take charge.",
+        "key": "+"
+      },
+      {
+        "id": "E3-2",
+        "scale": "E3",
+        "text": "Try to lead others.",
+        "key": "+"
+      },
+      {
+        "id": "E3-3",
+        "scale": "E3",
+        "text": "Take control of things.",
+        "key": "+"
+      },
+      {
+        "id": "E3-4",
+        "scale": "E3",
+        "text": "Wait for others to lead the way.",
+        "key": "-"
+      },
+      {
+        "id": "E4-1",
+        "scale": "E4",
+        "text": "Am always busy.",
+        "key": "+"
+      },
+      {
+        "id": "E4-2",
+        "scale": "E4",
+        "text": "Am always on the go.",
+        "key": "+"
+      },
+      {
+        "id": "E4-3",
+        "scale": "E4",
+        "text": "Do a lot in my spare time.",
+        "key": "+"
+      },
+      {
+        "id": "E4-4",
+        "scale": "E4",
+        "text": "Like to take it easy.",
+        "key": "-"
+      },
+      {
+        "id": "E5-1",
+        "scale": "E5",
+        "text": "Love excitement.",
+        "key": "+"
+      },
+      {
+        "id": "E5-2",
+        "scale": "E5",
+        "text": "Seek adventure.",
+        "key": "+"
+      },
+      {
+        "id": "E5-3",
+        "scale": "E5",
+        "text": "Enjoy being reckless.",
+        "key": "+"
+      },
+      {
+        "id": "E5-4",
+        "scale": "E5",
+        "text": "Act wild and crazy.",
+        "key": "+"
+      },
+      {
+        "id": "E6-1",
+        "scale": "E6",
+        "text": "Radiate joy.",
+        "key": "+"
+      },
+      {
+        "id": "E6-2",
+        "scale": "E6",
+        "text": "Have a lot of fun.",
+        "key": "+"
+      },
+      {
+        "id": "E6-3",
+        "scale": "E6",
+        "text": "Love life.",
+        "key": "+"
+      },
+      {
+        "id": "E6-4",
+        "scale": "E6",
+        "text": "Look at the bright side of life.",
+        "key": "+"
+      },
+      {
+        "id": "O1-1",
+        "scale": "O1",
+        "text": "Have a vivid imagination.",
+        "key": "+"
+      },
+      {
+        "id": "O1-2",
+        "scale": "O1",
+        "text": "Enjoy wild flights of fantasy.",
+        "key": "+"
+      },
+      {
+        "id": "O1-3",
+        "scale": "O1",
+        "text": "Love to daydream.",
+        "key": "+"
+      },
+      {
+        "id": "O1-4",
+        "scale": "O1",
+        "text": "Like to get lost in thought.",
+        "key": "+"
+      },
+      {
+        "id": "O2-1",
+        "scale": "O2",
+        "text": "Believe in the importance of art.",
+        "key": "+"
+      },
+      {
+        "id": "O2-2",
+        "scale": "O2",
+        "text": "See beauty in things that others might not notice.",
+        "key": "+"
+      },
+      {
+        "id": "O2-3",
+        "scale": "O2",
+        "text": "Do not like poetry.",
+        "key": "-"
+      },
+      {
+        "id": "O2-4",
+        "scale": "O2",
+        "text": "Do not enjoy going to art museums.",
+        "key": "-"
+      },
+      {
+        "id": "O3-1",
+        "scale": "O3",
+        "text": "Experience my emotions intensely.",
+        "key": "+"
+      },
+      {
+        "id": "O3-2",
+        "scale": "O3",
+        "text": "Feel others' emotions.",
+        "key": "+"
+      },
+      {
+        "id": "O3-3",
+        "scale": "O3",
+        "text": "Rarely notice my emotional reactions.",
+        "key": "-"
+      },
+      {
+        "id": "O3-4",
+        "scale": "O3",
+        "text": "Don't understand people who get emotional.",
+        "key": "-"
+      },
+      {
+        "id": "O4-1",
+        "scale": "O4",
+        "text": "Prefer variety to routine.",
+        "key": "+"
+      },
+      {
+        "id": "O4-2",
+        "scale": "O4",
+        "text": "Prefer to stick with things that I know.",
+        "key": "-"
+      },
+      {
+        "id": "O4-3",
+        "scale": "O4",
+        "text": "Dislike changes.",
+        "key": "-"
+      },
+      {
+        "id": "O4-4",
+        "scale": "O4",
+        "text": "Am attached to conventional ways.",
+        "key": "-"
+      },
+      {
+        "id": "O5-1",
+        "scale": "O5",
+        "text": "Love to read challenging material.",
+        "key": "+"
+      },
+      {
+        "id": "O5-2",
+        "scale": "O5",
+        "text": "Avoid philosophical discussions.",
+        "key": "-"
+      },
+      {
+        "id": "O5-3",
+        "scale": "O5",
+        "text": "Prefer practical examples to abstract explanations.",
+        "key": "-"
+      },
+      {
+        "id": "O5-4",
+        "scale": "O5",
+        "text": "Am not interested in theoretical discussions.",
+        "key": "-"
+      },
+      {
+        "id": "O6-1",
+        "scale": "O6",
+        "text": "Enjoy considering viewpoints that challenge my assumptions.",
+        "key": "+"
+      },
+      {
+        "id": "O6-2",
+        "scale": "O6",
+        "text": "Am willing to reconsider long-held opinions when I encounter good reasons.",
+        "key": "+"
+      },
+      {
+        "id": "O6-3",
+        "scale": "O6",
+        "text": "Prefer established ways of thinking over unfamiliar viewpoints.",
+        "key": "-"
+      },
+      {
+        "id": "O6-4",
+        "scale": "O6",
+        "text": "Prefer established approaches when people suggest changing longstanding practices.",
+        "key": "-"
+      },
+      {
+        "id": "A1-1",
+        "scale": "A1",
+        "text": "Trust others.",
+        "key": "+"
+      },
+      {
+        "id": "A1-2",
+        "scale": "A1",
+        "text": "Believe that others have good intentions.",
+        "key": "+"
+      },
+      {
+        "id": "A1-3",
+        "scale": "A1",
+        "text": "Trust what people say.",
+        "key": "+"
+      },
+      {
+        "id": "A1-4",
+        "scale": "A1",
+        "text": "Distrust people.",
+        "key": "-"
+      },
+      {
+        "id": "A2-1",
+        "scale": "A2",
+        "text": "Use others for my own ends.",
+        "key": "-"
+      },
+      {
+        "id": "A2-2",
+        "scale": "A2",
+        "text": "Cheat to get ahead.",
+        "key": "-"
+      },
+      {
+        "id": "A2-3",
+        "scale": "A2",
+        "text": "Take advantage of others.",
+        "key": "-"
+      },
+      {
+        "id": "A2-4",
+        "scale": "A2",
+        "text": "Obstruct others' plans.",
+        "key": "-"
+      },
+      {
+        "id": "A3-1",
+        "scale": "A3",
+        "text": "Am concerned about others.",
+        "key": "+"
+      },
+      {
+        "id": "A3-2",
+        "scale": "A3",
+        "text": "Love to help others.",
+        "key": "+"
+      },
+      {
+        "id": "A3-3",
+        "scale": "A3",
+        "text": "Am indifferent to the feelings of others.",
+        "key": "-"
+      },
+      {
+        "id": "A3-4",
+        "scale": "A3",
+        "text": "Take no time for others.",
+        "key": "-"
+      },
+      {
+        "id": "A4-1",
+        "scale": "A4",
+        "text": "Love a good fight.",
+        "key": "-"
+      },
+      {
+        "id": "A4-2",
+        "scale": "A4",
+        "text": "Yell at people.",
+        "key": "-"
+      },
+      {
+        "id": "A4-3",
+        "scale": "A4",
+        "text": "Insult people.",
+        "key": "-"
+      },
+      {
+        "id": "A4-4",
+        "scale": "A4",
+        "text": "Get back at others.",
+        "key": "-"
+      },
+      {
+        "id": "A5-1",
+        "scale": "A5",
+        "text": "Believe that I am better than others.",
+        "key": "-"
+      },
+      {
+        "id": "A5-2",
+        "scale": "A5",
+        "text": "Think highly of myself.",
+        "key": "-"
+      },
+      {
+        "id": "A5-3",
+        "scale": "A5",
+        "text": "Have a high opinion of myself.",
+        "key": "-"
+      },
+      {
+        "id": "A5-4",
+        "scale": "A5",
+        "text": "Boast about my virtues.",
+        "key": "-"
+      },
+      {
+        "id": "A6-1",
+        "scale": "A6",
+        "text": "Sympathize with the homeless.",
+        "key": "+"
+      },
+      {
+        "id": "A6-2",
+        "scale": "A6",
+        "text": "Feel sympathy for those who are worse off than myself.",
+        "key": "+"
+      },
+      {
+        "id": "A6-3",
+        "scale": "A6",
+        "text": "Am not interested in other people's problems.",
+        "key": "-"
+      },
+      {
+        "id": "A6-4",
+        "scale": "A6",
+        "text": "Try not to think about the needy.",
+        "key": "-"
+      },
+      {
+        "id": "C1-1",
+        "scale": "C1",
+        "text": "Complete tasks successfully.",
+        "key": "+"
+      },
+      {
+        "id": "C1-2",
+        "scale": "C1",
+        "text": "Excel in what I do.",
+        "key": "+"
+      },
+      {
+        "id": "C1-3",
+        "scale": "C1",
+        "text": "Handle tasks smoothly.",
+        "key": "+"
+      },
+      {
+        "id": "C1-4",
+        "scale": "C1",
+        "text": "Know how to get things done.",
+        "key": "+"
+      },
+      {
+        "id": "C2-1",
+        "scale": "C2",
+        "text": "Like to tidy up.",
+        "key": "+"
+      },
+      {
+        "id": "C2-2",
+        "scale": "C2",
+        "text": "Often forget to put things back in their proper place.",
+        "key": "-"
+      },
+      {
+        "id": "C2-3",
+        "scale": "C2",
+        "text": "Leave a mess in my room.",
+        "key": "-"
+      },
+      {
+        "id": "C2-4",
+        "scale": "C2",
+        "text": "Leave my belongings around.",
+        "key": "-"
+      },
+      {
+        "id": "C3-1",
+        "scale": "C3",
+        "text": "Keep my promises.",
+        "key": "+"
+      },
+      {
+        "id": "C3-2",
+        "scale": "C3",
+        "text": "Tell the truth.",
+        "key": "+"
+      },
+      {
+        "id": "C3-3",
+        "scale": "C3",
+        "text": "Break rules.",
+        "key": "-"
+      },
+      {
+        "id": "C3-4",
+        "scale": "C3",
+        "text": "Break my promises.",
+        "key": "-"
+      },
+      {
+        "id": "C4-1",
+        "scale": "C4",
+        "text": "Do more than what's expected of me.",
+        "key": "+"
+      },
+      {
+        "id": "C4-2",
+        "scale": "C4",
+        "text": "Work hard.",
+        "key": "+"
+      },
+      {
+        "id": "C4-3",
+        "scale": "C4",
+        "text": "Put little time and effort into my work.",
+        "key": "-"
+      },
+      {
+        "id": "C4-4",
+        "scale": "C4",
+        "text": "Do just enough work to get by.",
+        "key": "-"
+      },
+      {
+        "id": "C5-1",
+        "scale": "C5",
+        "text": "Am always prepared.",
+        "key": "+"
+      },
+      {
+        "id": "C5-2",
+        "scale": "C5",
+        "text": "Carry out my plans.",
+        "key": "+"
+      },
+      {
+        "id": "C5-3",
+        "scale": "C5",
+        "text": "Waste my time.",
+        "key": "-"
+      },
+      {
+        "id": "C5-4",
+        "scale": "C5",
+        "text": "Have difficulty starting tasks.",
+        "key": "-"
+      },
+      {
+        "id": "C6-1",
+        "scale": "C6",
+        "text": "Jump into things without thinking.",
+        "key": "-"
+      },
+      {
+        "id": "C6-2",
+        "scale": "C6",
+        "text": "Make rash decisions.",
+        "key": "-"
+      },
+      {
+        "id": "C6-3",
+        "scale": "C6",
+        "text": "Rush into things.",
+        "key": "-"
+      },
+      {
+        "id": "C6-4",
+        "scale": "C6",
+        "text": "Act without thinking.",
+        "key": "-"
+      }
+    ],
+    "motivations": [
+      {
+        "id": "A-1",
+        "scale": "A",
+        "text": "I am drawn to begin a ministry where an important need is not yet being met.",
+        "key": "+"
+      },
+      {
+        "id": "A-2",
+        "scale": "A",
+        "text": "I enjoy helping a new ministry move from an idea to its first practical steps.",
+        "key": "+"
+      },
+      {
+        "id": "A-3",
+        "scale": "A",
+        "text": "I look for ways the church could serve people it is not currently reaching.",
+        "key": "+"
+      },
+      {
+        "id": "A-4",
+        "scale": "A",
+        "text": "I enjoy connecting people and resources around a new ministry opportunity.",
+        "key": "+"
+      },
+      {
+        "id": "A-5",
+        "scale": "A",
+        "text": "I want to help others develop the confidence to begin new expressions of service.",
+        "key": "+"
+      },
+      {
+        "id": "A-6",
+        "scale": "A",
+        "text": "When a ministry works well, I am interested in helping it take root in another setting.",
+        "key": "+"
+      },
+      {
+        "id": "P-1",
+        "scale": "P",
+        "text": "I am drawn to help a ministry examine whether its practices reflect the teaching of Scripture.",
+        "key": "+"
+      },
+      {
+        "id": "P-2",
+        "scale": "P",
+        "text": "I want to help a group address gaps between its stated values and its actions.",
+        "key": "+"
+      },
+      {
+        "id": "P-3",
+        "scale": "P",
+        "text": "I am motivated to raise concerns when people are overlooked or treated unfairly.",
+        "key": "+"
+      },
+      {
+        "id": "P-4",
+        "scale": "P",
+        "text": "I enjoy helping others reflect carefully on what faithfulness to God requires in a situation.",
+        "key": "+"
+      },
+      {
+        "id": "P-5",
+        "scale": "P",
+        "text": "I want to help a ministry correct an unhealthy practice even when the conversation is difficult.",
+        "key": "+"
+      },
+      {
+        "id": "P-6",
+        "scale": "P",
+        "text": "I am drawn to help a church respond to needed correction with humility and practical change.",
+        "key": "+"
+      },
+      {
+        "id": "E-1",
+        "scale": "E",
+        "text": "I am drawn to build relationships with people who are exploring or unfamiliar with Christian faith.",
+        "key": "+"
+      },
+      {
+        "id": "E-2",
+        "scale": "E",
+        "text": "I enjoy helping someone understand the good news about Jesus in language that makes sense to them.",
+        "key": "+"
+      },
+      {
+        "id": "E-3",
+        "scale": "E",
+        "text": "I look for natural opportunities to invite someone to explore faith or church community.",
+        "key": "+"
+      },
+      {
+        "id": "E-4",
+        "scale": "E",
+        "text": "I want to help the church listen to questions asked by people outside its usual circles.",
+        "key": "+"
+      },
+      {
+        "id": "E-5",
+        "scale": "E",
+        "text": "I am motivated to follow up with someone who has shown interest in learning about Jesus.",
+        "key": "+"
+      },
+      {
+        "id": "E-6",
+        "scale": "E",
+        "text": "I enjoy helping other Christians become more comfortable sharing their faith respectfully.",
+        "key": "+"
+      },
+      {
+        "id": "S-1",
+        "scale": "S",
+        "text": "I am drawn to maintain contact with people who need ongoing encouragement.",
+        "key": "+"
+      },
+      {
+        "id": "S-2",
+        "scale": "S",
+        "text": "I enjoy helping someone feel included in the church community.",
+        "key": "+"
+      },
+      {
+        "id": "S-3",
+        "scale": "S",
+        "text": "I am motivated to listen patiently when someone is going through a difficult season.",
+        "key": "+"
+      },
+      {
+        "id": "S-4",
+        "scale": "S",
+        "text": "I want to help people build relationships that support their spiritual growth.",
+        "key": "+"
+      },
+      {
+        "id": "S-5",
+        "scale": "S",
+        "text": "I notice when someone has become disconnected and want to help them reconnect.",
+        "key": "+"
+      },
+      {
+        "id": "S-6",
+        "scale": "S",
+        "text": "I enjoy walking alongside someone over time rather than helping only once.",
+        "key": "+"
+      },
+      {
+        "id": "T-1",
+        "scale": "T",
+        "text": "I am drawn to study a Bible passage carefully so I can help others understand it.",
+        "key": "+"
+      },
+      {
+        "id": "T-2",
+        "scale": "T",
+        "text": "I enjoy explaining a difficult idea in a way someone can grasp.",
+        "key": "+"
+      },
+      {
+        "id": "T-3",
+        "scale": "T",
+        "text": "I want to help people connect biblical teaching with everyday decisions.",
+        "key": "+"
+      },
+      {
+        "id": "T-4",
+        "scale": "T",
+        "text": "I am motivated to check the accuracy and context of something before teaching it.",
+        "key": "+"
+      },
+      {
+        "id": "T-5",
+        "scale": "T",
+        "text": "I enjoy adjusting an explanation when someone has not yet understood it.",
+        "key": "+"
+      },
+      {
+        "id": "T-6",
+        "scale": "T",
+        "text": "I want to help others develop their own ability to study and understand Scripture.",
+        "key": "+"
+      }
+    ]
+  },
+  "reports": {
+    "bigfive": [
+      {
+        "id": "BF-INTRO",
+        "heading": "Your personality and ministry",
+        "text": "God's people serve through many different ways of thinking, relating, and working. This report describes patterns in your answers that can help you explore how you might contribute at {{church_name}}. Read it alongside your Ministry Motivations results, your skills, and your current circumstances. A useful outcome is a clearer conversation about service: what interests you, what preparation you need, and what would help you participate sustainably.",
+        "order": 1
+      },
+      {
+        "id": "BF-METHOD",
+        "heading": "Understanding your results",
+        "text": "Your results summarize your answers to an adapted Big Five personality inventory. Each score runs from 1 to 5. The score ranges used in this report describe your answers; they are not percentages or rankings against other people. A score near the middle may come from consistently moderate answers or from different answers to related questions. The detailed sections can help you see which pattern fits.\n\nPersonality does not measure your love for God, spiritual maturity, ministry skill, or worth. It also does not determine which ministries you may enter. Your experiences, responsibilities, health, and season of life matter when you consider a role.",
+        "order": 2
+      },
+      {
+        "id": "BF-SUMMARY",
+        "heading": "Your personality overview",
+        "text": "Completed: {{completed_date}}\n\n{{big_five_score_summary}}\n\nThese five areas describe different parts of your personality. The details within an area can differ: someone may enjoy meeting people but prefer a quieter pace, or enjoy generating ideas while preferring familiar routines. Read each area on its own rather than looking for one personality label to explain everything about you.",
+        "order": 3
+      },
+      {
+        "id": "BF-O-LOWER",
+        "heading": "Creativity and exploration",
+        "text": "Your responses suggest that you often prefer familiar approaches and concrete applications.\n\nFamiliar methods, practical examples, and a clear purpose may help you engage with a new responsibility. You might enjoy strengthening a ministry that already works well, preparing materials people rely on, or making an established process easier to use.\n\nIf a new approach interests you, ask to see how it would work and what need it addresses. You do not need to enjoy constant change to contribute to a new initiative. A small trial can give you useful experience without requiring a large commitment.\n\nFirst Thessalonians 5:21 calls for examination and holding to what is good. Apply that care to both familiar practices and new possibilities.",
+        "order": 10
+      },
+      {
+        "id": "BF-O-MIDDLE",
+        "heading": "Creativity and exploration",
+        "text": "You report both interest in new possibilities and appreciation for familiar approaches. A ministry with some room to experiment and a dependable foundation may appeal to you.\n\nYou may appreciate a dependable foundation while still being interested in selected changes or ideas. Consider whether you enjoy improving something that already exists, adapting resources for a particular group, or trying a new approach when its purpose is clear.\n\nWhen you explore an opportunity, ask how much freedom there is to experiment and which parts need consistency. The narrower details below can help distinguish artistic interests, imagination, interest in ideas, and comfort with change.\n\nFirst Thessalonians 5:21 calls for examination and holding to what is good. Apply that care to both familiar practices and new possibilities.",
+        "order": 10
+      },
+      {
+        "id": "BF-O-HIGHER",
+        "heading": "Creativity and exploration",
+        "text": "Your responses suggest that you often enjoy new ideas, possibilities, and experiences.\n\nNew ideas, varied experiences, and possibilities may be particularly engaging for you. Consider opportunities to develop resources, explore an unmet need, create something useful, or suggest another way to approach a task. Choose an area where you also have interest or are willing to learn the practical skills.\n\nWhen you propose a change, listen to people affected by it and test the idea on a manageable scale. A teammate who enjoys detail and continuity may help you turn a promising possibility into something others can use.\n\nFirst Thessalonians 5:21 calls for examination and holding to what is good. Apply that care to both familiar practices and new possibilities.",
+        "order": 10
+      },
+      {
+        "id": "BF-C-LOWER",
+        "heading": "Organization and follow-through",
+        "text": "Your responses suggest that you often prefer flexible structure or need support sustaining plans.\n\nYou may prefer fewer procedures and more flexibility, or you may need practical help getting plans started and completed. A clearly bounded task, a visible next step, and an agreed check-in may make a commitment easier to manage. Explore what actually helps you finish rather than accepting a role whose demands are unclear.\n\nBefore volunteering, ask about deadlines, preparation, and what happens if you cannot attend. You can contribute through a smaller reliable commitment while developing the routines or skills a larger responsibility would require.\n\nColossians 3:23 encourages wholehearted work. Consider how preparation, realistic commitments, and rest can support the work you have agreed to do.",
+        "order": 11
+      },
+      {
+        "id": "BF-C-MIDDLE",
+        "heading": "Organization and follow-through",
+        "text": "Your answers place you between a highly structured approach and a more flexible one. Clear priorities with room to organize the details yourself may be helpful.\n\nSome responsibilities may draw out your planning and follow-through more than others. You may appreciate clear goals without wanting every detail prescribed. Explore a role with an agreed result, realistic deadlines, and some freedom in how you organize the work.\n\nDiscuss which expectations matter most and which can remain flexible. Your narrower results on organization, task confidence, effort, and follow-through may explain why you feel well prepared in one setting but need more structure in another.\n\nColossians 3:23 encourages wholehearted work. Consider how preparation, realistic commitments, and rest can support the work you have agreed to do.",
+        "order": 11
+      },
+      {
+        "id": "BF-C-HIGHER",
+        "heading": "Organization and follow-through",
+        "text": "Your responses suggest that you often prefer preparation, clear agreements, and follow-through.\n\nPreparation, clear agreements, and dependable follow-through may be important parts of how you work. You might enjoy coordinating materials, keeping a schedule, maintaining records, or carrying a task through to completion. Confirm that the role fits your actual skills and available time.\n\nBe careful about taking on work simply because you can organize it well. Agree on priorities, share responsibility where possible, and leave room for reasonable changes. People who work differently may still contribute in ways your team needs.\n\nColossians 3:23 encourages wholehearted work. Consider how preparation, realistic commitments, and rest can support the work you have agreed to do.",
+        "order": 11
+      },
+      {
+        "id": "BF-E-LOWER",
+        "heading": "Social energy and engagement",
+        "text": "Your responses suggest that you often prefer smaller settings or a quieter activity pace.\n\nSmaller groups, personal conversations, and time to prepare may suit you better than frequent large-group interaction. Explore contributions such as individual follow-up, preparation, mentoring, technical support, or teaching in a setting that interests you. These are possibilities to discuss, not boundaries around what you can do.\n\nIf you want to try a public-facing role, ask to begin alongside someone experienced. Consider both the task and the recovery time you need afterward. Quiet participation can still be relational, welcoming, and influential.\n\nRomans 12:4-8 describes different contributions within one body. Consider how your preferred way of engaging can serve others alongside different approaches.",
+        "order": 12
+      },
+      {
+        "id": "BF-E-MIDDLE",
+        "heading": "Social energy and engagement",
+        "text": "Your answers fall between a quieter style and a strongly outgoing one. Consider whether a mix of personal conversations, group activity, and time to prepare suits you.\n\nYou may enjoy some interaction without wanting it to fill every part of a role. Consider a balance of working with others and having time to prepare or concentrate. A small team, shared facilitation, or a role with a mixture of contact and preparation may be worth exploring.\n\nLook closely at the details below. Enjoying people, taking charge, seeking excitement, and keeping a fast pace are different tendencies. A broad score in the middle does not mean all of those tendencies are moderate.\n\nRomans 12:4-8 describes different contributions within one body. Consider how your preferred way of engaging can serve others alongside different approaches.",
+        "order": 12
+      },
+      {
+        "id": "BF-E-HIGHER",
+        "heading": "Social energy and engagement",
+        "text": "Your responses suggest that you often enjoy frequent interaction and an active pace.\n\nFrequent interaction, visible participation, or an active pace may be energizing for you. You might enjoy welcoming people, facilitating conversation, collaborating on an event, or communicating with a group. Interest and preparation still matter when deciding which responsibility to accept.\n\nMake room for quieter contributors and allow time to listen before moving the group forward. Ask how much ongoing follow-up a role involves, and consider a partner whose pace or approach complements yours.\n\nRomans 12:4-8 describes different contributions within one body. Consider how your preferred way of engaging can serve others alongside different approaches.",
+        "order": 12
+      },
+      {
+        "id": "BF-A-LOWER",
+        "heading": "Cooperation and directness",
+        "text": "Your responses suggest that you may be more questioning, direct, or willing to challenge.\n\nYou may be comfortable questioning an approach or expressing disagreement, and some answers may reflect greater caution about others' motives or needs. Review the narrower details rather than interpreting the whole area simply as being direct. Trust, cooperation, helping, and straightforward dealing are different matters.\n\nIn ministry, you can raise a concern clearly while listening carefully and treating people respectfully. When interests conflict, explain what you are seeking and work toward clear agreements. Ask for feedback about how your approach affects the people involved.\n\nEphesians 4:15 joins truth and love. Ask how your communication can be both clear about the issue and considerate toward the person.",
+        "order": 13
+      },
+      {
+        "id": "BF-A-MIDDLE",
+        "heading": "Cooperation and directness",
+        "text": "Your answers fall between readily accommodating others and readily challenging them. In a team, consider how you handle disagreement while maintaining working relationships.\n\nYou may accommodate others in some circumstances and challenge them in others. A useful question is how you make that choice. Review the details on trust, helping, conflict, and self-presentation to see which parts of the broader description fit.\n\nWhen joining a team, discuss how disagreements are handled and how people can raise concerns. Aim to combine consideration for others with clear communication about responsibilities, limits, and what you believe needs attention.\n\nEphesians 4:15 joins truth and love. Ask how your communication can be both clear about the issue and considerate toward the person.",
+        "order": 13
+      },
+      {
+        "id": "BF-A-HIGHER",
+        "heading": "Cooperation and directness",
+        "text": "Your responses suggest that you often emphasize cooperation, trust, and interpersonal consideration.\n\nCooperation, consideration, or a willingness to help may be prominent in your answers. You might enjoy supporting a team, creating a welcoming environment, or helping people work through a difficulty. Choose a commitment you can sustain rather than agreeing simply because someone has asked.\n\nClear boundaries and honest disagreement remain important. You can care about someone while questioning a plan or declining a request. In any role, practice saying what you can offer and what you need others to carry.\n\nEphesians 4:15 joins truth and love. Ask how your communication can be both clear about the issue and considerate toward the person.",
+        "order": 13
+      },
+      {
+        "id": "BF-N-LOWER",
+        "heading": "Emotional stability",
+        "text": "Your responses suggest that you often experience stronger distress or stress reactivity.\n\nEmotional demands or uncertainty may take more effort for you to manage. Before accepting a role, discuss its pace, pressure, and available support. A familiar teammate, clear expectations, and a smaller first commitment may make participation more manageable.\n\nYou do not need to disclose private circumstances to explain that you need a particular arrangement. Your answers do not establish a diagnosis or show how strong your faith is. Use the detailed results only to the extent that they help you understand your experience and seek useful support.\n\nGalatians 6:2 calls believers to carry one another's burdens. Consider what you need to receive, as well as what you are able to offer.",
+        "order": 14
+      },
+      {
+        "id": "BF-N-MIDDLE",
+        "heading": "Emotional stability",
+        "text": "Your answers fall between frequent emotional distress and consistent emotional steadiness. Consider what workload, preparation, and support help you manage pressure.\n\nYou may feel steady in some circumstances and more affected by pressure in others. Consider which responsibilities leave you feeling able to contribute and which require more preparation, rest, or help. A clear role and a reliable point of contact may be useful.\n\nThe details below distinguish worry, frustration, self-consciousness, and other experiences. Your overall score does not explain the cause of any one of them. When a description is personally sensitive, you can choose to discuss it privately rather than as part of a placement conversation.\n\nGalatians 6:2 calls believers to carry one another's burdens. Consider what you need to receive, as well as what you are able to offer.",
+        "order": 14
+      },
+      {
+        "id": "BF-N-HIGHER",
+        "heading": "Emotional stability",
+        "text": "Your responses suggest that you often experience greater emotional steadiness under stress.\n\nYou describe a generally steadier response to emotional demands. That may help you remain composed when a task changes or others need reassurance. Explore responsibilities that interest you rather than assuming you should take every demanding assignment.\n\nNotice when teammates experience pressure differently, and listen without minimizing what they are carrying. Being calm does not remove the need for boundaries, preparation, rest, or help. Your steadiness can support a team when it is accompanied by attentiveness to others.\n\nGalatians 6:2 calls believers to carry one another's burdens. Consider what you need to receive, as well as what you are able to offer.",
+        "order": 14
+      },
+      {
+        "id": "BF-DETAIL-INTRO",
+        "heading": "A closer look",
+        "text": "The following details describe narrower patterns within the five broad areas. You may recognize some descriptions more readily than others. Where a description seems surprising, compare it with your answers and your experience. You can discuss a result without accepting it as a complete account of who you are.",
+        "order": 35
+      },
+      {
+        "id": "BF-N1-LOWER",
+        "heading": "Calm amid worry",
+        "text": "Your responses suggest that you often experience worry or apprehension.\n\nBefore trying a role, ask what will happen, who will be present, and whom you can contact with a question.\n\nPhilippians 4:6-7 invites believers to bring concerns to God in prayer. Use it as an invitation to seek help and peace, not as a verdict on your faith.",
+        "order": 40
+      },
+      {
+        "id": "BF-N1-MIDDLE",
+        "heading": "Calm amid worry",
+        "text": "You report some worry, without consistently describing yourself as either highly worried or largely free of worry. Clear expectations may help when a responsibility feels uncertain.\n\nWhen a responsibility brings uncertainty, write down the next task and the help available rather than trying to settle everything at once.\n\nPhilippians 4:6-7 invites believers to bring concerns to God in prayer. Use it as an invitation to seek help and peace, not as a verdict on your faith.",
+        "order": 40
+      },
+      {
+        "id": "BF-N1-HIGHER",
+        "heading": "Calm amid worry",
+        "text": "Your responses suggest that you usually experience relatively little worry.\n\nWhen others are worried, ask what information or reassurance would actually help them rather than assuming they will feel as calm as you do.\n\nPhilippians 4:6-7 invites believers to bring concerns to God in prayer. Use it as an invitation to seek help and peace, not as a verdict on your faith.",
+        "order": 40
+      },
+      {
+        "id": "BF-N2-LOWER",
+        "heading": "Patience under frustration",
+        "text": "Your responses suggest that you often experience irritation or anger.\n\nIf frustration rises during a task, arrange a way to pause, clarify the problem, and return to the conversation respectfully.\n\nJames 1:19-20 connects listening and patience with how we respond to others. Consider one way to slow a difficult conversation enough to listen.",
+        "order": 41
+      },
+      {
+        "id": "BF-N2-MIDDLE",
+        "heading": "Patience under frustration",
+        "text": "Your answers fall between frequent irritation and a consistently even temper. Notice which situations call for a pause before you respond.\n\nNotice which situations test your patience and agree with your team on how concerns should be raised.\n\nJames 1:19-20 connects listening and patience with how we respond to others. Consider one way to slow a difficult conversation enough to listen.",
+        "order": 41
+      },
+      {
+        "id": "BF-N2-HIGHER",
+        "heading": "Patience under frustration",
+        "text": "Your responses suggest that you usually remain even-tempered when frustrated.\n\nUse your patience to make room for disagreement, while still naming a problem that needs to be addressed.\n\nJames 1:19-20 connects listening and patience with how we respond to others. Consider one way to slow a difficult conversation enough to listen.",
+        "order": 41
+      },
+      {
+        "id": "BF-N3-LOWER",
+        "heading": "Emotional well-being",
+        "text": "Your responses suggest that you often report low mood or self-criticism.\n\nChoose a commitment that fits your present capacity. If low mood or self-criticism is troubling you, a private conversation with someone you trust may be more useful than a change of ministry role.\n\nPsalm 42 gives words to distress and hope within a life of faith. You can be honest about your experience without turning it into a spiritual grade.",
+        "order": 42
+      },
+      {
+        "id": "BF-N3-MIDDLE",
+        "heading": "Emotional well-being",
+        "text": "Your answers include a mixture of positive feelings and periods of low mood or self-criticism. Choose a sustainable pace and seek encouragement when you need it.\n\nNotice whether a particular pace or setting leaves you encouraged or depleted, and discuss adjustments when you need them.\n\nPsalm 42 gives words to distress and hope within a life of faith. You can be honest about your experience without turning it into a spiritual grade.",
+        "order": 42
+      },
+      {
+        "id": "BF-N3-HIGHER",
+        "heading": "Emotional well-being",
+        "text": "Your responses suggest that you usually report a more positive emotional baseline.\n\nYou may find it natural to bring encouragement to a task. Listen carefully when someone else's experience includes sadness or discouragement.\n\nPsalm 42 gives words to distress and hope within a life of faith. You can be honest about your experience without turning it into a spiritual grade.",
+        "order": 42
+      },
+      {
+        "id": "BF-N4-LOWER",
+        "heading": "Ease in social situations",
+        "text": "Your responses suggest that you often feel self-conscious around unfamiliar people.\n\nA familiar teammate, an introduction in advance, or a smaller setting may help you begin a new responsibility.\n\nFirst Corinthians 12:18-22 emphasizes the value of different members. Consider a setting where you can contribute without needing to imitate someone else's social ease.",
+        "order": 43
+      },
+      {
+        "id": "BF-N4-MIDDLE",
+        "heading": "Ease in social situations",
+        "text": "Your answers fall between social self-consciousness and ease around unfamiliar people. A familiar teammate may help when you enter a new setting.\n\nConsider which social situations feel comfortable and where an introduction, preparation, or practice would help.\n\nFirst Corinthians 12:18-22 emphasizes the value of different members. Consider a setting where you can contribute without needing to imitate someone else's social ease.",
+        "order": 43
+      },
+      {
+        "id": "BF-N4-HIGHER",
+        "heading": "Ease in social situations",
+        "text": "Your responses suggest that you usually feel at ease in unfamiliar social settings.\n\nYou may be comfortable helping someone enter an unfamiliar group. Ask what would make the introduction easier for them.\n\nFirst Corinthians 12:18-22 emphasizes the value of different members. Consider a setting where you can contribute without needing to imitate someone else's social ease.",
+        "order": 43
+      },
+      {
+        "id": "BF-N5-LOWER",
+        "heading": "Impulse steadiness",
+        "text": "Your responses suggest that you often find immediate urges difficult to resist.\n\nSet up practical limits around the habits or distractions that interfere with your chosen commitments. Start with one manageable change.\n\nFirst Corinthians 6:12 invites reflection on what has power over our choices. Consider one practical support for a priority you have chosen.",
+        "order": 44
+      },
+      {
+        "id": "BF-N5-MIDDLE",
+        "heading": "Impulse steadiness",
+        "text": "Your answers fall between difficulty resisting immediate urges and consistent control of them. Practical routines may help you follow the priorities you have chosen.\n\nIdentify the situations in which immediate urges compete with longer-term plans, and choose a routine that helps you follow through.\n\nFirst Corinthians 6:12 invites reflection on what has power over our choices. Consider one practical support for a priority you have chosen.",
+        "order": 44
+      },
+      {
+        "id": "BF-N5-HIGHER",
+        "heading": "Impulse steadiness",
+        "text": "Your responses suggest that you usually find it easier to manage immediate urges.\n\nUse routines that support your priorities, while recognizing that another person's difficulty with an urge may require different support.\n\nFirst Corinthians 6:12 invites reflection on what has power over our choices. Consider one practical support for a priority you have chosen.",
+        "order": 44
+      },
+      {
+        "id": "BF-N6-LOWER",
+        "heading": "Composure under pressure",
+        "text": "Your responses suggest that you often feel overwhelmed by demanding situations.\n\nAsk about backup help and how an urgent problem would be handled before accepting a demanding role.\n\nGalatians 6:2 calls believers to carry one another's burdens. Asking for support can be part of serving together.",
+        "order": 45
+      },
+      {
+        "id": "BF-N6-MIDDLE",
+        "heading": "Composure under pressure",
+        "text": "Your answers fall between feeling overwhelmed and staying composed under pressure. A manageable workload and a clear backup plan may be useful.\n\nA clear order of tasks and someone to consult may help when several needs arise at once.\n\nGalatians 6:2 calls believers to carry one another's burdens. Asking for support can be part of serving together.",
+        "order": 45
+      },
+      {
+        "id": "BF-N6-HIGHER",
+        "heading": "Composure under pressure",
+        "text": "Your responses suggest that you usually remain composed under pressure.\n\nYou may be able to provide a calm presence during a busy task. Share responsibility and notice when the situation calls for help.\n\nGalatians 6:2 calls believers to carry one another's burdens. Asking for support can be part of serving together.",
+        "order": 45
+      },
+      {
+        "id": "BF-E1-LOWER",
+        "heading": "Friendliness",
+        "text": "Your responses suggest that you tend to approach relationships gradually.\n\nExplore a role where you can get to know people through repeated contact rather than needing to make many introductions at once.\n\nRomans 12:10 calls believers to mutual affection and honor. Consider how to express warmth in a way that is sincere for you.",
+        "order": 46
+      },
+      {
+        "id": "BF-E1-MIDDLE",
+        "heading": "Friendliness",
+        "text": "You describe neither a strongly reserved nor a strongly outgoing approach to meeting people. Consider whether you prefer making introductions or building a relationship after someone else introduces you.\n\nConsider whether you enjoy initiating contact, responding when approached, or deepening a relationship after the first meeting.\n\nRomans 12:10 calls believers to mutual affection and honor. Consider how to express warmth in a way that is sincere for you.",
+        "order": 46
+      },
+      {
+        "id": "BF-E1-HIGHER",
+        "heading": "Friendliness",
+        "text": "Your responses suggest that you readily initiate friendly contact.\n\nIf welcoming people interests you, help a newcomer move beyond the first greeting into a continuing connection.\n\nRomans 12:10 calls believers to mutual affection and honor. Consider how to express warmth in a way that is sincere for you.",
+        "order": 46
+      },
+      {
+        "id": "BF-E2-LOWER",
+        "heading": "Group engagement",
+        "text": "Your responses suggest that you often prefer solitude or smaller gatherings.\n\nConsider the group size and amount of conversation you prefer. Individual contact or a smaller team may fit your interests.\n\nFirst Peter 4:9-10 connects hospitality with serving others. Hospitality can happen through a personal invitation as well as a larger gathering.",
+        "order": 47
+      },
+      {
+        "id": "BF-E2-MIDDLE",
+        "heading": "Group engagement",
+        "text": "Your answers fall between a strong preference for solitude and a strong preference for larger gatherings. Consider the group size and frequency of interaction you enjoy.\n\nTry a role with both interaction and quieter preparation, and review how that balance feels after several occasions.\n\nFirst Peter 4:9-10 connects hospitality with serving others. Hospitality can happen through a personal invitation as well as a larger gathering.",
+        "order": 47
+      },
+      {
+        "id": "BF-E2-HIGHER",
+        "heading": "Group engagement",
+        "text": "Your responses suggest that you often enjoy larger social gatherings.\n\nIf group activity appeals to you, make sure the setting also gives quieter people a way to participate.\n\nFirst Peter 4:9-10 connects hospitality with serving others. Hospitality can happen through a personal invitation as well as a larger gathering.",
+        "order": 47
+      },
+      {
+        "id": "BF-E3-LOWER",
+        "heading": "Assertiveness",
+        "text": "Your responses suggest that you often prefer supporting another person's direction.\n\nYou can contribute questions, preparation, or support without taking charge. If you want to lead, try sharing responsibility for a small task first.\n\nMark 10:42-45 places service at the center of leadership. Consider how taking initiative or supporting another leader could benefit the people involved.",
+        "order": 48
+      },
+      {
+        "id": "BF-E3-MIDDLE",
+        "heading": "Assertiveness",
+        "text": "Your answers fall between waiting for direction and readily taking charge. A shared leadership role may be worth exploring.\n\nA co-led activity may help you learn when you prefer to guide and when you prefer to support.\n\nMark 10:42-45 places service at the center of leadership. Consider how taking initiative or supporting another leader could benefit the people involved.",
+        "order": 48
+      },
+      {
+        "id": "BF-E3-HIGHER",
+        "heading": "Assertiveness",
+        "text": "Your responses suggest that you readily speak up and take initiative.\n\nIf you take initiative, explain your thinking and invite others to shape the plan rather than moving ahead on their behalf.\n\nMark 10:42-45 places service at the center of leadership. Consider how taking initiative or supporting another leader could benefit the people involved.",
+        "order": 48
+      },
+      {
+        "id": "BF-E4-LOWER",
+        "heading": "Activity pace",
+        "text": "Your responses suggest that you prefer a more measured activity pace.\n\nAsk about the actual pace and frequency of a role. A focused contribution with breathing room may be more sustainable than a crowded schedule.\n\nMark 6:31 records Jesus inviting his disciples to rest. Include rest when deciding what pace of service you can sustain.",
+        "order": 49
+      },
+      {
+        "id": "BF-E4-MIDDLE",
+        "heading": "Activity pace",
+        "text": "Your answers fall between a measured pace and a consistently full schedule. Choose a level of activity that leaves room for your other responsibilities and rest.\n\nChoose a level of activity that fits your other responsibilities, and review it after the first few weeks.\n\nMark 6:31 records Jesus inviting his disciples to rest. Include rest when deciding what pace of service you can sustain.",
+        "order": 49
+      },
+      {
+        "id": "BF-E4-HIGHER",
+        "heading": "Activity pace",
+        "text": "Your responses suggest that you prefer frequent activity and a full schedule.\n\nYour preferred pace may suit active tasks, but agree on limits and allow teammates time to work at a different speed.\n\nMark 6:31 records Jesus inviting his disciples to rest. Include rest when deciding what pace of service you can sustain.",
+        "order": 49
+      },
+      {
+        "id": "BF-E5-LOWER",
+        "heading": "Stimulation seeking",
+        "text": "Your responses suggest that you prefer calmer and more predictable experiences.\n\nA predictable responsibility may appeal to you. If you want to explore a less familiar task, ask for a clear plan and a supported first attempt.\n\nProverbs 19:2 warns against haste without knowledge. Consider what preparation a new or exciting task requires.",
+        "order": 50
+      },
+      {
+        "id": "BF-E5-MIDDLE",
+        "heading": "Stimulation seeking",
+        "text": "Your answers fall between seeking calm predictability and seeking excitement. A steady role with occasional variety may be worth exploring.\n\nConsider whether occasional variety within a stable role gives you enough interest without unnecessary pressure.\n\nProverbs 19:2 warns against haste without knowledge. Consider what preparation a new or exciting task requires.",
+        "order": 50
+      },
+      {
+        "id": "BF-E5-HIGHER",
+        "heading": "Stimulation seeking",
+        "text": "Your responses suggest that you often seek excitement and novelty.\n\nSeek useful variety while observing the preparation and safeguards a task requires. Excitement alone is not a reason to accept a risk.\n\nProverbs 19:2 warns against haste without knowledge. Consider what preparation a new or exciting task requires.",
+        "order": 50
+      },
+      {
+        "id": "BF-E6-LOWER",
+        "heading": "Positive emotional expression",
+        "text": "Your responses suggest that you express enthusiasm more quietly or less frequently.\n\nYou can offer encouragement through attention, practical help, or thoughtful words without needing an outwardly enthusiastic style.\n\nRomans 12:15 calls for rejoicing and weeping with others. Ask what kind of presence a particular person needs.",
+        "order": 51
+      },
+      {
+        "id": "BF-E6-MIDDLE",
+        "heading": "Positive emotional expression",
+        "text": "Your answers fall between quiet emotional expression and frequent visible enthusiasm. Consider the ways you naturally communicate encouragement.\n\nNotice how you naturally communicate appreciation and encouragement, and use that approach rather than imitating someone else's expression.\n\nRomans 12:15 calls for rejoicing and weeping with others. Ask what kind of presence a particular person needs.",
+        "order": 51
+      },
+      {
+        "id": "BF-E6-HIGHER",
+        "heading": "Positive emotional expression",
+        "text": "Your responses suggest that you often express visible enthusiasm and positive emotion.\n\nYour visible enthusiasm may help others join in. Leave room for those who are grieving, tired, or less expressive.\n\nRomans 12:15 calls for rejoicing and weeping with others. Ask what kind of presence a particular person needs.",
+        "order": 51
+      },
+      {
+        "id": "BF-O1-LOWER",
+        "heading": "Imagination",
+        "text": "Your responses suggest that you often focus on concrete realities.\n\nExplore work with a clear practical result. If an idea is unfamiliar, ask for an example of what it would look like in use.\n\nExodus 35:30-35 describes skilled work and instruction in service of the community. Consider how an idea could become a useful contribution.",
+        "order": 52
+      },
+      {
+        "id": "BF-O1-MIDDLE",
+        "heading": "Imagination",
+        "text": "Your answers fall between a strong focus on concrete realities and frequent imaginative exploration. A task that connects an idea to a practical result may interest you.\n\nConsider a task where you can connect an idea with a workable plan or a concrete resource.\n\nExodus 35:30-35 describes skilled work and instruction in service of the community. Consider how an idea could become a useful contribution.",
+        "order": 52
+      },
+      {
+        "id": "BF-O1-HIGHER",
+        "heading": "Imagination",
+        "text": "Your responses suggest that you often imagine possibilities and alternatives.\n\nCapture promising ideas and choose one to develop with someone who enjoys implementation. Ask whether it meets the intended need.\n\nExodus 35:30-35 describes skilled work and instruction in service of the community. Consider how an idea could become a useful contribution.",
+        "order": 52
+      },
+      {
+        "id": "BF-O2-LOWER",
+        "heading": "Artistic interests",
+        "text": "Your responses suggest that you report less interest in art and aesthetic experiences.\n\nChoose the kinds of service you enjoy; interest in art is not required. You may still appreciate well-prepared spaces and resources in practical ways.\n\nPsalm 19:1 directs attention to the glory of God in creation. Notice a form of beauty that helps you give thanks, whether or not art is a strong interest.",
+        "order": 53
+      },
+      {
+        "id": "BF-O2-MIDDLE",
+        "heading": "Artistic interests",
+        "text": "You report some interest in art and beauty, without describing them as a strong or consistent focus. Explore the forms of creative expression you actually enjoy.\n\nExplore a creative activity that genuinely interests you rather than assuming all artistic settings will appeal to you.\n\nPsalm 19:1 directs attention to the glory of God in creation. Notice a form of beauty that helps you give thanks, whether or not art is a strong interest.",
+        "order": 53
+      },
+      {
+        "id": "BF-O2-HIGHER",
+        "heading": "Artistic interests",
+        "text": "Your responses suggest that you often notice and value artistic expression.\n\nIf visual or musical expression interests you, identify the specific skills you have or would like to learn, and ask where they could serve others.\n\nPsalm 19:1 directs attention to the glory of God in creation. Notice a form of beauty that helps you give thanks, whether or not art is a strong interest.",
+        "order": 53
+      },
+      {
+        "id": "BF-O3-LOWER",
+        "heading": "Awareness of emotions",
+        "text": "Your responses suggest that you often engage emotions more indirectly.\n\nAsk people how they are experiencing a situation instead of relying only on your own emotional response.\n\nRomans 12:15 invites attention to the experiences of others. Listening and asking can help you understand what someone is feeling.",
+        "order": 54
+      },
+      {
+        "id": "BF-O3-MIDDLE",
+        "heading": "Awareness of emotions",
+        "text": "Your answers fall between a relatively indirect awareness of emotions and intense emotional awareness. Consider how you recognize and communicate what you and others are feeling.\n\nConsider what helps you notice and name an emotion, and how you prefer to discuss it with others.\n\nRomans 12:15 invites attention to the experiences of others. Listening and asking can help you understand what someone is feeling.",
+        "order": 54
+      },
+      {
+        "id": "BF-O3-HIGHER",
+        "heading": "Awareness of emotions",
+        "text": "Your responses suggest that you often notice and experience emotions intensely.\n\nLet emotional awareness support careful listening. Check your understanding with the person rather than assuming you know what they feel.\n\nRomans 12:15 invites attention to the experiences of others. Listening and asking can help you understand what someone is feeling.",
+        "order": 54
+      },
+      {
+        "id": "BF-O4-LOWER",
+        "heading": "Comfort with change",
+        "text": "Your responses suggest that you prefer familiar routines and established methods.\n\nConsider roles that benefit from continuity. When a change is proposed, ask about its purpose and a practical way to test it.\n\nFirst Thessalonians 5:21 calls believers to examine things and hold to what is good. Both an established method and a proposed change deserve thoughtful evaluation.",
+        "order": 55
+      },
+      {
+        "id": "BF-O4-MIDDLE",
+        "heading": "Comfort with change",
+        "text": "Your answers fall between a strong preference for routine and a strong preference for change. A clear explanation and a chance to try a change may help you assess it.\n\nA time-limited trial may help you evaluate a change while preserving what already works.\n\nFirst Thessalonians 5:21 calls believers to examine things and hold to what is good. Both an established method and a proposed change deserve thoughtful evaluation.",
+        "order": 55
+      },
+      {
+        "id": "BF-O4-HIGHER",
+        "heading": "Comfort with change",
+        "text": "Your responses suggest that you often welcome variety and changing approaches.\n\nIf you enjoy changing approaches, explain the reason, hear concerns, and allow time for others to adjust.\n\nFirst Thessalonians 5:21 calls believers to examine things and hold to what is good. Both an established method and a proposed change deserve thoughtful evaluation.",
+        "order": 55
+      },
+      {
+        "id": "BF-O5-LOWER",
+        "heading": "Interest in ideas",
+        "text": "Your responses suggest that you prefer practical explanations and concrete applications.\n\nAsk for concrete examples and a clear explanation of how an idea will be used. Practical understanding can support thoughtful service.\n\nActs 17:11 describes people examining the Scriptures. Consider a way of studying that helps you understand and apply what you learn.",
+        "order": 56
+      },
+      {
+        "id": "BF-O5-MIDDLE",
+        "heading": "Interest in ideas",
+        "text": "Your answers fall between a strong preference for practical explanations and a strong interest in abstract discussion. Connecting an idea with its everyday application may help you engage.\n\nChoose learning opportunities that connect the underlying idea with an everyday example or task.\n\nActs 17:11 describes people examining the Scriptures. Consider a way of studying that helps you understand and apply what you learn.",
+        "order": 56
+      },
+      {
+        "id": "BF-O5-HIGHER",
+        "heading": "Interest in ideas",
+        "text": "Your responses suggest that you enjoy abstract ideas and complex discussion.\n\nIf discussion and study interest you, help connect the ideas with an application that others can understand and use.\n\nActs 17:11 describes people examining the Scriptures. Consider a way of studying that helps you understand and apply what you learn.",
+        "order": 56
+      },
+      {
+        "id": "BF-O6-LOWER",
+        "heading": "Openness to viewpoints",
+        "text": "Your responses suggest that you prefer established viewpoints and familiar approaches.\n\nAsk what reasons support an unfamiliar viewpoint, and consider them without assuming you must abandon an established conviction.\n\nFirst Thessalonians 5:21 provides a pattern of examination rather than automatic acceptance or rejection. Consider the reasons for a view and how it relates to Scripture.",
+        "order": 57
+      },
+      {
+        "id": "BF-O6-MIDDLE",
+        "heading": "Openness to viewpoints",
+        "text": "Your answers fall between preferring established viewpoints and actively seeking unfamiliar ones. Consider which kinds of evidence or experience lead you to reconsider an opinion.\n\nIdentify what kind of evidence would make you reconsider a view, and listen long enough to understand the reasons offered.\n\nFirst Thessalonians 5:21 provides a pattern of examination rather than automatic acceptance or rejection. Consider the reasons for a view and how it relates to Scripture.",
+        "order": 57
+      },
+      {
+        "id": "BF-O6-HIGHER",
+        "heading": "Openness to viewpoints",
+        "text": "Your responses suggest that you are more willing to consider unfamiliar viewpoints.\n\nGive unfamiliar views a fair hearing while evaluating their reasons and implications. Novelty does not establish that a view is sound.\n\nFirst Thessalonians 5:21 provides a pattern of examination rather than automatic acceptance or rejection. Consider the reasons for a view and how it relates to Scripture.",
+        "order": 57
+      },
+      {
+        "id": "BF-A1-LOWER",
+        "heading": "Interpersonal trust",
+        "text": "Your responses suggest that you tend to extend trust cautiously.\n\nAgree on responsibilities clearly and allow trust to develop through experience. Appropriate caution can coexist with respectful relationships.\n\nMatthew 10:16 holds prudence and innocence together. Consider how trust and appropriate safeguards can support the same ministry.",
+        "order": 58
+      },
+      {
+        "id": "BF-A1-MIDDLE",
+        "heading": "Interpersonal trust",
+        "text": "Your answers fall between readily extending trust and approaching others cautiously. Clear agreements and time to know a person may help you decide how much responsibility to share.\n\nConsider what information and experience help you decide when to share responsibility.\n\nMatthew 10:16 holds prudence and innocence together. Consider how trust and appropriate safeguards can support the same ministry.",
+        "order": 58
+      },
+      {
+        "id": "BF-A1-HIGHER",
+        "heading": "Interpersonal trust",
+        "text": "Your responses suggest that you tend to expect good intentions from others.\n\nCombine your willingness to trust with the same safeguarding, verification, and accountability expected of everyone.\n\nMatthew 10:16 holds prudence and innocence together. Consider how trust and appropriate safeguards can support the same ministry.",
+        "order": 58
+      },
+      {
+        "id": "BF-A2-LOWER",
+        "heading": "Straightforward dealing",
+        "text": "Your responses suggest that you report more willingness to use indirect or self-serving approaches.\n\nReflect on situations where your own interests could lead you to conceal an intention or use someone unfairly. Ask for feedback and agree on transparent ways to handle those situations.\n\nEphesians 4:25 calls for truthful speech within the body. Consider where a clearer statement of your intentions would strengthen trust.",
+        "order": 59
+      },
+      {
+        "id": "BF-A2-MIDDLE",
+        "heading": "Straightforward dealing",
+        "text": "Your answers are mixed on items about straightforward and self-serving dealings. Reflect on how you communicate your intentions and handle situations where your interests differ from someone else's.\n\nWhere your answers differ, consider which circumstances make straightforward communication easier or harder for you.\n\nEphesians 4:25 calls for truthful speech within the body. Consider where a clearer statement of your intentions would strengthen trust.",
+        "order": 59
+      },
+      {
+        "id": "BF-A2-HIGHER",
+        "heading": "Straightforward dealing",
+        "text": "Your responses suggest that you report a stronger preference for straightforward dealings.\n\nContinue to explain your intentions clearly and invite accountability. A questionnaire result cannot establish how you will act in every situation.\n\nEphesians 4:25 calls for truthful speech within the body. Consider where a clearer statement of your intentions would strengthen trust.",
+        "order": 59
+      },
+      {
+        "id": "BF-A3-LOWER",
+        "heading": "Helping orientation",
+        "text": "Your responses suggest that you tend to protect your time or focus before helping.\n\nA role with specific tasks and limits may help you contribute without making an open-ended commitment.\n\nFirst Peter 4:10 calls believers to serve with what they have received. Consider what you can genuinely offer in your present circumstances.",
+        "order": 60
+      },
+      {
+        "id": "BF-A3-MIDDLE",
+        "heading": "Helping orientation",
+        "text": "Your answers fall between readily giving time to help and protecting time for other priorities. A clearly defined commitment may help you decide what you can offer.\n\nDecide in advance what time you can offer, and communicate clearly when a request exceeds that capacity.\n\nFirst Peter 4:10 calls believers to serve with what they have received. Consider what you can genuinely offer in your present circumstances.",
+        "order": 60
+      },
+      {
+        "id": "BF-A3-HIGHER",
+        "heading": "Helping orientation",
+        "text": "Your responses suggest that you readily direct attention to helping others.\n\nChoose commitments carefully so your willingness to help remains sustainable. Let others share the work.\n\nFirst Peter 4:10 calls believers to serve with what they have received. Consider what you can genuinely offer in your present circumstances.",
+        "order": 60
+      },
+      {
+        "id": "BF-A4-LOWER",
+        "heading": "Cooperation in conflict",
+        "text": "Your responses suggest that you are more willing to confront or engage in conflict.\n\nWhen you disagree, describe the issue and what you hope will change. Avoid treating the other person as the problem.\n\nEphesians 4:15 joins truth and love. Consider how to raise a concern clearly while respecting the person involved.",
+        "order": 61
+      },
+      {
+        "id": "BF-A4-MIDDLE",
+        "heading": "Cooperation in conflict",
+        "text": "Your answers fall between engaging readily in conflict and strongly avoiding it. Consider how you express disagreement without attacking the person.\n\nDiscuss how your team will handle disagreement before a difficult situation arises.\n\nEphesians 4:15 joins truth and love. Consider how to raise a concern clearly while respecting the person involved.",
+        "order": 61
+      },
+      {
+        "id": "BF-A4-HIGHER",
+        "heading": "Cooperation in conflict",
+        "text": "Your responses suggest that you prefer cooperative approaches and reduced conflict.\n\nUse your cooperative approach while still raising concerns about safety, fairness, or an unhealthy practice.\n\nEphesians 4:15 joins truth and love. Consider how to raise a concern clearly while respecting the person involved.",
+        "order": 61
+      },
+      {
+        "id": "BF-A5-LOWER",
+        "heading": "Modesty in self-presentation",
+        "text": "Your responses suggest that you are more comfortable highlighting your strengths.\n\nDescribe your accomplishments accurately and ask others about their contributions. Confidence can leave room for shared credit.\n\nRomans 12:3 calls for sober self-understanding. Recognizing a real ability and recognizing your limits can belong together.",
+        "order": 62
+      },
+      {
+        "id": "BF-A5-MIDDLE",
+        "heading": "Modesty in self-presentation",
+        "text": "Your answers fall between highlighting your accomplishments and avoiding attention to them. Practice describing your contribution accurately while recognizing others' work.\n\nPractice explaining what you can offer without either exaggerating it or dismissing it.\n\nRomans 12:3 calls for sober self-understanding. Recognizing a real ability and recognizing your limits can belong together.",
+        "order": 62
+      },
+      {
+        "id": "BF-A5-HIGHER",
+        "heading": "Modesty in self-presentation",
+        "text": "Your responses suggest that you tend to avoid drawing attention to your accomplishments.\n\nMake sure leaders know what you can contribute, even if you prefer not to draw attention to yourself.\n\nRomans 12:3 calls for sober self-understanding. Recognizing a real ability and recognizing your limits can belong together.",
+        "order": 62
+      },
+      {
+        "id": "BF-A6-LOWER",
+        "heading": "Sympathetic concern",
+        "text": "Your responses suggest that you often respond through practical analysis rather than emotional sympathy.\n\nAsk what kind of help someone wants. Practical assistance can be valuable even when you do not share the same emotional response.\n\nFirst John 3:18 calls for love expressed in action and truth. Ask what form of help would actually benefit the person.",
+        "order": 63
+      },
+      {
+        "id": "BF-A6-MIDDLE",
+        "heading": "Sympathetic concern",
+        "text": "Your answers fall between readily feeling sympathy and responding with greater emotional distance. Consider whether you prefer offering practical help, listening, or a combination.\n\nConsider whether you most naturally offer listening, practical action, or both, and check whether that matches the person's need.\n\nFirst John 3:18 calls for love expressed in action and truth. Ask what form of help would actually benefit the person.",
+        "order": 63
+      },
+      {
+        "id": "BF-A6-HIGHER",
+        "heading": "Sympathetic concern",
+        "text": "Your responses suggest that you readily feel concern for people experiencing hardship.\n\nLet concern lead to appropriate help while respecting the person's choices and the limits of your own role.\n\nFirst John 3:18 calls for love expressed in action and truth. Ask what form of help would actually benefit the person.",
+        "order": 63
+      },
+      {
+        "id": "BF-C1-LOWER",
+        "heading": "Task confidence",
+        "text": "Your responses suggest that you may feel less certain about completing unfamiliar tasks.\n\nStart with a clearly defined task, preparation, and feedback. Experience may help you assess what you can do and where you need training.\n\nRomans 12:6-8 describes different contributions within the church. Consider what preparation would help you make yours responsibly.",
+        "order": 64
+      },
+      {
+        "id": "BF-C1-MIDDLE",
+        "heading": "Task confidence",
+        "text": "Your answers fall between uncertainty about completing tasks and strong confidence in handling them. A first assignment with training and feedback may help you assess your readiness.\n\nAsk which parts of a responsibility are familiar and which would benefit from coaching.\n\nRomans 12:6-8 describes different contributions within the church. Consider what preparation would help you make yours responsibly.",
+        "order": 64
+      },
+      {
+        "id": "BF-C1-HIGHER",
+        "heading": "Task confidence",
+        "text": "Your responses suggest that you often feel confident handling tasks effectively.\n\nMatch your confidence with preparation and feedback. Be ready to ask for expertise when the task extends beyond your experience.\n\nRomans 12:6-8 describes different contributions within the church. Consider what preparation would help you make yours responsibly.",
+        "order": 64
+      },
+      {
+        "id": "BF-C2-LOWER",
+        "heading": "Organization",
+        "text": "Your responses suggest that you prefer looser organization and flexible surroundings.\n\nIdentify the few routines or records that the role genuinely requires, and choose a simple way to keep them.\n\nFirst Corinthians 14:40 values order in the gathered church. Consider what structure helps people participate without adding unnecessary complexity.",
+        "order": 65
+      },
+      {
+        "id": "BF-C2-MIDDLE",
+        "heading": "Organization",
+        "text": "Your answers fall between a loose approach to organization and a strong preference for order. Identify which materials, deadlines, or routines you need to keep organized.\n\nDecide what needs a consistent system and where flexibility will work just as well.\n\nFirst Corinthians 14:40 values order in the gathered church. Consider what structure helps people participate without adding unnecessary complexity.",
+        "order": 65
+      },
+      {
+        "id": "BF-C2-HIGHER",
+        "heading": "Organization",
+        "text": "Your responses suggest that you prefer order and clearly arranged materials.\n\nUse organization to make work easier for others. Keep a system understandable and proportionate to the task.\n\nFirst Corinthians 14:40 values order in the gathered church. Consider what structure helps people participate without adding unnecessary complexity.",
+        "order": 65
+      },
+      {
+        "id": "BF-C3-LOWER",
+        "heading": "Commitment to agreements",
+        "text": "Your responses suggest that you report less consistent adherence to rules or commitments.\n\nBefore accepting a role, clarify its agreements and whether you can meet them. If you cannot keep a commitment, tell the people affected promptly.\n\nMatthew 5:37 encourages plain, dependable speech. Consider whether your current commitments reflect what you can actually offer.",
+        "order": 66
+      },
+      {
+        "id": "BF-C3-MIDDLE",
+        "heading": "Commitment to agreements",
+        "text": "Your answers are mixed on questions about agreements, rules, and promises. Before accepting a role, clarify what you can commit to and how you will communicate if circumstances change.\n\nReview where your answers differ and what helps you meet an agreement when circumstances become inconvenient.\n\nMatthew 5:37 encourages plain, dependable speech. Consider whether your current commitments reflect what you can actually offer.",
+        "order": 66
+      },
+      {
+        "id": "BF-C3-HIGHER",
+        "heading": "Commitment to agreements",
+        "text": "Your responses suggest that you report more consistent adherence to agreements.\n\nConfirm expectations before agreeing to them, and communicate early when circumstances require a change.\n\nMatthew 5:37 encourages plain, dependable speech. Consider whether your current commitments reflect what you can actually offer.",
+        "order": 66
+      },
+      {
+        "id": "BF-C4-LOWER",
+        "heading": "Achievement effort",
+        "text": "Your responses suggest that you prefer a moderate level of goal pursuit.\n\nChoose a task with a purpose you value and a workload you can reasonably sustain.\n\nColossians 3:23 encourages wholehearted work. Consider how to give appropriate attention to a task while honoring other responsibilities.",
+        "order": 67
+      },
+      {
+        "id": "BF-C4-MIDDLE",
+        "heading": "Achievement effort",
+        "text": "Your answers fall between moderate goal pursuit and consistently intensive effort. Choose goals that matter to you and fit your available time.\n\nSet a clear goal and agree on what completion looks like, without allowing the role to crowd out other responsibilities.\n\nColossians 3:23 encourages wholehearted work. Consider how to give appropriate attention to a task while honoring other responsibilities.",
+        "order": 67
+      },
+      {
+        "id": "BF-C4-HIGHER",
+        "heading": "Achievement effort",
+        "text": "Your responses suggest that you often pursue goals with substantial effort.\n\nDirect your effort toward agreed priorities, share responsibility, and leave room for rest.\n\nColossians 3:23 encourages wholehearted work. Consider how to give appropriate attention to a task while honoring other responsibilities.",
+        "order": 67
+      },
+      {
+        "id": "BF-C5-LOWER",
+        "heading": "Follow-through",
+        "text": "Your responses suggest that you may find starting or sustaining tasks difficult.\n\nBreak a commitment into small steps and choose a reminder, check-in, or work partner that helps you begin and finish.\n\nGalatians 6:9 encourages perseverance in doing good. Consider which small next step or support would help you continue.",
+        "order": 68
+      },
+      {
+        "id": "BF-C5-MIDDLE",
+        "heading": "Follow-through",
+        "text": "Your answers fall between difficulty getting started and consistent follow-through. A specific next step, reminder, or shared deadline may help you finish a task.\n\nIdentify whether getting started, maintaining attention, or finishing is the harder part, and choose support for that part.\n\nGalatians 6:9 encourages perseverance in doing good. Consider which small next step or support would help you continue.",
+        "order": 68
+      },
+      {
+        "id": "BF-C5-HIGHER",
+        "heading": "Follow-through",
+        "text": "Your responses suggest that you usually sustain effort through completion.\n\nUse your follow-through to strengthen a team without taking over tasks that others can learn to carry.\n\nGalatians 6:9 encourages perseverance in doing good. Consider which small next step or support would help you continue.",
+        "order": 68
+      },
+      {
+        "id": "BF-C6-LOWER",
+        "heading": "Deliberation",
+        "text": "Your responses suggest that you tend to decide and act quickly.\n\nPause long enough to check the consequences and consult someone when a decision affects others.\n\nProverbs 15:22 values counsel in making plans. Consider whose perspective would improve a decision you are facing.",
+        "order": 69
+      },
+      {
+        "id": "BF-C6-MIDDLE",
+        "heading": "Deliberation",
+        "text": "Your answers fall between acting quickly and deliberating extensively. Consider which decisions need more preparation and which can be made promptly.\n\nAgree on which decisions need consultation and which can be made promptly within your role.\n\nProverbs 15:22 values counsel in making plans. Consider whose perspective would improve a decision you are facing.",
+        "order": 69
+      },
+      {
+        "id": "BF-C6-HIGHER",
+        "heading": "Deliberation",
+        "text": "Your responses suggest that you tend to consider consequences before acting.\n\nDecide what information is enough for a sound decision, and set a reasonable time to act.\n\nProverbs 15:22 values counsel in making plans. Consider whose perspective would improve a decision you are facing.",
+        "order": 69
+      },
+      {
+        "id": "BF-FAITH",
+        "heading": "Serving as part of Christ's body",
+        "text": "Romans 12:3-8 calls believers to sober self-understanding and service with the gifts they have received. First Corinthians 12:12-27 emphasizes that different members belong to one body and need one another. These passages invite you to recognize your contribution while appreciating people whose approach differs from yours.\n\nAs you read this report, ask: Where can I contribute willingly? Whose different strengths would help me? What can I learn through serving alongside them?",
+        "order": 90
+      },
+      {
+        "id": "BF-SKILLS",
+        "heading": "Bring your experience into the picture",
+        "text": "A personality preference is a starting point for a conversation about service. Your skills profile adds practical experience, training, interests, availability, and whether you want to be contacted about a particular skill. Review those details as you consider your opportunities in ministry.\n\nRemember, enjoying creative ideas does not necessarily mean you are a great photographer, and being sociable does not automatically make you a good teacher. Not having a skill today does not mean you cannot learn it if you have the interest, time, and support you need.",
+        "order": 91
+      },
+      {
+        "id": "BF-NEXT",
+        "heading": "Choose a practical next step",
+        "text": "Ask a ministry placement committee member, an elder, or the pastor for suggestions about opportunities to serve. If you have an idea of your own, your church community can help you explore how to respond to God's call.\n\nIf you are serving in a ministry that is not a good fit for your personality, availability, or skills, talk with your ministry leader or an elder about a way to serve that helps you live out God's calling in your life.",
+        "order": 92
+      },
+      {
+        "id": "BF-CONVERSATION",
+        "heading": "Questions for a ministry conversation",
+        "text": "When you talk with someone about your results, consider these questions:\nWhich results best fit how you approach work and relationships?\nWhich fit less well, and what would you change about the wording?\nWhat support or preparation would help you try something new?\nHow much time and energy can you reasonably offer at present?",
+        "order": 93
+      },
+      {
+        "id": "BF-SUPPORT",
+        "heading": "When you need support",
+        "text": "Pressure, tiredness, grief, or difficult circumstances may affect what you can offer in a particular season. You may ask for a smaller commitment, clearer expectations, a teammate, or time away. If you would like personal support, speak privately with someone you trust, an elder, or the pastor.",
+        "order": 94
+      },
+      {
+        "id": "BF-CLOSING",
+        "heading": "Your next step is yours to choose",
+        "text": "Use these results to begin a conversation, not to close off possibilities. You may choose a familiar contribution, try something new, or take time before making a commitment. As you serve, update your profile with what you learn about your interests, abilities, and the support that helps you grow.",
+        "order": 95
+      },
+      {
+        "id": "BF-MISSING",
+        "heading": "Some results are not available yet",
+        "text": "There are not enough answered questions to describe {{missing_area_names}}. You can return to those questions when you are ready. Your unanswered questions have not been counted as low scores. The completed parts of your report remain available.",
+        "order": 96
+      },
+      {
+        "id": "BF-PRIVACY",
+        "heading": "Your information",
+        "text": "Your profile and the assessment summary identified during submission are available to {{church_name}}'s authorized ministry placement team.",
+        "order": 97
+      }
+    ],
+    "motivations": [
+      {
+        "id": "MM-INTRO",
+        "heading": "Your ministry motivations",
+        "text": "This report explores the kinds of ministry contribution that currently draw you. It is intended to help you recognize interests, reflect on your experience, and choose a practical next step in serving God with others at {{church_name}}.\n\nRead the descriptions alongside your own story. What has brought you joy? Where have others noticed a contribution? What would you like to learn? A result becomes useful when it leads to a conversation and an opportunity you can realistically explore.",
+        "order": 1
+      },
+      {
+        "id": "MM-FOUNDATION",
+        "heading": "A biblical starting point",
+        "text": "Ephesians 4:11-16 describes Christ giving ministers to equip his people for service and to build up his body. This assessment uses five related areas of contribution: pioneering and mission, faithfulness and discernment, sharing faith and invitation, care and belonging, and teaching and understanding.\n\nThe questions ask about your attraction to these activities. They do not establish that you hold a particular office or possess a spiritual gift. Recognizing a gift also involves experience, the fruit of service, and the discernment of the church.",
+        "order": 2
+      },
+      {
+        "id": "MM-SCORES",
+        "heading": "Your motivation overview",
+        "text": "Completed: {{completed_date}}\n\n{{motivation_score_summary}}\n\nThe scores summarize your answers on a scale from 1 to 5. They are not percentages, and the five scores do not need to add up to a particular total. You may be drawn to several areas, to one area, or to none of these activities at present. Your results describe this occasion and may change as you gain experience or enter a different season of life.",
+        "order": 3
+      },
+      {
+        "id": "MM-PRIMARY",
+        "heading": "Your primary reported motivation",
+        "text": "Your strongest reported motivation is {{primary_motivation}}. This was the area you endorsed most strongly in this assessment. Read its description and ask where you already see that interest in your life, or where you would like to explore it through service.\n\nA leading score does not require you to accept a role. It gives you a place to begin a conversation about interest, preparation, and opportunity.",
+        "order": 4
+      },
+      {
+        "id": "MM-SECONDARY",
+        "heading": "Your secondary reported motivation",
+        "text": "Your next strongest reported motivation is {{secondary_motivation}}. This may describe another contribution you enjoy or would like to develop. Read it alongside your primary motivation and the combined reflection below.\n\nThe order shows how you answered these questions. A small difference between the two scores is not a reason to treat one interest as important and the other as unimportant.",
+        "order": 5
+      },
+      {
+        "id": "MM-TOP-TIE",
+        "heading": "Your leading motivations",
+        "text": "Your leading areas have the same score: {{tied_motivations}}. Each deserves attention. You do not need to choose one as your primary motivation simply to fit the report.\n\nLook for an opportunity that interests you, then consider which of these contributions it would involve. A conversation with a peer or your pastor may help you recognize how the interests work together.",
+        "order": 6
+      },
+      {
+        "id": "MM-SECOND-TIE",
+        "heading": "More than one supporting motivation",
+        "text": "Your next-highest areas have the same score: {{tied_secondary_motivations}}. These interests may support your leading motivation in different ways. Read each description and consider which contribution is most relevant to the opportunity you are exploring.",
+        "order": 7
+      },
+      {
+        "id": "MM-ALL-EQUAL",
+        "heading": "No single area stands out",
+        "text": "Your answers give the same overall score to all five areas. This assessment therefore does not identify a primary or secondary motivation for you.\n\nStart with your experience and interests instead. Name one activity that has brought you joy and one you would like to try. A manageable opportunity may help you learn more than choosing a label now.",
+        "order": 8
+      },
+      {
+        "id": "MM-INCOMPLETE",
+        "heading": "Some areas need more answers",
+        "text": "There are not enough answers to describe {{missing_area_names}}. You can return to those questions later. Your unanswered questions have not been counted as low scores.\n\nYou can read the completed area descriptions now. A primary or secondary ranking will become available when all five areas have enough answers to compare.",
+        "order": 9
+      },
+      {
+        "id": "MM-ALL-HIGH",
+        "heading": "Several interests are present",
+        "text": "You strongly endorsed activities across all five areas. Rather than taking on several roles at once, choose one opportunity that fits your skills, current responsibilities, and available time.\n\nAsk what the role actually involves and which part interests you most. Experience may help you identify which activities you most want to continue.",
+        "order": 10
+      },
+      {
+        "id": "MM-ALL-LOW",
+        "heading": "Begin with your present circumstances",
+        "text": "None of these five sets of activities currently has a strong pull for you. That does not mean you have nothing to contribute. You may have limited experience, other interests, significant responsibilities, or a need for rest.\n\nYou can record a practical skill, ask to observe a ministry, or talk about another way you would like to help. You do not need to make a commitment before you are ready.",
+        "order": 11
+      },
+      {
+        "id": "MM-A-PROFILE",
+        "heading": "Pioneering and mission",
+        "text": "This motivation focuses on beginning or extending ministry where a need is not yet being met. You may be interested in noticing an opportunity, gathering people and resources, or helping an idea take its first practical steps. The contribution can be small: a new neighborhood connection, a service project, or a new setting for an existing ministry.",
+        "order": 20
+      },
+      {
+        "id": "MM-A-PRIMARY",
+        "heading": "Exploring your primary motivation",
+        "text": "As a primary motivation, pioneering may be where you most readily want to invest effort. Begin by learning about the people and need involved, rather than starting with a solution you already prefer.",
+        "order": 20.1
+      },
+      {
+        "id": "MM-A-SECONDARY",
+        "heading": "Exploring your secondary motivation",
+        "text": "As a secondary motivation, pioneering may help you extend another interest. You might develop a new way to offer care, explain Scripture, or help people explore faith.",
+        "order": 20.2
+      },
+      {
+        "id": "MM-A-LOWER",
+        "heading": "What your answers suggest",
+        "text": "You currently report less attraction to pioneering new work. Your contribution may be strongest in developing or sustaining an existing ministry.\n\nIf you would like to explore this area, support an existing initiative or help with one clearly defined part of a new project. You can learn whether beginning new work interests you without accepting responsibility for the whole effort.",
+        "order": 20.3
+      },
+      {
+        "id": "MM-A-MIDDLE",
+        "heading": "What your answers suggest",
+        "text": "You report some attraction to pioneering, depending on the opportunity, support, and season.\n\nConsider an opportunity with a clear need and a small first step. You may enjoy developing an idea when you have a team, an agreed purpose, and a realistic scope.",
+        "order": 20.3
+      },
+      {
+        "id": "MM-A-HIGHER",
+        "heading": "What your answers suggest",
+        "text": "You report a strong attraction to starting and extending ministry. Explore one clearly defined opportunity with others.\n\nChoose one opportunity to test with others. Listen to the people affected, agree on a practical first step, and decide how you will assess whether it is useful.",
+        "order": 20.3
+      },
+      {
+        "id": "MM-A-SUPPORT",
+        "heading": "Preparation and support",
+        "text": "Ask for a clear purpose, permission to test a small idea, and a partner who can help with follow-through. Invite feedback from people who know the community. Before expanding the work, consider whether it is helping people and whether the team can sustain it.",
+        "order": 20.4
+      },
+      {
+        "id": "MM-A-SCRIPTURE",
+        "heading": "Biblical reflection: Acts 13:1-3",
+        "text": "Acts 13:1-3 places a new mission within the worship, prayer, and discernment of a community. Consider whom you should listen to and pray with before beginning something new.",
+        "order": 20.5
+      },
+      {
+        "id": "MM-A-STEP",
+        "heading": "One way to explore this",
+        "text": "Name one unmet need you have noticed. Ask two people affected by it what would actually help. Bring what you learn to a ministry leader before proposing a next step.",
+        "order": 20.6
+      },
+      {
+        "id": "MM-P-PROFILE",
+        "heading": "Faithfulness and discernment",
+        "text": "This motivation focuses on whether a ministry's actions reflect its biblical convictions and stated commitments. It can involve noticing inconsistencies, raising a concern about unfair treatment, or helping a group respond to correction. The aim is faithful practice that benefits people, rather than winning an argument or establishing yourself as the person who sees most clearly.",
+        "order": 25
+      },
+      {
+        "id": "MM-P-PRIMARY",
+        "heading": "Exploring your primary motivation",
+        "text": "As a primary motivation, this may be an area where you feel a particular responsibility to contribute. Begin by understanding the situation, checking your interpretation, and choosing a constructive way to raise the concern.",
+        "order": 25.1
+      },
+      {
+        "id": "MM-P-SECONDARY",
+        "heading": "Exploring your secondary motivation",
+        "text": "As a secondary motivation, discernment may strengthen another contribution. It may help you review a new initiative, communicate the gospel accurately, teach carefully, or care for people affected by an unhealthy practice.",
+        "order": 25.2
+      },
+      {
+        "id": "MM-P-LOWER",
+        "heading": "What your answers suggest",
+        "text": "You currently report less attraction to examining and correcting ministry practices. This does not indicate a lack of integrity or faith.\n\nYou can contribute to faithful ministry without taking a regular role in reviewing or correcting practices. If a concern arises, ask a trusted leader to help you understand it and decide how to respond.",
+        "order": 25.3
+      },
+      {
+        "id": "MM-P-MIDDLE",
+        "heading": "What your answers suggest",
+        "text": "You report some attraction to discernment and constructive correction, particularly in certain situations.\n\nChoose a specific question or practice to examine with others. Look for enough information to understand both the concern and the people involved.",
+        "order": 25.3
+      },
+      {
+        "id": "MM-P-HIGHER",
+        "heading": "What your answers suggest",
+        "text": "You report a strong attraction to helping ministry remain faithful and address inconsistencies. Seek accountable opportunities to contribute.\n\nBring one concern through an appropriate channel with clear observations, a willingness to hear correction, and a practical aim for improvement.",
+        "order": 25.3
+      },
+      {
+        "id": "MM-P-SUPPORT",
+        "heading": "Preparation and support",
+        "text": "Ask for a way to raise concerns that includes listening, biblical study, and accountability. Distinguish what you observed from what you inferred. Seek correction of your own understanding as readily as you offer it, and take care with confidential information.",
+        "order": 25.4
+      },
+      {
+        "id": "MM-P-SCRIPTURE",
+        "heading": "Biblical reflection: 1 Thessalonians 5:19-22",
+        "text": "First Thessalonians 5:19-22 joins openness with examination and holding to what is good. Reflect on how to listen carefully, test an understanding, and act on what is sound. This assessment does not identify prophetic revelation or authority to speak for God.",
+        "order": 25.5
+      },
+      {
+        "id": "MM-P-STEP",
+        "heading": "One way to explore this",
+        "text": "Choose one ministry practice you would like to understand better. Ask the people responsible how it works and what commitments guide it before offering a recommendation.",
+        "order": 25.6
+      },
+      {
+        "id": "MM-E-PROFILE",
+        "heading": "Sharing faith and invitation",
+        "text": "This motivation focuses on helping people explore the good news about Jesus and take a next step in faith. It may be expressed in conversation, personal Bible study, a thoughtful invitation, or patient follow-up. It does not require enjoying large groups or public speaking. Listening to a person's questions and respecting their freedom are part of the work.",
+        "order": 30
+      },
+      {
+        "id": "MM-E-PRIMARY",
+        "heading": "Exploring your primary motivation",
+        "text": "As a primary motivation, sharing faith may be where you most want to give attention. Choose a setting where you can listen well, communicate clearly, and follow through on the relationship.",
+        "order": 30.1
+      },
+      {
+        "id": "MM-E-SECONDARY",
+        "heading": "Exploring your secondary motivation",
+        "text": "As a secondary motivation, invitation may give an outward focus to another interest. Care, teaching, community service, or a new initiative may create a setting in which people can explore faith.",
+        "order": 30.2
+      },
+      {
+        "id": "MM-E-LOWER",
+        "heading": "What your answers suggest",
+        "text": "You currently report less attraction to direct faith-sharing roles. Many other forms of service contribute to the church's mission.\n\nYou may prefer supporting the church's mission through another contribution. If you would like to explore a direct conversation about faith, begin with a relationship where questions can be discussed without pressure.",
+        "order": 30.3
+      },
+      {
+        "id": "MM-E-MIDDLE",
+        "heading": "What your answers suggest",
+        "text": "You report some attraction to sharing faith, often depending on the relationship or setting.\n\nConsider a setting that fits your interests: a personal conversation, a Bible study partnership, guest follow-up, or helping prepare an invitation. Choose one you can approach sincerely.",
+        "order": 30.3
+      },
+      {
+        "id": "MM-E-HIGHER",
+        "heading": "What your answers suggest",
+        "text": "You report a strong attraction to helping people explore and respond to the gospel. Choose an approach that fits your relationships and skills.\n\nChoose a person or setting where a respectful invitation would be appropriate. Listen to the questions being asked and agree on a next step only if the other person wants one.",
+        "order": 30.3
+      },
+      {
+        "id": "MM-E-SUPPORT",
+        "heading": "Preparation and support",
+        "text": "Ask for help explaining the gospel clearly and responding honestly when you do not know an answer. Arrange appropriate follow-up and a place to seek guidance. Let the person set a voluntary pace, and avoid treating a response or attendance number as the whole story of their faith.",
+        "order": 30.4
+      },
+      {
+        "id": "MM-E-SCRIPTURE",
+        "heading": "Biblical reflection: 1 Peter 3:15-16",
+        "text": "First Peter 3:15-16 connects giving a reason for hope with gentleness and respect. Consider how your words, listening, and treatment of a person communicate the hope you want to share.",
+        "order": 30.5
+      },
+      {
+        "id": "MM-E-STEP",
+        "heading": "One way to explore this",
+        "text": "Prepare a short account of why following Jesus matters to you. Practice listening to another person's experience before deciding what you would say or invite them to do.",
+        "order": 30.6
+      },
+      {
+        "id": "MM-S-PROFILE",
+        "heading": "Care and belonging",
+        "text": "This motivation focuses on sustained encouragement, relationships, and helping people remain connected to the church community. It may involve noticing an absence, making regular contact, listening through a difficult season, or helping someone find a place to belong. Care can be expressed quietly and practically as well as through conversation.",
+        "order": 35
+      },
+      {
+        "id": "MM-S-PRIMARY",
+        "heading": "Exploring your primary motivation",
+        "text": "As a primary motivation, ongoing care may be where you most want to invest. Choose a clear responsibility with a manageable number of people and appropriate preparation for the situations you may encounter.",
+        "order": 35.1
+      },
+      {
+        "id": "MM-S-SECONDARY",
+        "heading": "Exploring your secondary motivation",
+        "text": "As a secondary motivation, care may help another contribution last beyond an initial event or task. It can strengthen teaching, invitation, or a new initiative by attending to the people involved over time.",
+        "order": 35.2
+      },
+      {
+        "id": "MM-S-LOWER",
+        "heading": "What your answers suggest",
+        "text": "You currently report less attraction to ongoing relational-care roles. This does not mean you lack compassion.\n\nYou may prefer a contribution that does not require continuing relational follow-up. If you would like to explore care, begin with one practical act or a welcome partnership with clear boundaries.",
+        "order": 35.3
+      },
+      {
+        "id": "MM-S-MIDDLE",
+        "heading": "What your answers suggest",
+        "text": "You report some attraction to care and belonging, with the right relationship, boundaries, or circumstances.\n\nConsider a specific relationship or small group where regular encouragement would be useful. Agree on the frequency and limits of contact so the commitment remains manageable.",
+        "order": 35.3
+      },
+      {
+        "id": "MM-S-HIGHER",
+        "heading": "What your answers suggest",
+        "text": "You report a strong attraction to sustained care and helping people belong. Explore a bounded role with appropriate training and support.\n\nExplore a defined care responsibility with training, supervision where needed, and someone to consult. Ask what the person wants rather than assuming the help they need.",
+        "order": 35.3
+      },
+      {
+        "id": "MM-S-SUPPORT",
+        "heading": "Preparation and support",
+        "text": "Ask who is responsible for follow-up, what information should remain private, and when to involve a pastor or another qualified person. Agree on availability and boundaries. Caring for someone does not mean carrying every need yourself or taking responsibility beyond your role.",
+        "order": 35.4
+      },
+      {
+        "id": "MM-S-SCRIPTURE",
+        "heading": "Biblical reflection: 1 Peter 5:2-3",
+        "text": "First Peter 5:2-3 describes willing, exemplary care rather than control. Consider how your attention could support a person's growth while respecting their choices and responsibilities.",
+        "order": 35.5
+      },
+      {
+        "id": "MM-S-STEP",
+        "heading": "One way to explore this",
+        "text": "Ask a ministry leader about one person or welcome role that needs consistent attention. Agree on an appropriate first contact and how you will check whether the support is useful.",
+        "order": 35.6
+      },
+      {
+        "id": "MM-T-PROFILE",
+        "heading": "Teaching and understanding",
+        "text": "This motivation focuses on helping people understand Scripture and connect what they learn with everyday life. It may involve careful study, checking context, explaining an idea clearly, developing a resource, or changing an explanation when someone has not understood. It can happen individually, in a small group, or in a larger teaching setting.",
+        "order": 40
+      },
+      {
+        "id": "MM-T-PRIMARY",
+        "heading": "Exploring your primary motivation",
+        "text": "As a primary motivation, helping people understand may be where you most want to contribute. Choose a subject and setting that fit your preparation, and arrange feedback from someone who can help you develop.",
+        "order": 40.1
+      },
+      {
+        "id": "MM-T-SECONDARY",
+        "heading": "Exploring your secondary motivation",
+        "text": "As a secondary motivation, teaching may bring clarity to another contribution. It can help people explore faith, understand the purpose of a new initiative, or grow through a caring relationship.",
+        "order": 40.2
+      },
+      {
+        "id": "MM-T-LOWER",
+        "heading": "What your answers suggest",
+        "text": "You currently report less attraction to structured teaching and study roles. This does not measure biblical knowledge or learning ability.\n\nYou may prefer other forms of service to regular study or instruction. If you want to explore teaching, assist with a prepared activity or explain one practical lesson alongside someone experienced.",
+        "order": 40.3
+      },
+      {
+        "id": "MM-T-MIDDLE",
+        "heading": "What your answers suggest",
+        "text": "You report some attraction to helping others understand, often depending on the subject or setting.\n\nConsider a topic and setting you genuinely enjoy. You may want to help with a study resource, co-lead a short discussion, or explain a passage to one person.",
+        "order": 40.3
+      },
+      {
+        "id": "MM-T-HIGHER",
+        "heading": "What your answers suggest",
+        "text": "You report a strong attraction to helping others understand and apply Scripture. Explore teaching with feedback and appropriate preparation.\n\nPrepare one lesson or discussion with attention to context, clear meaning, and practical application. Ask learners what they understood and invite feedback on your explanation.",
+        "order": 40.3
+      },
+      {
+        "id": "MM-T-SUPPORT",
+        "heading": "Preparation and support",
+        "text": "Ask for preparation time, suitable resources, and someone who can review your material. Distinguish the biblical text from your interpretation, and acknowledge what you do not know. Include questions and practice that reveal whether people understand, rather than relying on how much material you covered.",
+        "order": 40.4
+      },
+      {
+        "id": "MM-T-SCRIPTURE",
+        "heading": "Biblical reflection: 2 Timothy 2:15",
+        "text": "Second Timothy 2:15 calls for diligent handling of the word of truth. Reflect on what careful preparation and honest explanation require for the passage or subject you want to teach.",
+        "order": 40.5
+      },
+      {
+        "id": "MM-T-STEP",
+        "heading": "One way to explore this",
+        "text": "Choose a short passage and explain its main point in plain language. Ask a peer to identify what was clear, what was confusing, and one practical application they understood.",
+        "order": 40.6
+      },
+      {
+        "id": "MM-PAIR-AP",
+        "heading": "How your motivations may work together",
+        "text": "You are interested in beginning ministry and helping its practice remain faithful to Scripture. Together, those interests may lead you to ask both what needs to begin and whether the proposed approach reflects the church's commitments.\n\nExplore a small initiative with people who can help you examine the need, purpose, and likely effects. Keep the conversation open to correction, including correction of your own idea. Talk with a peer or your pastor about one practical way to begin while remaining accountable to the community.",
+        "order": 70
+      },
+      {
+        "id": "MM-PAIR-AE",
+        "heading": "How your motivations may work together",
+        "text": "You are interested in beginning new ministry and helping people explore faith in Jesus. Together, those interests may draw you toward an initiative that reaches people the church is not currently connecting with.\n\nStart by listening to the people you hope to serve. Choose a small activity with a clear purpose and a way to continue relationships after the first event. Talk with a peer or your pastor about how an invitation could grow from a useful, respectful connection.",
+        "order": 70
+      },
+      {
+        "id": "MM-PAIR-AS",
+        "heading": "How your motivations may work together",
+        "text": "You are interested in beginning new ministry and building lasting relationships. Together, those interests may draw you toward a new setting where people can receive continuing care and find belonging.\n\nConsider how a person would stay connected after the first introduction. A small welcome group, neighborhood initiative, or support partnership may be worth exploring if it meets a real need. Talk with a peer or your pastor about who would share the ongoing responsibility and what boundaries would keep it manageable.",
+        "order": 70
+      },
+      {
+        "id": "MM-PAIR-AT",
+        "heading": "How your motivations may work together",
+        "text": "You are interested in beginning new ministry and helping people understand Scripture. Together, those interests may draw you toward a learning opportunity that responds to an unmet need.\n\nAsk who would benefit, what they want to understand, and how they prefer to learn. Develop one session or resource before planning a larger program. Talk with a peer or your pastor about how to prepare accurately, invite useful feedback, and decide whether the approach is helping.",
+        "order": 70
+      },
+      {
+        "id": "MM-PAIR-PE",
+        "heading": "How your motivations may work together",
+        "text": "You are interested in faithful ministry practice and helping people explore the gospel. Together, those interests may lead you to care about both the content of an invitation and how people are treated when they receive it.\n\nExplore a conversation, study, or outreach activity where questions can be heard and biblical convictions can be explained honestly. Pay attention to accuracy, respect, and the freedom of the person responding. Talk with a peer or your pastor about one way to communicate hope clearly without applying pressure.",
+        "order": 70
+      },
+      {
+        "id": "MM-PAIR-PS",
+        "heading": "How your motivations may work together",
+        "text": "You are interested in addressing unhealthy practices and caring for people. Together, those interests may help you notice when a concern about a ministry also involves someone who needs support.\n\nListen to the people affected and distinguish their needs from your assumptions. Raise concerns through appropriate channels, protect confidential information, and seek help where the situation exceeds your role. Talk with a peer or your pastor about how to offer care while pursuing a responsible correction.",
+        "order": 70
+      },
+      {
+        "id": "MM-PAIR-PT",
+        "heading": "How your motivations may work together",
+        "text": "You are interested in examining ministry practice and helping others understand Scripture. Together, those interests may lead you to study a difficult question carefully and help a group think through its implications.\n\nChoose a specific issue, examine the relevant passages in context, and hear the reasons people give for their approaches. Explain where you are confident and where questions remain. Talk with a peer or your pastor about a discussion that could improve understanding and lead to a practical response.",
+        "order": 70
+      },
+      {
+        "id": "MM-PAIR-ES",
+        "heading": "How your motivations may work together",
+        "text": "You are interested in sharing faith and helping people belong. Together, those interests may draw you toward a welcoming invitation followed by patient attention to the person who responds.\n\nExplore a guest partnership, a personal Bible study, or another setting where questions and relationships can develop over time. Ask what support the person wants and avoid assuming that attendance means they feel connected. Talk with a peer or your pastor about a manageable way to provide continuing contact.",
+        "order": 70
+      },
+      {
+        "id": "MM-PAIR-ET",
+        "heading": "How your motivations may work together",
+        "text": "You are interested in sharing faith and helping people understand Scripture. Together, those interests may draw you toward explaining a biblical message in a way that connects with someone's actual questions.\n\nBegin with one person or a small group, listen to what they want to understand, and prepare material that addresses it accurately. Leave room for questions and for an answer to be explored over more than one conversation. Talk with a peer or your pastor about a study partnership or learning opportunity you could try.",
+        "order": 70
+      },
+      {
+        "id": "MM-PAIR-ST",
+        "heading": "How your motivations may work together",
+        "text": "You are interested in ongoing care and helping people understand Scripture. Together, those interests may draw you toward mentoring or a small group where learning and personal support can develop together.\n\nAsk how a lesson relates to the person's circumstances without turning every difficulty into a teaching moment. Sometimes listening is the help needed first. Talk with a peer or your pastor about a role with appropriate preparation, clear boundaries, and enough continuity for trust to develop.",
+        "order": 70
+      },
+      {
+        "id": "MM-FAITH",
+        "heading": "Growing through service",
+        "text": "First Peter 4:10 calls believers to serve one another with what they have received. First Corinthians 12:12-27 reminds us that the body needs different members and that each belongs.\n\nAs you explore service, look for what helps others and builds up the church. Welcome feedback, learn the skills a task requires, and remain open to contributions you did not expect to enjoy. Your report can begin that exploration; your relationships and experience will help it become more specific.",
+        "order": 80
+      },
+      {
+        "id": "MM-SKILLS",
+        "heading": "Connect motivation with practical readiness",
+        "text": "Review your skills, experience, ministry interests, availability, and contact preferences. These details answer questions the assessment does not: What can you already do? What would you like to learn? What can you realistically offer now?\n\nYou may have an ability you are not currently interested in using, or an interest that requires training. Record both honestly so a leader can discuss an opportunity that fits your circumstances.",
+        "order": 81
+      },
+      {
+        "id": "MM-NEXT",
+        "heading": "Choose one service experiment",
+        "text": "Choose one activity you would like to explore. Ask the ministry leader what help is needed, what training is available, and how much time the task requires. If you decide to try it, agree on a specific responsibility, someone to support you, and a time to review the experience.\n\nAt that review, discuss what was useful, what you enjoyed, what was difficult, and whether you want to continue. You can adjust the responsibility, seek further preparation, or explore another opportunity.",
+        "order": 82
+      },
+      {
+        "id": "MM-CONVERSATION",
+        "heading": "Talk it through",
+        "text": "Which part of the report fits your experience best?\nWhich activity would you like to try, even if you have not done it before?\nWhat do others say you contribute?\nWhat preparation or support would you need?\nWhat would make this a manageable commitment?\nWho could help you review the experience after you try it?",
+        "order": 83
+      },
+      {
+        "id": "MM-CLOSING",
+        "heading": "An invitation to contribute",
+        "text": "You do not need a particular result to belong or to begin serving. Bring your interests, abilities, questions, and present circumstances into the conversation. Choose a next step you can offer willingly, and allow room to learn as you serve with others.",
+        "order": 84
+      },
+      {
+        "id": "MM-PRIVACY",
+        "heading": "Your information",
+        "text": "Your submitted ministry profile and assessment summary are available to {{church_name}}'s authorized ministry placement team to help you explore opportunities. You can update your skills, interests, availability, and contact preferences as your circumstances change. Prayer requests and other personal pastoral matters belong in the separate private channel provided by your church.",
+        "order": 85
+      }
+    ]
+  },
+  "labels": {
+    "O": "Creativity and exploration",
+    "C": "Organization and follow-through",
+    "E": "Social energy and engagement",
+    "A": "Cooperation and directness",
+    "N": "Emotional stability",
+    "P": "Faithfulness and discernment",
+    "S": "Care and belonging",
+    "T": "Teaching and understanding"
+  },
+  "sourceSheets": [
+    "1OR_aCbgwgz_Hw88khigRQhETlQVtGv66jITqIdnZM9s",
+    "1OBIns5blVnVVB3T_4E6echQ_Ndg5yXCt1WdiSj-OcEY"
+  ]
+}

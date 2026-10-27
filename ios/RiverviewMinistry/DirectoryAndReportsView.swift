@@ -97,7 +97,7 @@ struct AssignmentFilterControls: View {
     var includeVoteFilter = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 16) {
             TextField("Search person, role, position, term, or note", text: $filter.search)
                 .textFieldStyle(.roundedBorder)
 
@@ -283,6 +283,9 @@ struct PeopleDirectoryView: View {
 
     var body: some View {
         Form {
+            Section("Ministry discovery") {
+                NavigationLink("Search skills and assessment results") { DiscoveryProfilesView() }
+            }
             Section {
                 TextField(
                     "Search name, contact, membership, or ordination",
@@ -489,6 +492,10 @@ private struct PersonMinistryHistory: View {
                     )
                 }
                 .disabled(!model.canEdit)
+
+                Section("Ministry discovery") {
+                    NavigationLink("Skills and assessment summary") { DiscoveryProfilesView(personId: person.id) }
+                }
 
                 Section("Current ministries") {
                     if currentAssignments.isEmpty {
@@ -1223,53 +1230,54 @@ private struct AssignmentEditor: View {
     }
 }
 
+private enum ReportChoice: String, CaseIterable, Identifiable {
+    case directory = "Ministry directory"
+    case awaiting = "Awaiting church vote"
+    case ending = "Terms ending in six months"
+    var id: String { rawValue }
+}
+
 struct ReportsView: View {
     @EnvironmentObject private var model: AppModel
     @State private var filter = AssignmentFilter()
-    @State private var pdfData: Data?
-    @State private var showingPreview = false
+    @State private var choice: ReportChoice = .directory
+    @State private var previewDocument: ReportPreviewDocument?
 
-    private var filtered: [AssignmentDetail] {
-        filter.apply(to: model.assignments)
-    }
+    private var filtered: [AssignmentDetail] { filter.apply(to: model.assignments) }
 
     var body: some View {
         Form {
-            Section("Report filters") {
-                AssignmentFilterControls(
-                    filter: $filter,
-                    roles: model.roles,
-                    includeVoteFilter: true
-                )
-            }
+            Section {
+                Picker("Report", selection: $choice) {
+                    ForEach(ReportChoice.allCases) { report in Text(report.rawValue).tag(report) }
+                }
+                .onChange(of: choice) { _, value in
+                    filter = AssignmentFilter()
+                    if value == .awaiting { filter.voteStatus = .awaiting }
+                    if value == .ending { filter.endingWindow = .sixMonths }
+                }
+            } header: { Text("1. Choose a report") }
 
             Section {
-                LabeledContent("Assignments included") {
-                    Text("\(filtered.count)")
-                        .monospacedDigit()
-                }
-                Text(filter.description(roles: model.roles))
-                    .appFont(.callout)
-                    .foregroundStyle(.secondary)
+                AssignmentFilterControls(filter: $filter, roles: model.roles, includeVoteFilter: true)
+                    .padding(.vertical, 8)
+                Button("Reset Filters") { choice = .directory; filter = AssignmentFilter() }
+            } header: { Text("2. Narrow the report (optional)") }
 
-                Button {
-                    buildReport()
-                } label: {
-                    Label("Build PDF Report", systemImage: "doc.richtext")
-                        .frame(maxWidth: .infinity)
+            Section {
+                LabeledContent("Assignments included") { Text("\(filtered.count)").monospacedDigit() }
+                Text(filter.description(roles: model.roles))
+                    .appFont(.callout).foregroundStyle(.secondary)
+                Button { buildReport() } label: {
+                    Label("Preview Report", systemImage: "doc.richtext")
+                        .frame(maxWidth: .infinity, minHeight: 32)
+                        .padding(.vertical, 6)
                 }
                 .buttonStyle(.borderedProminent)
-            } header: {
-                Text("Preview")
-            } footer: {
-                Text(
-                    "The all-ministries PDF groups volunteers under ministry headings. " +
-                    "Each ministry uses the same leadership-first ordering as the directory: " +
-                    "Head/Lead, Co-Head/Co-Lead, Assistant Head, then last and first name. " +
-                    "Only notes marked for reports and the web are included. " +
-                    "Ordination status is never included in reports."
-                )
-            }
+                .disabled(filtered.isEmpty)
+                if filtered.isEmpty { Text("No assignments match. Try another ministry or reset the filters.").foregroundStyle(.secondary) }
+            } header: { Text("3. Preview, print or save") }
+              footer: { Text("Your church’s name and logo appear on the PDF. Volunteers are grouped by ministry with leaders first. Only approved notes are included; contact details and ordination status stay private.") }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
@@ -1277,24 +1285,16 @@ struct ReportsView: View {
         .frame(maxWidth: .infinity)
         .background(AppTheme.pageBackground)
         .navigationTitle("Reports")
-        .sheet(isPresented: $showingPreview) {
-            if let pdfData {
-                PDFReportPreview(data: pdfData)
-            }
-        }
+        .sheet(item: $previewDocument) { document in PDFReportPreview(data: document.data) }
     }
 
     private func buildReport() {
         do {
-            pdfData = try ReportGenerator.makePDF(
-                assignments: filtered,
-                filterDescription: filter.description(roles: model.roles),
-                groupByRole: filter.roleId == nil
-            )
-            showingPreview = true
-        } catch {
-            model.errorMessage = error.localizedDescription
-        }
+            let data = try ReportGenerator.makePDF(assignments: filtered,
+                filterDescription: filter.description(roles: model.roles), groupByRole: true,
+                churchName: model.currentChurch?.name ?? "Ministry Volunteers", churchLogoData: model.churchLogoData)
+            previewDocument = try ReportPreviewDocument(data: data)
+        } catch { model.errorMessage = error.localizedDescription }
     }
 }
 
@@ -1307,7 +1307,7 @@ private struct PDFReportPreview: View {
         NavigationStack {
             PDFPreview(data: data)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .navigationTitle("Volunteer Directory PDF")
+                .navigationTitle("Report Preview")
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Done") { dismiss() }
@@ -1333,7 +1333,7 @@ private struct PDFReportPreview: View {
             isPresented: $exporting,
             document: PDFReportDocument(data: data),
             contentType: .pdf,
-            defaultFilename: "Riverview-Volunteer-Directory"
+            defaultFilename: "Volunteer-Ministry-Directory"
         ) { _ in }
     }
 
@@ -1353,3 +1353,236 @@ private struct PDFReportPreview: View {
     }
 }
 
+
+
+struct DiscoveryProfilesView: View {
+    @EnvironmentObject private var model: AppModel
+    var personId: UUID? = nil
+    @State private var query = ""
+    @State private var skill = ""
+    @State private var motivation = ""
+    @State private var availability = ""
+    @State private var pending = false
+    @State private var offset = 0
+    @State private var result: DiscoverySearchResult?
+    @State private var error = ""
+    @State private var busy = false
+    private let areas = [("A", "Pioneering and mission"), ("P", "Faithfulness and discernment"), ("E", "Sharing faith"), ("S", "Care and belonging"), ("T", "Teaching and understanding")]
+
+    var body: some View {
+        List {
+            if personId == nil {
+                Section("Search ministry profiles") {
+                    TextField("Name, email, or shared interests", text: $query)
+                    TextField("Skill", text: $skill)
+                    Picker("Leading motivation", selection: $motivation) {
+                        Text("Any").tag("")
+                        ForEach(areas, id: \.0) { item in Text(item.1).tag(item.0) }
+                    }
+                    Picker("Availability", selection: $availability) {
+                        Text("Any").tag("")
+                        Text("Available").tag("available")
+                        Text("Limited").tag("limited")
+                        Text("Unavailable").tag("unavailable")
+                        Text("Unsure").tag("unsure")
+                    }
+                    Toggle("Awaiting a People match", isOn: $pending)
+                    Button("Search profiles") { offset = 0; Task { await load() } }
+                        .disabled(busy)
+                }
+            }
+            if busy { ProgressView("Loading profiles") }
+            if !error.isEmpty { Text(error).foregroundStyle(.red) }
+            if let result {
+                Section("\(result.total) profiles") {
+                    ForEach(result.items) { person in
+                        NavigationLink {
+                            DiscoveryPersonView(person: person)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(person.displayName).font(.headline)
+                                Text(person.personId == nil ? "Awaiting a People match" : "Linked to People").font(.caption)
+                                Text(person.profile?.skills.map(\.name).joined(separator: ", ") ?? "No shared skills")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    if result.items.isEmpty { Text("No matching ministry profile.") }
+                }
+                if personId == nil {
+                    Section {
+                        Button("Previous") { offset = max(0, offset - 20); Task { await load() } }
+                            .disabled(offset == 0 || busy)
+                        Button("Next") { offset += 20; Task { await load() } }
+                            .disabled(offset + 20 >= result.total || busy)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Ministry profiles")
+        .task { await load() }
+    }
+    private func load() async {
+        busy = true
+        defer { busy = false }
+        do {
+            var filters = ["q": query, "skill": skill, "motivation": motivation, "availability": availability, "pending": pending ? "true" : ""]
+            if let personId { filters["person_id"] = personId.uuidString.lowercased() }
+            result = try await model.discoverySearch(filters: filters, offset: offset)
+            error = ""
+        } catch { self.error = error.localizedDescription }
+    }
+}
+
+struct DiscoveryPersonView: View {
+    @EnvironmentObject private var model: AppModel
+    @State var person: DiscoveryPerson
+    @State private var query = ""
+    @State private var candidates: [DiscoveryCandidate] = []
+    @State private var selected: UUID?
+    @State private var note = ""
+    @State private var error = ""
+    @State private var busy = false
+    @State private var confirmLink = false
+    @State private var confirmCreate = false
+
+    var body: some View {
+        Form {
+            Section("Participant") {
+                Text(person.displayName).font(.headline)
+                Text(person.email)
+            }
+            if person.personId == nil && model.canEdit {
+                Section("Confirm the People match") {
+                    TextField("Search another name or email", text: $query)
+                    Button("Find matches") { Task { await find() } }
+                    ForEach(candidates) { candidate in
+                        Button {
+                            selected = candidate.id
+                        } label: {
+                            VStack(alignment: .leading) {
+                                Text(candidate.firstName + " " + candidate.lastName + (selected == candidate.id ? " ✓" : ""))
+                                Text(candidate.email ?? "No email").font(.caption)
+                                Text(candidate.reason).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    Button("Approve selected match") { confirmLink = true }.disabled(selected == nil || busy)
+                    Button("Create a new People record") { confirmCreate = true }.disabled(busy)
+                }
+            }
+            if let profile = person.profile {
+                Section("Shared welcome answers") {
+                    answer("Connection to the church", profile.connection)
+                    answer("Service experience", profile.service)
+                    answer("What brings joy", profile.joy)
+                    answer("Abilities and gifts", profile.abilities)
+                    answer("Hopes and interests", profile.hope)
+                    answer("Occupation or training", profile.occupation)
+                    answer("Ministry interests", profile.interests)
+                    answer("Availability", profile.availability)
+                    answer("Contact preference", profile.contact)
+                }
+                Section("Skills reported by the member") {
+                    ForEach(Array(profile.skills.enumerated()), id: \.offset) { _, skill in
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(skill.name).font(.headline)
+                            Text([skill.experience, skill.interest].compactMap { $0 }.joined(separator: " · "))
+                            if let notes = skill.notes, !notes.isEmpty { Text(notes) }
+                        }
+                    }
+                }
+            } else { Section { Text("The participant has not shared their profile yet.") } }
+            scoreSection("Ministry Motivations", person.motivations, motivations: true)
+            scoreSection("Big Five summary", person.bigfive, motivations: false)
+            Section("Leader observations") {
+                ForEach(person.observations) { observation in
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(observation.note)
+                        Text(observation.author).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                if model.canEdit {
+                    TextEditor(text: $note).frame(minHeight: 80)
+                    Button("Save observation") {
+                        Task { await perform { try await model.discoveryObserve(member: person.id, note: note) }; note = "" }
+                    }.disabled(note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || busy)
+                }
+            }
+            if !error.isEmpty { Text(error).foregroundStyle(.red) }
+        }
+        .navigationTitle("Ministry profile")
+        .task { if person.personId == nil { await find() } }
+        .alert("Link this person?", isPresented: $confirmLink) {
+            Button("Approve") { Task { await perform { try await model.discoveryLink(member: person.id, person: selected, create: false) } } }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text("Confirm the participant's identity before linking the selected People record.") }
+        .alert("Create a new People record?", isPresented: $confirmCreate) {
+            Button("Create") { Task { await perform { try await model.discoveryLink(member: person.id, person: nil, create: true) } } }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text("Check that an existing person does not match first. The new record will be private.") }
+    }
+    @ViewBuilder private func answer(_ title: String, _ value: String?) -> some View {
+        if let value, !value.isEmpty { VStack(alignment: .leading) { Text(title).font(.headline); Text(value) } }
+    }
+    @ViewBuilder private func scoreSection(_ title: String, _ scores: DiscoveryScores?, motivations: Bool) -> some View {
+        Section(title) {
+            if let scores {
+                ForEach(scores.domains.keys.sorted(), id: \.self) { key in
+                    let labels = motivations
+                        ? ["A":"Pioneering and mission","P":"Faithfulness and discernment","E":"Sharing faith","S":"Care and belonging","T":"Teaching and understanding"]
+                        : ["O":"Creativity and exploration","C":"Organization and follow-through","E":"Social engagement","A":"Cooperation and directness"]
+                    LabeledContent(labels[key] ?? key) {
+                        if let wrapped = scores.domains[key], let value = wrapped { Text(String(format: "%.1f / 5", value)) }
+                        else { Text("Not enough answers") }
+                    }
+                }
+                Text("Completed " + String(scores.submittedAt.prefix(10))).font(.caption)
+            } else { Text("No submitted result.") }
+        }
+    }
+    private func find() async {
+        do { candidates = try await model.discoveryCandidates(member: person.id, query: query); selected = candidates.first?.id; error = "" }
+        catch { self.error = error.localizedDescription }
+    }
+    private func perform(_ action: () async throws -> Void) async {
+        busy = true; defer { busy = false }
+        do {
+            try await action()
+            if let updated = try await model.discoverySearch(filters: ["member_id": person.id.uuidString.lowercased()]).items.first { person = updated }
+            error = ""
+        } catch { self.error = error.localizedDescription }
+    }
+}
+
+struct DiscoveryRegistrationView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var registration: DiscoveryRegistration?
+    @State private var error = ""
+    var body: some View {
+        Form {
+            Section("Participant access") {
+                Text("Leaders and participants can use the same account. The participant workflow is available on the web.")
+                Link("Open my participant profile", destination: URL(string: "https://ministryvolunteers.worf.app/discover")!)
+            }
+            if model.isAdministrator {
+                Section("This church's registration link") {
+                    if let registration {
+                        Text(registration.url.absoluteString).textSelection(.enabled)
+                        ShareLink("Share registration link", item: registration.url)
+                        Link("Open registration", destination: registration.url)
+                        Text(registration.enabled ? "Registration is open." : "Registration is paused.")
+                    }
+                    if !error.isEmpty { Text(error).foregroundStyle(.red) }
+                }
+            }
+        }
+        .navigationTitle("Member registration")
+        .task {
+            if model.isAdministrator {
+                do { registration = try await model.discoveryRegistration() }
+                catch { self.error = error.localizedDescription }
+            }
+        }
+    }
+}

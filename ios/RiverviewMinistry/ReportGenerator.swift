@@ -1,6 +1,7 @@
 import CoreGraphics
 import CoreText
 import Foundation
+import ImageIO
 import PDFKit
 import SwiftUI
 import UniformTypeIdentifiers
@@ -14,17 +15,11 @@ import AppKit
 enum ReportGenerator {
     private static let pageSize = CGSize(width: 792, height: 612)
     private static let margin: CGFloat = 48
-    private static let headerHeight: CGFloat = 94
+    private static let headerHeight: CGFloat = 106
     private static let footerHeight: CGFloat = 24
     private static let rowHeight: CGFloat = 31
     private static let roleHeaderHeight: CGFloat = 27
     private static let noteBlockHeight: CGFloat = 36
-    private static let riverBlue = CGColor(
-        red: 31.0 / 255.0,
-        green: 95.0 / 255.0,
-        blue: 139.0 / 255.0,
-        alpha: 1
-    )
     private static let riverBlueDark = CGColor(
         red: 18.0 / 255.0,
         green: 62.0 / 255.0,
@@ -32,9 +27,9 @@ enum ReportGenerator {
         alpha: 1
     )
     private static let riverBlueSoft = CGColor(
-        red: 232.0 / 255.0,
-        green: 242.0 / 255.0,
-        blue: 248.0 / 255.0,
+        red: 246.0 / 255.0,
+        green: 248.0 / 255.0,
+        blue: 250.0 / 255.0,
         alpha: 1
     )
     private static let flatColumns: [(title: String, width: CGFloat)] = [
@@ -54,7 +49,9 @@ enum ReportGenerator {
     static func makePDF(
         assignments: [AssignmentDetail],
         filterDescription: String,
-        groupByRole: Bool = false
+        groupByRole: Bool = true,
+        churchName: String = "Ministry Volunteers",
+        churchLogoData: Data? = nil
     ) throws -> Data {
         let output = NSMutableData()
         guard
@@ -72,13 +69,17 @@ enum ReportGenerator {
             drawGroupedPages(
                 context,
                 assignments: sorted,
-                filterDescription: filterDescription
+                filterDescription: filterDescription,
+                churchName: churchName,
+                churchLogoData: churchLogoData
             )
         } else {
             drawFlatPages(
                 context,
                 assignments: sorted,
-                filterDescription: filterDescription
+                filterDescription: filterDescription,
+                churchName: churchName,
+                churchLogoData: churchLogoData
             )
         }
 
@@ -89,7 +90,9 @@ enum ReportGenerator {
     private static func drawFlatPages(
         _ context: CGContext,
         assignments: [AssignmentDetail],
-        filterDescription: String
+        filterDescription: String,
+        churchName: String,
+        churchLogoData: Data?
     ) {
         let pages = paginateFlat(assignments)
         let pageCount = pages.count
@@ -99,7 +102,9 @@ enum ReportGenerator {
             drawPageHeader(
                 context,
                 filterDescription: filterDescription,
-                totalRows: assignments.count
+                totalRows: assignments.count,
+                churchName: churchName,
+                churchLogoData: churchLogoData
             )
             drawColumnHeaders(context, columns: flatColumns)
 
@@ -163,7 +168,9 @@ enum ReportGenerator {
     private static func drawGroupedPages(
         _ context: CGContext,
         assignments: [AssignmentDetail],
-        filterDescription: String
+        filterDescription: String,
+        churchName: String,
+        churchLogoData: Data?
     ) {
         let pages = paginateGrouped(assignments)
         let pageCount = pages.count
@@ -173,7 +180,9 @@ enum ReportGenerator {
             drawPageHeader(
                 context,
                 filterDescription: filterDescription,
-                totalRows: assignments.count
+                totalRows: assignments.count,
+                churchName: churchName,
+                churchLogoData: churchLogoData
             )
             drawColumnHeaders(context, columns: groupedColumns)
 
@@ -210,18 +219,20 @@ enum ReportGenerator {
     private static func drawPageHeader(
         _ context: CGContext,
         filterDescription: String,
-        totalRows: Int
+        totalRows: Int,
+        churchName: String,
+        churchLogoData: Data?
     ) {
-        let bannerHeight: CGFloat = 64
+        let bannerHeight: CGFloat = 76
         let bannerY = pageSize.height - margin - bannerHeight
         let logoRect = CGRect(
-            x: margin + 8,
-            y: bannerY + 8,
+            x: margin + 16,
+            y: bannerY + 14,
             width: 48,
             height: 48
         )
-        let textX = logoRect.maxX + 13
-        context.setFillColor(riverBlue)
+        let textX = churchLogoData == nil ? margin + 16 : logoRect.maxX + 13
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
         context.fill(
             CGRect(
                 x: margin,
@@ -230,18 +241,31 @@ enum ReportGenerator {
                 height: bannerHeight
             )
         )
-        drawMinistryLogo(context, in: logoRect)
+        if let data = churchLogoData,
+           let source = CGImageSourceCreateWithData(data as CFData, nil),
+           let image = CGImageSourceCreateImageAtIndex(source, 0, nil) {
+            let imageRect = logoRect.insetBy(dx: 5, dy: 5)
+            let scale = min(imageRect.width / CGFloat(image.width), imageRect.height / CGFloat(image.height))
+            let width = CGFloat(image.width) * scale
+            let height = CGFloat(image.height) * scale
+            let fitted = CGRect(x: logoRect.midX - width / 2, y: logoRect.midY - height / 2, width: width, height: height)
+            context.saveGState()
+            context.setFillColor(CGColor(gray: 1, alpha: 1))
+            context.fill(logoRect)
+            context.draw(image, in: fitted)
+            context.restoreGState()
+        }
         drawText(
             context,
-            "Pasco Riverview Adventist Church",
+            churchName,
             in: CGRect(
                 x: textX,
-                y: bannerY + 35,
+                y: bannerY + 41,
                 width: pageSize.width - margin - textX - 16,
                 height: 24
             ),
             fontSize: 18,
-            color: CGColor(gray: 1, alpha: 1),
+            color: riverBlueDark,
             bold: true
         )
         drawText(
@@ -249,12 +273,12 @@ enum ReportGenerator {
             "Volunteer Ministry Directory",
             in: CGRect(
                 x: textX,
-                y: bannerY + 16,
+                y: bannerY + 19,
                 width: pageSize.width - margin - textX - 16,
                 height: 18
             ),
             fontSize: 11,
-            color: CGColor(red: 0.86, green: 0.94, blue: 0.98, alpha: 1)
+            color: CGColor(gray: 0.35, alpha: 1)
         )
         drawText(
             context,
@@ -363,17 +387,6 @@ enum ReportGenerator {
         index: Int,
         y: CGFloat
     ) {
-        if index.isMultiple(of: 2) {
-            context.setFillColor(CGColor(gray: 0.975, alpha: 1))
-            context.fill(
-                CGRect(
-                    x: margin,
-                    y: y,
-                    width: flatColumns.reduce(0) { $0 + $1.width },
-                    height: rowHeight
-                )
-            )
-        }
         context.setStrokeColor(CGColor(gray: 0.86, alpha: 1))
         context.setLineWidth(0.5)
         context.move(to: CGPoint(x: margin, y: y))
@@ -523,7 +536,7 @@ enum ReportGenerator {
         y: CGFloat
     ) {
         let tableWidth = groupedColumns.reduce(0) { $0 + $1.width }
-        context.setFillColor(riverBlue)
+        context.setFillColor(riverBlueSoft)
         context.fill(
             CGRect(
                 x: margin,
@@ -542,7 +555,7 @@ enum ReportGenerator {
                 height: 15
             ),
             fontSize: 10.5,
-            color: CGColor(gray: 1, alpha: 1),
+            color: riverBlueDark,
             bold: true
         )
     }
@@ -554,17 +567,6 @@ enum ReportGenerator {
         y: CGFloat
     ) {
         let tableWidth = groupedColumns.reduce(0) { $0 + $1.width }
-        if index.isMultiple(of: 2) {
-            context.setFillColor(CGColor(gray: 0.975, alpha: 1))
-            context.fill(
-                CGRect(
-                    x: margin,
-                    y: y,
-                    width: tableWidth,
-                    height: rowHeight
-                )
-            )
-        }
         context.setStrokeColor(CGColor(gray: 0.86, alpha: 1))
         context.setLineWidth(0.5)
         context.move(to: CGPoint(x: margin, y: y))
@@ -602,13 +604,13 @@ enum ReportGenerator {
         width: CGFloat,
         y: CGFloat
     ) {
-        context.setFillColor(riverBlueSoft)
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
         context.fill(
             CGRect(x: margin, y: y, width: width, height: noteBlockHeight)
         )
-        context.setFillColor(riverBlue)
+        context.setFillColor(CGColor(gray: 0.8, alpha: 1))
         context.fill(
-            CGRect(x: margin, y: y, width: 3, height: noteBlockHeight)
+            CGRect(x: margin, y: y, width: 1, height: noteBlockHeight)
         )
         drawText(
             context,
@@ -750,34 +752,63 @@ struct PDFReportDocument: FileDocument {
     }
 }
 
+// A completed, validated document is the presentation state. The sheet never
+// opens with nil data on its first render.
+struct ReportPreviewDocument: Identifiable {
+    let id = UUID()
+    let data: Data
+    init(data: Data) throws {
+        guard let document = PDFDocument(data: data), document.pageCount > 0 else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        self.data = data
+    }
+}
+
 #if os(iOS)
 struct PDFPreview: UIViewRepresentable {
     let data: Data
-
-    func makeUIView(context: Context) -> PDFView {
+    final class Coordinator { var data: Data? }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    static func makeView(data: Data) -> PDFView {
         let view = PDFView()
-        view.autoScales = true
+        view.document = PDFDocument(data: data)
         view.displayMode = .singlePageContinuous
+        view.autoScales = true
         return view
     }
-
+    func makeUIView(context: Context) -> PDFView {
+        context.coordinator.data = data
+        return Self.makeView(data: data)
+    }
     func updateUIView(_ view: PDFView, context: Context) {
+        guard context.coordinator.data != data else { return }
         view.document = PDFDocument(data: data)
+        view.autoScales = true
+        context.coordinator.data = data
     }
 }
 #elseif os(macOS)
 struct PDFPreview: NSViewRepresentable {
     let data: Data
-
-    func makeNSView(context: Context) -> PDFView {
+    final class Coordinator { var data: Data? }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    static func makeView(data: Data) -> PDFView {
         let view = PDFView()
-        view.autoScales = true
+        view.document = PDFDocument(data: data)
         view.displayMode = .singlePageContinuous
+        view.autoScales = true
         return view
     }
-
+    func makeNSView(context: Context) -> PDFView {
+        context.coordinator.data = data
+        return Self.makeView(data: data)
+    }
     func updateNSView(_ view: PDFView, context: Context) {
+        guard context.coordinator.data != data else { return }
         view.document = PDFDocument(data: data)
+        view.autoScales = true
+        context.coordinator.data = data
     }
 }
 #endif

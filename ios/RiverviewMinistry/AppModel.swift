@@ -1,4 +1,6 @@
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 import SwiftUI
 
 @MainActor
@@ -10,6 +12,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var assignments: [AssignmentDetail] = []
     @Published private(set) var session: SupabaseSession?
     @Published private(set) var currentProfile: AppProfile?
+    @Published private(set) var churchLogoData: Data?
     @Published private(set) var currentChurch: Church?
     @Published private(set) var planningCenterStatus: PlanningCenterConnectionStatus?
     @Published private(set) var hasRestoredSession = false
@@ -149,6 +152,7 @@ final class AppModel: ObservableObject {
         session = nil
         currentProfile = nil
         currentChurch = nil
+            churchLogoData = nil
         planningCenterStatus = nil
         people = []
         roles = []
@@ -167,17 +171,30 @@ final class AppModel: ObservableObject {
         }
     }
 
+
+    func uploadChurchLogo(from url: URL) async {
+        await perform {
+            guard isAdministrator, let church = currentChurch else {
+                throw SupabaseClientError.invalidRequest("Church administrator access is required.")
+            }
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+            let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            guard size <= 2_097_152 else { throw SupabaseClientError.invalidRequest("Choose an image smaller than 2 MB.") }
+            let original = try Data(contentsOf: url)
+            let png = try ChurchLogoImage.prepare(original)
+            try await requireClient().uploadChurchLogo(churchId: church.id, png: png)
+            churchLogoData = png
+            noticeMessage = "Your church logo is saved and will appear on your church reports."
+        }
+    }
+
     func inviteAppUser(email: String, role: AppUserRole, temporaryPassword: String? = nil) async -> Bool {
         var succeeded = false
         await perform {
             guard isAdministrator else {
                 throw SupabaseClientError.invalidRequest(
                     "Only an administrator can create app users."
-                )
-            }
-            guard role != .admin else {
-                throw SupabaseClientError.invalidRequest(
-                    "Use Manage App Users to grant administrator access from a platform administrator account."
                 )
             }
             guard
@@ -207,7 +224,7 @@ final class AppModel: ObservableObject {
         var succeeded = false
         await perform {
             try await requireClient().updateAppUser(userId, action: action, role: role)
-            noticeMessage = "App access updated."
+            noticeMessage = action == "delete_user" ? "User account permanently deleted." : "App access updated."
             succeeded = true
         }
         return succeeded
@@ -574,6 +591,7 @@ final class AppModel: ObservableObject {
         if profile.accessDisabled == true || profile.mustChangePassword == true {
             people = []; roles = []; subRoles = []; terms = []; assignments = []
             currentChurch = nil
+            churchLogoData = nil
             return
         }
         let snapshot = try await client.loadSnapshot()
@@ -585,6 +603,7 @@ final class AppModel: ObservableObject {
         assignments = snapshot.assignments
         currentProfile = profile
         currentChurch = church
+        churchLogoData = try? await client.churchLogo(churchId: church.id)
         planningCenterStatus = try? await client.planningCenterConnectionStatus()
         if let currentSession = await client.currentSession(),
            currentSession.accessToken != session?.accessToken
@@ -618,5 +637,29 @@ final class AppModel: ObservableObject {
             }
             errorMessage = error.localizedDescription
         }
+    }
+}
+
+
+extension AppModel {
+    func discoverySearch(filters: [String: String], offset: Int = 0) async throws -> DiscoverySearchResult {
+        guard let client else { throw SupabaseClientError.notSignedIn }
+        return try await client.discoverySearch(filters: filters, offset: offset)
+    }
+    func discoveryRegistration(rotate: Bool = false) async throws -> DiscoveryRegistration {
+        guard let client else { throw SupabaseClientError.notSignedIn }
+        return try await client.discoveryRegistration(rotate: rotate)
+    }
+    func discoveryCandidates(member: UUID, query: String) async throws -> [DiscoveryCandidate] {
+        guard let client else { throw SupabaseClientError.notSignedIn }
+        return try await client.discoveryCandidates(member: member, query: query)
+    }
+    func discoveryLink(member: UUID, person: UUID?, create: Bool) async throws {
+        guard let client else { throw SupabaseClientError.notSignedIn }
+        try await client.discoveryLink(member: member, person: person, create: create)
+    }
+    func discoveryObserve(member: UUID, note: String) async throws {
+        guard let client else { throw SupabaseClientError.notSignedIn }
+        try await client.discoveryObserve(member: member, note: note)
     }
 }

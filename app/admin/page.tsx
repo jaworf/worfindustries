@@ -4,9 +4,9 @@ import { MinistryAdmin } from "./admin-client";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Ministry Volunteer Admin | Pasco Riverview",
+  title: "Ministry Volunteers | Church Administration",
   description:
-    "Securely manage Pasco Riverview ministry volunteers from a phone, tablet, or computer.",
+    "Securely manage your church’s ministry volunteers from a phone, tablet, or computer.",
 };
 
 export default function AdminPage() {

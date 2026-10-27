@@ -16,6 +16,7 @@ export default function SupportPage() {
         />
         <p className="eyebrow">Ministry Volunteers</p>
         <h1>App Support</h1>
+        <p><a href="/join">Apply for a free church workspace</a> · <a href="/platform">Developer Support Console</a></p>
         <p>
           Need help signing in, connecting Planning Center, importing data, or
           managing volunteer assignments? Contact the app administrator.

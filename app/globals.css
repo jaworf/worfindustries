@@ -7,7 +7,7 @@
   --forest-dark: #123e5f;
   --forest-soft: #e8f2f8;
   --gold: #d49a3d;
-  --paper: #fbfaf6;
+  --paper: #f6f9fb;
   --surface: #ffffff;
   --line: #d6e2ea;
   --danger: #9d2f2f;
@@ -447,8 +447,8 @@ select:focus {
   align-items: center;
   justify-content: space-between;
   padding: 14px 18px;
-  color: #fff;
-  background: linear-gradient(110deg, var(--forest-dark), var(--forest));
+  color: var(--forest-dark);
+  background: #f6f8fa;
 }
 
 .role-heading h2 {
@@ -463,10 +463,10 @@ select:focus {
   place-items: center;
   min-width: 27px;
   height: 27px;
-  border: 1px solid rgb(255 255 255 / 0.25);
+  border: 1px solid var(--line);
   border-radius: 999px;
-  color: #fff;
-  background: rgb(255 255 255 / 0.1);
+  color: var(--forest-dark);
+  background: #fff;
   font-size: 0.75rem;
   font-weight: 750;
 }
@@ -1924,8 +1924,7 @@ footer p {
   .role-heading {
     padding: 6px 9px;
     color: #000;
-    background: #e8f2f8;
-    print-color-adjust: exact;
+    background: #f6f8fa;
   }
 
   .role-heading h2 {
@@ -2004,3 +2003,39 @@ footer p {
 .admin-person-results { list-style:none; padding:0; margin:0; max-height:320px; overflow:auto; }
 .admin-person-results button { width:100%; text-align:left; padding:12px; border:1px solid #d1dce2; background:white; cursor:pointer; }
 .admin-person-results button:hover,.admin-person-results button:focus-visible { background:#e8f1f4; }
+
+/* Church-specific report controls stay together beside the preview. */
+.admin-report-controls { display: flex; flex-direction: column; gap: 16px; align-items: stretch; }
+.admin-report-controls label { display: grid; gap: 8px; }
+.admin-report-controls .button { align-self: flex-start; }
+
+/* Shared comfortable spacing for desktop, tablet and phone administration. */
+.admin-main h2 { line-height: 1.25; overflow-wrap: anywhere; }
+.admin-page-description { color: var(--muted); line-height: 1.6; margin: 0 0 24px; }
+.admin-report-card { grid-template-columns: minmax(0, 1fr); padding: clamp(16px, 2.4vw, 28px); gap: 24px; }
+.admin-report-controls { gap: 20px; }
+.admin-report-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(200px, 1.3fr); gap: 20px; }
+.admin-report-options label { color: var(--ink); font-weight: 650; }
+.admin-report-options input, .admin-report-options select { width: 100%; min-height: 48px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; }
+.admin-report-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.admin-report-actions p { margin: 0 auto 0 0; }
+.admin-report-note { margin: 0; color: var(--muted); line-height: 1.6; }
+.admin-user-workspace { display: grid; gap: 24px; max-width: 1100px; }
+.admin-user-workspace .admin-focus-list { padding: 0; list-style: none; display: grid; gap: 20px; }
+.admin-user-workspace .admin-focus-list li { padding: 20px; border: 1px solid var(--line); border-radius: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.admin-user-workspace .admin-focus-list li strong { overflow-wrap: anywhere; flex-basis: 100%; }
+.admin-user-workspace .admin-focus-list li label { display: grid; gap: 8px; }
+.admin-settings-card { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+.admin-settings-card h3, .admin-settings-card p { margin: 0; }
+.admin-settings-card .admin-form-grid { width: 100%; }
+.admin-settings-card img { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: white; box-sizing: content-box; }
+.button { white-space: normal; line-height: 1.35; padding: 12px 18px; text-align: center; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--forest); outline-offset: 3px; }
+.admin-main input, .admin-main select { min-width: 0; max-width: 100%; }
+@media(max-width: 1000px) { .admin-report-options { grid-template-columns: repeat(2, minmax(0, 1fr)); } .admin-report-options label:last-child { grid-column: 1 / -1; } }
+@media(max-width: 600px) { .admin-report-options { grid-template-columns: minmax(0,1fr); } .admin-report-options label:last-child { grid-column: auto; } .admin-report-actions .button { flex: 1 1 140px; } .admin-user-workspace .admin-focus-list li { padding: 16px; } }
+
+.admin-focus-votes, .admin-user-workspace > section.admin-card { padding: 24px; }
+.admin-focus-votes { margin-bottom: 20px; }
+.admin-focus-votes > h3 { margin: 0 0 14px; font-size: 1.13rem; color: var(--forest-dark); }
+@media(max-width:600px) { .admin-focus-votes, .admin-user-workspace > section.admin-card { padding: 18px; } }

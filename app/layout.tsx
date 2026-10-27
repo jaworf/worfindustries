@@ -12,9 +12,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase: new URL(origin),
-    title: "Volunteer Ministry Directory | Pasco Riverview",
+    title: "Ministry Volunteers",
     description:
-      "Search and print the Pasco Riverview Adventist Church volunteer ministry directory.",
+      "Free volunteer management for participating churches.",
     icons: {
       icon: "/ministry-logo.png",
       shortcut: "/ministry-logo.png",
@@ -23,14 +23,14 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: {
       title: "Volunteer Ministry Directory",
       description:
-        "Pasco Riverview Adventist Church volunteer roles and terms.",
+        "Church volunteer roles and terms.",
       type: "website",
       images: [
         {
           url: `${origin}/ministry-logo.png`,
           width: 1024,
           height: 1024,
-          alt: "Pasco Riverview volunteer ministry directory",
+          alt: "Ministry Volunteers",
         },
       ],
     },

@@ -2,7 +2,7 @@ export function SectionHeading({ title, detail }: { title: string; detail: strin
   return (
     <header className="admin-section-heading">
       <div>
-        <p className="eyebrow">Riverview Ministry Volunteers</p>
+        <p className="eyebrow">Ministry Volunteers</p>
         <h2>{title}</h2>
       </div>
       <p>{detail}</p>

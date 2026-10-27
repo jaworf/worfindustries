@@ -1,4 +1,6 @@
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 
 struct Person: Codable, Identifiable, Hashable, Sendable {
     let id: UUID
@@ -360,7 +362,7 @@ enum AppUserRole: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
-    static let invitationChoices: [AppUserRole] = [.editor, .viewer]
+    static let invitationChoices: [AppUserRole] = [.admin, .editor, .viewer]
 
     var label: String {
         switch self {
@@ -486,3 +488,101 @@ struct ManagedAppUser: Codable, Identifiable, Sendable {
 }
 struct ManagedAppUsersResult: Decodable { let users: [ManagedAppUser] }
 struct AppAccessResult: Decodable { let message: String }
+
+// Decode at logo size rather than rejecting a compressed, high-resolution photo.
+enum ChurchLogoImage {
+    static let maximumBytes = 2_097_152
+    static func prepare(_ original: Data) throws -> Data {
+        guard original.count <= maximumBytes else { throw PreparationError.tooLarge }
+        guard !original.isEmpty,
+              let source = CGImageSourceCreateWithData(original as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              CGImageSourceGetCount(source) > 0 else { throw PreparationError.unreadable }
+        for maximumPixels in [1024, 768, 512] {
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maximumPixels,
+                kCGImageSourceShouldCacheImmediately: true
+            ]
+            guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { throw PreparationError.unreadable }
+            let output = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(output, UTType.png.identifier as CFString, 1, nil) else { throw PreparationError.encoding }
+            CGImageDestinationAddImage(destination, image, nil)
+            guard CGImageDestinationFinalize(destination) else { throw PreparationError.encoding }
+            if output.length <= maximumBytes { return output as Data }
+        }
+        throw PreparationError.encoding
+    }
+    enum PreparationError: LocalizedError {
+        case tooLarge, unreadable, encoding
+        var errorDescription: String? {
+            switch self {
+            case .tooLarge: "Choose an image smaller than 2 MB."
+            case .unreadable: "This file could not be read as an image. Try a PNG, JPEG, or HEIC photo."
+            case .encoding: "The image could not be prepared for upload. Try exporting it as a PNG or JPEG."
+            }
+        }
+    }
+}
+
+
+// Ministry discovery uses separate participant memberships and church-scoped RPCs.
+struct DiscoverySearchResult: Codable, Sendable {
+    let total: Int
+    let items: [DiscoveryPerson]
+}
+struct DiscoveryPerson: Codable, Identifiable, Sendable {
+    let id: UUID
+    let personId: UUID?
+    let firstName: String
+    let lastName: String
+    let email: String
+    let disabled: Bool
+    let profile: DiscoveryProfile?
+    let bigfive: DiscoveryScores?
+    let motivations: DiscoveryScores?
+    let observations: [DiscoveryObservation]
+    var displayName: String { firstName + " " + lastName }
+}
+struct DiscoveryScores: Codable, Sendable {
+    let submittedAt: String
+    let version: String
+    let domains: [String: Double?]
+}
+struct DiscoveryProfile: Codable, Sendable {
+    let connection: String?
+    let service: String?
+    let joy: String?
+    let abilities: String?
+    let hope: String?
+    let occupation: String?
+    let interests: String?
+    let availability: String?
+    let contact: String?
+    let reviewDate: String?
+    let skills: [DiscoverySkill]
+}
+struct DiscoverySkill: Codable, Sendable {
+    let name: String
+    let experience: String?
+    let interest: String?
+    let notes: String?
+}
+struct DiscoveryObservation: Codable, Identifiable, Sendable {
+    let id: UUID
+    let note: String
+    let author: String
+    let createdAt: String
+}
+struct DiscoveryCandidate: Codable, Identifiable, Sendable {
+    let id: UUID
+    let firstName: String
+    let lastName: String
+    let email: String?
+    let reason: String
+}
+struct DiscoveryRegistration: Codable, Sendable {
+    let token: String
+    let enabled: Bool
+    var url: URL { URL(string: "https://ministryvolunteers.worf.app/discover/" + token)! }
+}

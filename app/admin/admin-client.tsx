@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -9,9 +10,11 @@ import {
   useState,
 } from "react";
 
-import { type AppRole, type Tab, type AssignmentRoute, type OrdinationKind, type Profile, type Church, type Person, type Ministry, type Position, type Term, type Assignment, type Snapshot, emptySnapshot, navItems, personName, ordinationKind, ordinationLabels, ordinationField, todayISO, formatDate, isCurrent, normalizeError, loadAllPeople, functionErrorMessage, isFutureJwtError, adminErrorMessage, wait, membershipPriority, type MutationRunner } from "./admin-shared";
+import { type AppRole, type Tab, type AssignmentRoute, type OrdinationKind, type Profile, type Person, type Ministry, type Position, type Term, type Assignment, type Snapshot, emptySnapshot, navItems, personName, ordinationKind, ordinationLabels, ordinationField, todayISO, formatDate, isCurrent, normalizeError, loadAllPeople, functionErrorMessage, isFutureJwtError, adminErrorMessage, wait, membershipPriority, type MutationRunner } from "./admin-shared";
 import { AssignView } from "./assign-view";
 import { SectionHeading } from "./section-heading";
+import { ChurchLogoSettings, ChurchReport } from "./church-branding";
+import { DiscoveryPeople, DiscoveryRegistration, DiscoveryPersonSummary } from "../discovery/staff";
 import { DeleteAccountButton } from "./delete-account";
 
 export function MinistryAdmin({
@@ -172,10 +175,10 @@ export function MinistryAdmin({
         <section className="admin-login-card">
           <img
             src="/ministry-logo.png"
-            alt="Riverview Ministry Volunteers logo"
+            alt="Ministry Volunteers logo"
             className="admin-login-mark"
           />
-          <h1>Riverview Ministry Volunteers</h1>
+          <h1>Ministry Volunteers</h1>
           <p>The secure database connection is not configured on this host.</p>
         </section>
       </main>
@@ -183,7 +186,7 @@ export function MinistryAdmin({
   }
 
   if (booting) {
-    return <AdminLoading label="Opening Riverview Ministry Volunteers…" />;
+    return <AdminLoading label="Opening Ministry Volunteers…" />;
   }
 
   if (!session) {
@@ -197,13 +200,14 @@ export function MinistryAdmin({
     <div className="admin-app-shell">
       <header className="admin-header">
         <div className="admin-brand">
-          <img src="/ministry-logo.png" alt="Riverview Ministry Volunteers logo" />
+          <img src="/ministry-logo.png" alt="Ministry Volunteers logo" />
           <div>
             <p>{profile?.churches?.name ?? "Ministry Volunteers"}</p>
             <h1>Ministry Volunteers</h1>
           </div>
         </div>
         <div className="admin-header-actions">
+          {profile?.is_platform_admin && <a className="button" href="/platform">Platform Support</a>}
           <span className="admin-role-badge">{profile?.app_role ?? "loading"}</span>
           <button
             className="button button-quiet"
@@ -226,7 +230,7 @@ export function MinistryAdmin({
 
       <div className="admin-workspace">
         <nav className="admin-nav" aria-label="Admin sections">
-          {navItems.map((item) => (
+          {navItems.filter(item => item.id !== "users" || profile?.app_role === "admin").map((item) => (
             <button
               key={item.id}
               className={activeTab === item.id ? "active" : ""}
@@ -255,6 +259,7 @@ export function MinistryAdmin({
               >
                 Try Again
               </button>
+              <button className="button" onClick={() => void supabase.auth.signOut({ scope: "local" })}>Sign Out and Sign In Again</button>
             </section>
           )}
           {!loading && profile && (
@@ -315,7 +320,8 @@ export function MinistryAdmin({
                   mutate={mutate}
                 />
               )}
-              {activeTab === "reports" && <ReportsView />}
+              {activeTab === "reports" && <ChurchReport supabase={supabase} profile={profile} assignments={snapshot.assignments} />}
+              {activeTab === "users" && profile.app_role === "admin" && <UsersView supabase={supabase} session={session} profile={profile} working={working} mutate={mutate} />}
               {activeTab === "settings" && (
                 <SettingsView
                   supabase={supabase}
@@ -354,7 +360,7 @@ function AppUserManagement({supabase,profile,session,working,mutate}:{supabase:S
    return () => {active = false;};
  }, [supabase, profile]);
  async function change(user:ManagedAppUser,action:string,role?:AppRole){if(await mutate("App access updated.",async()=>{const {error}=await supabase.functions.invoke("admin-users",{body:{action,user_id:user.user_id,role,...(action==="delete_user"?{confirmation:"DELETE"}:{})}});if(error)throw new Error(await functionErrorMessage(error));}))await load();}
- return <section className="admin-card full-panel"><h3>Manage App Users</h3><p>Changes apply to existing accounts. Remove access keeps records and can be reversed.</p><button className="button" onClick={()=>void load()}>Refresh Users</button>{error&&<p role="alert">{error}</p>}<ul className="admin-focus-list">{users.map(user=>{const protectedUser=user.user_id===session.user.id||user.is_platform_admin||(!profile.is_platform_admin&&user.app_role==="admin");return <li key={user.user_id}><strong>{user.email}</strong><p>{user.access_disabled?"Access removed":user.must_change_password?"Password change required":user.enrolled?"Active":"Invitation pending"}</p><label>Permissions for {user.email}<select value={user.app_role} disabled={working||protectedUser||user.access_disabled} onChange={e=>void change(user,"update_role",e.target.value as AppRole)}>{profile.is_platform_admin&&<option value="admin">Administrator</option>}<option value="editor">Editor</option><option value="viewer">Viewer</option></select></label><button className="button" disabled={working||protectedUser} onClick={()=>void change(user,user.access_disabled?"restore_access":"remove_access")}>{user.access_disabled?"Restore Access":"Remove Access"}</button>{!user.enrolled&&!user.access_disabled&&<button className="button" disabled={working} onClick={async()=>{await mutate("New setup email sent.",async()=>{const {error}=await supabase.functions.invoke("admin-users",{body:{email:user.email,role:user.app_role,church_id:user.church_id}});if(error)throw new Error(await functionErrorMessage(error));});}}>Resend Setup Email</button>}<button className="button button-danger" disabled={working||protectedUser} onClick={()=>{if(window.confirm(`Permanently delete ${user.email}? This deletes their login and account profile. Church-owned volunteer records and assignments are preserved. This cannot be undone.`))void change(user,"delete_user");}}>Delete User Permanently</button></li>;})}</ul></section>;
+ return <section className="admin-card full-panel"><h3>Manage App Users</h3><p>Changes apply to existing accounts. Remove access keeps records and can be reversed.</p><button className="button" onClick={()=>void load()}>Refresh Users</button>{error&&<p role="alert">{error}</p>}<ul className="admin-focus-list">{users.map(user=>{const protectedUser=user.user_id===session.user.id||user.is_platform_admin;return <li key={user.user_id}><strong>{user.email}</strong><p>{user.access_disabled?"Access removed":user.must_change_password?"Password change required":user.enrolled?"Active":"Invitation pending"}</p><label>Permissions for {user.email}<select value={user.app_role} disabled={working||protectedUser||user.access_disabled} onChange={e=>void change(user,"update_role",e.target.value as AppRole)}><option value="admin">Administrator</option><option value="editor">Editor</option><option value="viewer">Viewer</option></select></label><button className="button" disabled={working||protectedUser} onClick={()=>void change(user,user.access_disabled?"restore_access":"remove_access")}>{user.access_disabled?"Restore Access":"Remove Access"}</button>{!user.enrolled&&!user.access_disabled&&<button className="button" disabled={working} onClick={async()=>{await mutate("New setup email sent.",async()=>{const {error}=await supabase.functions.invoke("admin-users",{body:{email:user.email,role:user.app_role,church_id:user.church_id}});if(error)throw new Error(await functionErrorMessage(error));});}}>Resend Setup Email</button>}<button className="button button-danger" disabled={working||protectedUser} onClick={()=>{if(window.confirm(`Permanently delete ${user.email}? This deletes their login and account profile. Church-owned volunteer records and assignments are preserved. This cannot be undone.`))void change(user,"delete_user");}}>Delete User Permanently</button></li>;})}</ul></section>;
 }
 
 function AdminLoading({ label, compact = false }: { label: string; compact?: boolean }) {
@@ -415,15 +421,16 @@ function AdminLogin({
       <section className="admin-login-card">
         <img
           src="/ministry-logo.png"
-          alt="Riverview Ministry Volunteers logo"
+          alt="Ministry Volunteers logo"
           className="admin-login-mark"
         />
-        <p className="eyebrow">Pasco Riverview Adventist Church</p>
-        <h1>Riverview Ministry Volunteers</h1>
+        <p className="eyebrow">Your church workspace</p>
+        <h1>Ministry Volunteers</h1>
         <p className="admin-login-intro">
           Secure mobile access for ministry placement team members.
         </p>
-        <form onSubmit={signIn} className="admin-form-stack">
+        <p>New church? <a href="/join">Apply for a free church workspace</a>.</p>
+      <form onSubmit={signIn} className="admin-form-stack">
           <label>
             Email
             <input
@@ -478,7 +485,7 @@ function FocusView({ supabase, snapshot, canEdit, working, mutate, onAssign }: {
   for (const assignment of current) { const kind = ordinationKind(assignment.role_name); const person = people.get(assignment.person_id); if (kind && person?.is_active && !person[ordinationField(kind)]) needs.set(person.id+kind,{person,kind,assignment}); }
   return <>
     <SectionHeading title="Placement Focus" detail="Choose a person or action to resolve the items below." />
-    <section className="admin-card"><h3>Needing Votes</h3>
+    <section className="admin-card admin-focus-votes"><h3>Needing Votes</h3>
       {!needingVotes.length && <p>No placements are waiting for a vote.</p>}
       {needingVotes.map(assignment => <VoteRow key={assignment.id} assignment={assignment} canEdit={canEdit} working={working} save={async date => { await mutate("Church vote recorded.",async () => { const {error}=await supabase.from("assignments").update({vote_date:date}).eq("id",assignment.id); if(error) throw error; }); }} />)}
     </section>
@@ -795,6 +802,7 @@ function PeopleView({
         title="People Directory"
         detail="Search contact details, ministry history, membership, and permanent ordination status."
       />
+      <DiscoveryPeople client={supabase} canEdit={canEdit} onPerson={setSelectedId}/>
       <div className="admin-search-row two">
         <input type="search" placeholder="Search people or ordination status" value={query} onChange={(event) => setQuery(event.target.value)} />
         <select value={filter} onChange={(event) => setFilter(event.target.value)} aria-label="Filter by ordination">
@@ -831,6 +839,7 @@ function PeopleView({
       </div>
       {selected && (
         <PersonEditor
+          supabase={supabase}
           person={selected}
           assignments={snapshot.assignments.filter((item) => item.person_id === selected.id)}
           canEdit={canEdit}
@@ -858,6 +867,7 @@ function PeopleView({
 }
 
 function PersonEditor({
+  supabase,
   person,
   assignments,
   canEdit,
@@ -866,6 +876,7 @@ function PersonEditor({
   onSaveOrdination,
   onArchive,
 }: {
+  supabase: SupabaseClient;
   person: Person;
   assignments: Assignment[];
   canEdit: boolean;
@@ -915,6 +926,7 @@ function PersonEditor({
             </button>
           )}
         </section>
+        <DiscoveryPersonSummary client={supabase} personId={person.id} canEdit={canEdit}/>
         <AssignmentHistory title="Current ministries" assignments={current} canEdit={canEdit} working={working} onArchive={onArchive} />
         <AssignmentHistory title="Archived & historical ministries" assignments={history} canEdit={canEdit} working={working} onArchive={onArchive} />
       </section>
@@ -1170,22 +1182,6 @@ function EditablePosition({ position, canEdit, working, onSave }: { position: Po
   );
 }
 
-function ReportsView() {
-  return (
-    <>
-      <SectionHeading title="Reports" detail="Preview, filter, print, or save the current public ministry report as a PDF." />
-      <section className="admin-card admin-report-card">
-        <div>
-          <h3>Printable Ministry Directory</h3>
-          <p>The report includes current public placements and approved notes. Contact details and ordination status are intentionally excluded.</p>
-          <a className="button button-primary" href="/directory" target="_blank" rel="noreferrer">Open Full Report</a>
-        </div>
-        <iframe className="admin-report-frame" src="/embed" title="Printable ministry directory report preview" />
-      </section>
-    </>
-  );
-}
-
 function SettingsView({
   supabase,
   session,
@@ -1201,12 +1197,6 @@ function SettingsView({
   working: boolean;
   mutate: MutationRunner;
 }) {
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<AppRole>("editor");
-  const [churches, setChurches] = useState<Church[]>([]);
-  const [inviteChurchId, setInviteChurchId] = useState(profile.church_id);
-  const [temporaryPassword, setTemporaryPassword] = useState("");
-  const [reviewAccount,setReviewAccount]=useState(false);
   const [pcoApplicationId, setPcoApplicationId] = useState("");
   const [pcoSecret, setPcoSecret] = useState("");
   const [pcoConnected, setPcoConnected] = useState<boolean | null>(null);
@@ -1216,15 +1206,13 @@ function SettingsView({
       const status = data as { connected?: boolean } | null;
       setPcoConnected(Boolean(status?.connected));
     });
-    if (profile.is_platform_admin) {
-      void supabase.from("churches").select("id,name,slug").order("name").then(({ data }) => {
-        setChurches((data ?? []) as Church[]);
-      });
-    }
-  }, [profile.is_platform_admin, supabase]);
+
+  }, [supabase]);
   return (
     <>
-      <SectionHeading title="Settings" detail="Account, Planning Center sync, and administrator-only user access." />
+      <SectionHeading title="Settings" detail="Your account, member registration, church logo, and Planning Center connection." />
+      <p><Link href="/discover">Open my participant profile and assessments</Link></p>
+      {profile.app_role === "admin" && <DiscoveryRegistration client={supabase}/>}
       <div className="admin-two-column">
         <section className="admin-card admin-settings-card">
           <h3>Your account</h3>
@@ -1255,19 +1243,30 @@ function SettingsView({
             if (error) throw error;
           })}>Sync Planning Center</button>
         </section>
+        {profile.app_role === "admin" && <ChurchLogoSettings supabase={supabase} profile={profile} />}
+
+      </div>
+    </>
+  );
+}
+
+function UsersView({supabase,session,profile,working,mutate}: {supabase: SupabaseClient; session: Session; profile: Profile; working: boolean; mutate: MutationRunner}) {
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<AppRole>("editor");
+  const [temporaryPassword, setTemporaryPassword] = useState("");
+  return <><SectionHeading title="Users" detail="Invite your church’s team and manage their access." /><div className="admin-user-workspace">
         {profile.app_role === "admin" && (
           <section className="admin-card admin-settings-card full-panel">
             <h3>Create or resend an app user</h3>
-            <p>Leave the temporary password blank to email a setup link valid for 24 hours. Enter a temporary password to create an account that requires a password change at first login. Provide that password to the user separately.</p>
+            <p>Send a setup email, or set a temporary password of at least 14 characters. Temporary passwords must be changed at first login. This user will belong to your church.</p>
             <div className="admin-form-grid invite-grid">
               <label>Email<input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} /></label>
-              <label>Access<select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as AppRole)}>{profile.is_platform_admin && <option value="admin">Administrator</option>}<option value="editor">Editor</option><option value="viewer">Viewer</option></select></label>
-              {profile.is_platform_admin && <label>Church<select value={inviteChurchId} onChange={(event) => setInviteChurchId(event.target.value)}>{churches.map((church) => <option key={church.id} value={church.id}>{church.name}</option>)}</select></label>}
+              <label>Access<select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as AppRole)}><option value="admin">Administrator</option><option value="editor">Editor</option><option value="viewer">Viewer</option></select></label>
+
               {<label>Temporary password (optional; change required at first login)<input type="password" autoComplete="new-password" value={temporaryPassword} onChange={(event) => setTemporaryPassword(event.target.value)} /></label>}
-              {profile.is_platform_admin && <label><input type="checkbox" checked={reviewAccount} onChange={e=>setReviewAccount(e.target.checked)} />App Store review account (fixed password)</label>}
-              <button className="button button-primary admin-check-bottom" disabled={working || !inviteEmail.trim()} onClick={async () => {
-                const succeeded = await mutate(temporaryPassword ? (reviewAccount ? "Review account password saved." : "Temporary password saved. Password change is required at first login.") : "Setup email sent. Use the newest message.", async () => {
-                  const { error } = await supabase.functions.invoke("admin-users", { body: { email: inviteEmail.trim(), role: inviteRole, church_id: inviteChurchId, temporary_password: temporaryPassword || undefined, review_account: reviewAccount } });
+              <button className="button button-primary admin-check-bottom" disabled={working || !inviteEmail.trim() || (!!temporaryPassword && temporaryPassword.length < 14)} onClick={async () => {
+                const succeeded = await mutate(temporaryPassword ? "Temporary password saved. Password change is required at first login." : "Setup email sent. Use the newest message.", async () => {
+                  const { error } = await supabase.functions.invoke("admin-users", { body: { email: inviteEmail.trim(), role: inviteRole, church_id: profile.church_id, temporary_password: temporaryPassword || undefined } });
                   if (error) throw new Error(await functionErrorMessage(error));
                 });
                 if (succeeded) { setInviteEmail(""); setTemporaryPassword(""); }
@@ -1276,7 +1275,5 @@ function SettingsView({
           </section>
         )}
         {profile.app_role === "admin" && <AppUserManagement supabase={supabase} profile={profile} session={session} working={working} mutate={mutate} />}
-      </div>
-    </>
-  );
+</div></>;
 }

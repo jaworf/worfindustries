@@ -5,6 +5,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 import ts from 'typescript';
+import {createClient} from '@supabase/supabase-js';
 
 // Run the real TypeScript handlers in isolation. All auth, database, and PCO
 // boundaries are replaced; tests never send mail or touch production records.
@@ -13,14 +14,27 @@ async function handler(name, options = {}) {
   const caller = options.caller ?? {app_role:'admin',church_id:'church-a',is_platform_admin:false};
   const client = {
     auth: {
-      getUser: async () => ({data:{user:options.invalidSession ? null : {id:'actor'}},error:null}),
+      getUser: async () => ({data:{user:options.invalidSession ? null : {id:'actor',email_confirmed_at:options.unverified?null:'2026-10-01T00:00:00Z'}},error:null}),
       admin: {
         listUsers: async () => ({data:{users:options.existing ? [options.existing] : []},error:null}),
         updateUserById: async (...args) => {calls.push(['password',...args]);return {error:null};},
         createUser: async (...args) => {calls.push(['create',...args]);return {data:{user:{id:'new-user'}},error:null};},
         inviteUserByEmail: async (...args) => {calls.push(['invite',...args]);return {data:{user:{id:'new-user'}},error:null};},
         getUserById: async id => ({data:{user:{id,email:'test@example.org'}},error:null}),
-        deleteUser: async id => {calls.push(['delete',id]);return {error:options.deleteError ?? null};},
+        deleteUser: async id => {
+          calls.push(['delete',id]);
+          if (options.realDeletionSDK) {
+            const sdk = createClient('https://test.supabase.co', 'test-service', {
+              auth: {persistSession:false, autoRefreshToken:false},
+              global: {fetch: async url => {
+                calls.push(['auth-delete-url',String(url)]);
+                return new Response(JSON.stringify({id}), {status:200,headers:{'Content-Type':'application/json'}});
+              }},
+            });
+            return sdk.auth.admin.deleteUser(id);
+          }
+          return {error:options.deleteError ?? null};
+        },
       },
       resetPasswordForEmail: async (...args) => {calls.push(['email',...args]);return {error:null};},
     },
@@ -34,6 +48,7 @@ async function handler(name, options = {}) {
       const query = new Proxy({}, {get(_target,key) {
         if(key==='then') return (resolve,reject) => Promise.resolve(result()).then(resolve,reject);
         return (...args) => {
+          if(options.captureSelects&&key==='select') calls.push(['select',table,...args]);
           if(['insert','update','upsert'].includes(key)) {operation=key;value=args[0];calls.push([table,key,value]);}
           if(['eq','not'].includes(key)) filters.push([key,...args]);
           if(['single','maybeSingle'].includes(key)) return Promise.resolve(result());
@@ -42,6 +57,7 @@ async function handler(name, options = {}) {
       }});
       function result() {
         if(table==='profiles') {
+          if(options.captureProfileFilters) calls.push(['profile_filters',filters]);
           if(options.profiles && !filters.some(item=>item[1]==='user_id')) return {data:options.profiles,error:null};
           const target=filters.some(item=>item[1]==='user_id'&&item[2]!=='actor');
           return {data: target ? options.existingProfile ?? null : caller,error:target ? options.profileError ?? null : null};
@@ -81,6 +97,20 @@ async function handler(name, options = {}) {
   return {calls,request:async (body={},headers={Authorization:'Bearer test'}) => serve(new Request('https://test/'+name,{method:'POST',headers,body:typeof body==='string'?body:JSON.stringify(body)}))};
 }
 const invite={email:'pending@example.org',role:'viewer',church_id:'church-a'};
+const deletionTarget='abcdefab-1234-4567-89ab-abcdefabcdef';
+test('iOS uppercase UUID deletes through the real Auth SDK after normalization',async()=>{
+ const {request,calls}=await handler('admin-users',{existingProfile:{access_disabled:false},realDeletionSDK:true});
+ const response=await request({action:'delete_user',user_id:deletionTarget.toUpperCase(),confirmation:'DELETE'});
+ assert.equal(response.status,200);
+ assert.equal(calls[0][2].p_user_id,deletionTarget);
+ assert.deepEqual(calls[1],['delete',deletionTarget]);
+ assert.ok(calls.some(call=>call[0]==='auth-delete-url' && call[1].endsWith('/admin/users/'+deletionTarget)));
+});
+test('malformed deletion IDs fail before changing access or calling Auth',async()=>{
+ const {request,calls}=await handler('admin-users');
+ assert.equal((await request({action:'delete_user',user_id:'not-a-uuid',confirmation:'DELETE'})).status,400);
+ assert.equal(calls.length,0);
+});
 for(const caller of [{app_role:'viewer'}, {access_disabled:true}, {must_change_password:true}]) {
  test('self deletion works for restricted accounts '+JSON.stringify(caller),async()=>{
   const {request,calls}=await handler('admin-users',{caller});
@@ -98,18 +128,18 @@ test('invalid sessions cannot delete accounts',async()=>{
 });
 test('administrator deletion enforces the transactional access guard first',async()=>{
  const {request,calls}=await handler('admin-users',{existingProfile:{access_disabled:false}});
- assert.equal((await request({action:'delete_user',user_id:'target',confirmation:'DELETE'})).status,200);
+ assert.equal((await request({action:'delete_user',user_id:deletionTarget,confirmation:'DELETE'})).status,200);
  assert.equal(calls[0][1],'manage_app_user_access');assert.equal(calls[0][2].p_actor_id,'actor');
- assert.deepEqual(calls[1],['delete','target']);
+ assert.deepEqual(calls[1],['delete',deletionTarget]);
 });
 test('administrator cannot delete an account rejected by the access guard',async()=>{
  const {request,calls}=await handler('admin-users',{existingProfile:{access_disabled:false},rpcError:new Error('Other church')});
- assert.equal((await request({action:'delete_user',user_id:'target',confirmation:'DELETE'})).status,403);
+ assert.equal((await request({action:'delete_user',user_id:deletionTarget,confirmation:'DELETE'})).status,403);
  assert.ok(!calls.some(call=>call[0]==='delete'));
 });
 test('failed administrator deletion restores previously enabled access',async()=>{
  const {request,calls}=await handler('admin-users',{existingProfile:{access_disabled:false},deleteError:new Error('private deletion error')});
- const response=await request({action:'delete_user',user_id:'target',confirmation:'DELETE'});
+ const response=await request({action:'delete_user',user_id:deletionTarget,confirmation:'DELETE'});
  assert.equal(response.status,500);assert.doesNotMatch(await response.text(),/private deletion error/);
  assert.equal(calls.at(-1)[2].p_disabled,false);
 });
@@ -247,4 +277,69 @@ test('contact events without their owner fail before database writes',async()=>{
  const body=JSON.stringify({data:[{id:'contact-event',attributes:{name:'people.v2.events.email.updated',payload:JSON.stringify({data:{id:'contact-id'}})}}]});
  const {request,calls}=await handler('planning-center-webhook');
  assert.equal((await request(body,{'X-PCO-Webhooks-Authenticity':await signed(body)})).status,400); assert.equal(calls.length,0);
+});
+
+for(const caller of [
+ {app_role:'admin',church_id:'church-a',is_platform_admin:false},
+ {app_role:'viewer',church_id:'church-a',is_platform_admin:false},
+ {app_role:'admin',church_id:'church-a',is_platform_admin:true,access_disabled:true},
+]) test('platform overview rejects non-platform or restricted account '+JSON.stringify(caller),async()=>{
+ const {request,calls}=await handler('church-platform',{caller});
+ assert.equal((await request({action:'overview'})).status,403);
+ assert.equal(calls.filter(c=>c[0]==='rpc').length,0);
+});
+test('applicant cannot approve itself using supplied platform flags',async()=>{
+ const {request,calls}=await handler('church-platform',{caller:{app_role:'viewer',church_id:null,is_platform_admin:false}});
+ assert.equal((await request({action:'decide',approve:true,application_id:'any',is_platform_admin:true,actor_id:'owner'})).status,403);
+ assert.equal(calls.length,0);
+});
+test('applicant cannot create church membership by submitting forged fields',async()=>{
+ const {request,calls}=await handler('church-platform',{caller:{app_role:'viewer',church_id:null,is_platform_admin:false}});
+ assert.equal((await request({action:'apply',church_name:'Test Church',location:'Pasco, WA',church_id:'church-b',app_role:'admin'})).status,201);
+ assert.deepEqual(JSON.parse(JSON.stringify(calls.find(c=>c[0]==='church_applications')[2])),{applicant_id:'actor',church_name:'Test Church',location:'Pasco, WA'});
+});
+test('existing church member cannot apply for or take another workspace',async()=>{
+ const {request,calls}=await handler('church-platform');
+ assert.equal((await request({action:'apply',church_name:'Other Church',location:'Pasco'})).status,409);
+ assert.equal(calls.length,0);
+});
+test('support requires a reason and cannot read diagnostics if audit fails',async()=>{
+ const {request,calls}=await handler('church-platform',{caller:{app_role:'admin',church_id:'church-a',is_platform_admin:true},rpcError:{message:'audit failure'}});
+ assert.equal((await request({action:'diagnostics',church_id:deletionTarget,reason:'short'})).status,400);
+ assert.equal(calls.length,0);
+ assert.equal((await request({action:'diagnostics',church_id:deletionTarget,reason:'Investigate a reported sign-in problem'})).status,403);
+ assert.equal(calls.length,1);assert.equal(calls[0][1],'record_platform_support');
+ assert.equal(calls[0][2].p_actor_id,'actor');
+});
+test('approval always uses the verified actor',async()=>{
+ const {request,calls}=await handler('church-platform',{caller:{app_role:'admin',church_id:'church-a',is_platform_admin:true}});
+ assert.equal((await request({action:'decide',application_id:deletionTarget,approve:true,p_actor_id:'forged'})).status,200);
+ assert.equal(calls[0][1],'decide_church_application');assert.equal(calls[0][2].p_actor_id,'actor');
+});
+test('church admin can invite another administrator to its own church',async()=>{
+ const {request,calls}=await handler('admin-users');assert.equal((await request({...invite,role:'admin'})).status,201);
+ assert.equal(calls.find(c=>c[0]==='profiles'&&c[1]==='upsert')[2].church_id,'church-a');
+});
+test('church administrator cannot invite into another church',async()=>{
+ const {request,calls}=await handler('admin-users');assert.equal((await request({...invite,role:'admin',church_id:'church-b'})).status,403);assert.equal(calls.length,0);
+});
+test('platform user list defaults to its own church, not every church',async()=>{
+ const {request,calls}=await handler('admin-users',{caller:{app_role:'admin',church_id:'church-a',is_platform_admin:true},profiles:[],captureProfileFilters:true});
+ assert.equal((await request({action:'list'})).status,200);
+ assert.ok(calls.some(c=>c[0]==='profile_filters'&&c[1].some(f=>f[0]==='eq'&&f[1]==='church_id'&&f[2]==='church-a')));
+});
+
+test('unverified applicants cannot apply',async()=>{
+ const {request,calls}=await handler('church-platform',{unverified:true});
+ assert.equal((await request({action:'apply',church_name:'Church',location:'Pasco'})).status,401);assert.equal(calls.length,0);
+});
+test('successful diagnostics audit first, scope users, and select no private secrets',async()=>{
+ const {request,calls}=await handler('church-platform',{caller:{app_role:'admin',church_id:'church-a',is_platform_admin:true},profiles:[],captureProfileFilters:true,captureSelects:true});
+ const response=await request({action:'diagnostics',church_id:deletionTarget,reason:'Investigate a church sync problem'});
+ assert.equal(response.status,200);
+ const audit=calls.findIndex(c=>c[0]==='rpc'&&c[1]==='record_platform_support');
+ const churchRead=calls.findIndex(c=>c[0]==='select'&&c[1]==='churches');
+ assert.ok(audit>=0&&churchRead>audit);
+ assert.ok(calls.some(c=>c[0]==='profile_filters'&&c[1].some(f=>f[1]==='church_id'&&f[2]===deletionTarget)));
+ assert.equal(calls.filter(c=>c[0]==='select'&&/encrypted_password|application_id_secret_id|secret_secret_id|last_sync_error/.test(c[2])).length,0);
 });

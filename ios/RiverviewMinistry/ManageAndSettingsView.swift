@@ -534,15 +534,15 @@ struct SettingsView: View {
     @State private var showingImporter = false
     @State private var showingConnection = false
     @State private var showingDeleteAccount = false
-    @State private var inviteEmail = ""
-    @State private var temporaryPassword = ""
-    @State private var appUsers: [ManagedAppUser] = []
-    @State private var inviteRole: AppUserRole = .editor
+    @State private var showingLogoImporter = false
     @State private var pcoApplicationId = ""
     @State private var pcoSecret = ""
 
     var body: some View {
         Form {
+            Section("Ministry discovery") {
+                NavigationLink("Member registration and my assessments") { DiscoveryRegistrationView() }
+            }
             Section {
                 Picker("Text size", selection: $textSizeRaw) {
                     ForEach(AppTextSize.allCases) { size in
@@ -628,60 +628,26 @@ struct SettingsView: View {
                 )
             }
 
+
             if model.isAdministrator {
-                Section {
-                    TextField("Email address", text: $inviteEmail)
-                        .textContentType(.emailAddress)
-                        .withoutAutocapitalization()
-                        .autocorrectionDisabled()
-
-                    Picker("Access level", selection: $inviteRole) {
-                        ForEach(AppUserRole.invitationChoices) { role in
-                            Text(role.label).tag(role)
-                        }
-                    }
-
-                    SecureField("Temporary password (optional)", text: $temporaryPassword)
-                    Text("Temporary passwords must have at least 14 characters. The user must change it at first login.")
-                    Text(inviteRole.invitationDescription)
-                        .foregroundStyle(.secondary)
-
-                    Button {
-                        Task {
-                            if await model.inviteAppUser(
-                                email: inviteEmail,
-                                role: inviteRole, temporaryPassword: temporaryPassword.nilIfBlank
-                            ) {
-                                inviteEmail = ""
-                                temporaryPassword = ""
-                                appUsers = await model.loadAppUsers()
+                Section("Church Report Logo") {
+                    Button("Upload Church Logo") { showingLogoImporter = true }
+                        .disabled(model.isBusy)
+                        .fileImporter(isPresented: $showingLogoImporter, allowedContentTypes: [.image]) { result in
+                            switch result {
+                            case .success(let url): Task { await model.uploadChurchLogo(from: url) }
+                            case .failure(let error): model.errorMessage = error.localizedDescription
                             }
                         }
-                    } label: {
-                        Label(
-                            temporaryPassword.isEmpty ? "Create or Resend Setup Email" : "Create with Temporary Password",
-                            systemImage: "person.badge.plus"
-                        )
-                    }
-                    .disabled(inviteEmail.nilIfBlank == nil || model.isBusy || (!temporaryPassword.isEmpty && temporaryPassword.count < 14))
-                } header: {
-                    Text("Team Access")
-                } footer: {
-                    Text(
-                        "Administrator only. Leave the temporary password blank for a setup " +
-                        "email valid for 24 hours, or provide a temporary password separately. " +
-                        "Password accounts must change their password at first login."
-                    )
+                    Text(model.churchLogoData == nil ? "No church logo uploaded. Choose an image up to 2 MB. Large images are resized automatically." : "Your church logo will appear on your church’s reports. Upload another image to replace it.")
                 }
             }
 
-            if model.isAdministrator {
-                Section("Manage App Users") {
-                    Button("Refresh Users") { Task { appUsers = await model.loadAppUsers() } }
-                    ForEach(appUsers) { user in
-                        AppAccessRow(user: user) { appUsers = await model.loadAppUsers() }
-                    }
-                }.task { appUsers = await model.loadAppUsers() }
+            if model.currentProfile?.isPlatformAdmin == true {
+                Section("Platform Support") {
+                    Link("Open Church Approvals and Support", destination: URL(string: "https://ministryvolunteers.worf.app/platform")!)
+                    Text("Approve churches and inspect recorded, church-specific diagnostics in the web console.")
+                }
             }
 
             Section {
@@ -741,7 +707,7 @@ struct SettingsView: View {
         .frame(maxWidth: 920)
         .frame(maxWidth: .infinity)
         .background(AppTheme.pageBackground)
-        .navigationTitle("Settings & Import")
+        .navigationTitle("Settings")
         .confirmationDialog("Permanently delete your account?", isPresented: $showingDeleteAccount, titleVisibility: .visible) {
             Button("Delete My Account Permanently", role: .destructive) {
                 Task { await model.deleteOwnAccount() }
@@ -792,30 +758,67 @@ struct SettingsView: View {
 }
 
 private struct AppAccessRow: View {
+    let user: ManagedAppUser
+    let refresh: () async -> Void
+
+    var body: some View {
+        NavigationLink {
+            AppUserAccessView(user: user, refresh: refresh)
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(user.email).fontWeight(.semibold)
+                Text("Permissions, access, and account deletion")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+private struct AppUserAccessView: View {
  @EnvironmentObject private var model: AppModel
+ @Environment(\.dismiss) private var dismiss
  let user: ManagedAppUser
  let refresh: () async -> Void
  @State private var role: AppUserRole
  @State private var showingDeleteUser = false
  init(user: ManagedAppUser, refresh: @escaping () async -> Void) { self.user=user; self.refresh=refresh; _role=State(initialValue:user.appRole) }
- private var protectedUser: Bool { user.userId == model.currentProfile?.userId || user.isPlatformAdmin || (model.currentProfile?.isPlatformAdmin != true && user.appRole == .admin) }
+ private var protectedUser: Bool { user.userId == model.currentProfile?.userId || user.isPlatformAdmin }
  var body: some View {
-  VStack(alignment: .leading, spacing: 10) {
+  Form {
+   Section("Account") {
    Text(user.email).fontWeight(.semibold)
    Text(user.accessDisabled ? "Access removed" : user.mustChangePassword ? "Password change required" : user.enrolled ? "Active" : "Invitation pending").foregroundStyle(.secondary)
+   }
+   Section("Permissions") {
    Picker("Permissions", selection: $role) {
-    if model.currentProfile?.isPlatformAdmin == true { Text("Administrator").tag(AppUserRole.admin) }
+    Text("Administrator").tag(AppUserRole.admin)
     Text("Editor").tag(AppUserRole.editor)
     Text("Viewer").tag(AppUserRole.viewer)
    }.disabled(protectedUser || user.accessDisabled || model.isBusy)
    Button("Save Permissions") { Task { if await model.updateAppUser(user.userId, action: "update_role", role: role) { await refresh() } } }.disabled(protectedUser || user.accessDisabled || model.isBusy || role == user.appRole)
-   Button(user.accessDisabled ? "Restore Access" : "Remove Access") { Task { if await model.updateAppUser(user.userId, action: user.accessDisabled ? "restore_access" : "remove_access") { await refresh() } } }.disabled(protectedUser || model.isBusy)
+   }
+   Section("Account Access") {
+   Button(user.accessDisabled ? "Restore Access" : "Remove Access") { Task { if await model.updateAppUser(user.userId, action: user.accessDisabled ? "restore_access" : "remove_access") { await refresh(); dismiss() } } }.disabled(protectedUser || model.isBusy)
+   }
+   Section {
    Button("Delete User Permanently", role: .destructive) { showingDeleteUser = true }
     .disabled(protectedUser || model.isBusy)
+   } footer: {
+    if user.userId == model.currentProfile?.userId {
+     Text("To delete your own account, return to Settings and choose Delete My Account.")
+    } else if protectedUser {
+     Text("Your own account and platform administrator accounts are protected.")
+    } else {
+     Text("Permanently deletes this user's login and account profile. Church volunteer records and assignments are preserved.")
+    }
+   }
   }
+  .navigationTitle("Manage User")
+  .buttonStyle(.borderless)
   .confirmationDialog("Delete \(user.email) permanently?", isPresented: $showingDeleteUser, titleVisibility: .visible) {
    Button("Delete User Permanently", role: .destructive) {
-    Task { if await model.updateAppUser(user.userId, action: "delete_user") { await refresh() } }
+    Task { if await model.updateAppUser(user.userId, action: "delete_user") { await refresh(); dismiss() } }
    }
    Button("Cancel", role: .cancel) {}
   } message: {
@@ -839,5 +842,79 @@ struct DeleteOwnAccountButton: View {
             } message: {
                 Text("This permanently deletes your login and account profile. Church-owned volunteer records and assignments remain with the church; Planning Center records are not changed.")
             }
+    }
+}
+
+struct UserManagementView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var inviteEmail = ""
+    @State private var temporaryPassword = ""
+    @State private var appUsers: [ManagedAppUser] = []
+    @State private var inviteRole: AppUserRole = .editor
+    var body: some View {
+        Form {
+            if model.isAdministrator {
+                Section {
+                    TextField("Email address", text: $inviteEmail)
+                        .textContentType(.emailAddress)
+                        .withoutAutocapitalization()
+                        .autocorrectionDisabled()
+
+                    Picker("Access level", selection: $inviteRole) {
+                        ForEach(AppUserRole.invitationChoices) { role in
+                            Text(role.label).tag(role)
+                        }
+                    }
+
+                    SecureField("Temporary password (optional)", text: $temporaryPassword)
+                    Text("Temporary passwords must have at least 14 characters. The user must change it at first login.")
+                    Text(inviteRole.invitationDescription)
+                        .foregroundStyle(.secondary)
+
+                    Button {
+                        Task {
+                            if await model.inviteAppUser(
+                                email: inviteEmail,
+                                role: inviteRole, temporaryPassword: temporaryPassword.nilIfBlank
+                            ) {
+                                inviteEmail = ""
+                                temporaryPassword = ""
+                                appUsers = await model.loadAppUsers()
+                            }
+                        }
+                    } label: {
+                        Label(
+                            temporaryPassword.isEmpty ? "Create or Resend Setup Email" : "Create with Temporary Password",
+                            systemImage: "person.badge.plus"
+                        )
+                    }
+                    .disabled(inviteEmail.nilIfBlank == nil || model.isBusy || (!temporaryPassword.isEmpty && temporaryPassword.count < 14))
+                } header: {
+                    Text("Team Access")
+                } footer: {
+                    Text(
+                        "Administrator only. Leave the temporary password blank for a setup " +
+                        "email valid for 24 hours, or provide a temporary password separately. " +
+                        "Password accounts must change their password at first login."
+                    )
+                }
+            }
+
+            if model.isAdministrator {
+                Section("Manage App Users") {
+                    Button("Refresh Users") { Task { appUsers = await model.loadAppUsers() } }
+                    ForEach(appUsers) { user in
+                        AppAccessRow(user: user) { appUsers = await model.loadAppUsers() }
+                    }
+                }.task { appUsers = await model.loadAppUsers() }
+            }
+
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .frame(maxWidth: 920)
+        .frame(maxWidth: .infinity)
+        .background(AppTheme.pageBackground)
+        .navigationTitle("Users")
     }
 }

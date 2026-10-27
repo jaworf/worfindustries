@@ -442,6 +442,32 @@ actor SupabaseRESTClient {
         let _: [MinistryTerm] = try await restWrite("POST", table: "terms", body: payload)
     }
 
+
+    func churchLogo(churchId: UUID) async throws -> Data? {
+        var request = URLRequest(url: URL(string: configuration.projectURL + "/storage/v1/object/authenticated/church-logos/" + churchId.uuidString.lowercased() + "/logo")!)
+        request.setValue("Bearer " + (try await validAccessToken()), forHTTPHeaderField: "Authorization")
+        request.setValue(configuration.publishableKey, forHTTPHeaderField: "apikey")
+        let (data, response) = try await urlSession.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+        guard data.count <= 2_097_152 else { return nil }
+        return data
+    }
+
+    func uploadChurchLogo(churchId: UUID, png: Data) async throws {
+        var request = URLRequest(url: URL(string: configuration.projectURL + "/storage/v1/object/church-logos/" + churchId.uuidString.lowercased() + "/logo")!)
+        request.httpMethod = "POST"
+        request.httpBody = png
+        request.setValue("Bearer " + (try await validAccessToken()), forHTTPHeaderField: "Authorization")
+        request.setValue(configuration.publishableKey, forHTTPHeaderField: "apikey")
+        request.setValue("image/png", forHTTPHeaderField: "Content-Type")
+        request.setValue("true", forHTTPHeaderField: "x-upsert")
+        request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+        let (_, response) = try await urlSession.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw SupabaseClientError.invalidRequest("The church logo could not be uploaded. Check administrator access and the 2 MB file limit.")
+        }
+    }
+
     func runPlanningCenterSync() async throws -> PlanningCenterSyncResult {
         let data = try encoder.encode(EmptyBody())
         return try await send(
@@ -992,4 +1018,38 @@ private struct MergeAssignmentRequest: Encodable {
     let pRecord: AssignmentImportRecord
     let pImportRunId: UUID
     let pRowNumber: Int
+}
+
+
+extension SupabaseRESTClient {
+    private struct DiscoverySearchBody: Encodable {
+        let pFilters: [String: String]
+        let pOffset: Int
+        let pLimit: Int
+    }
+    private struct DiscoveryMemberBody: Encodable {
+        let pMember: UUID
+        var pQuery: String?
+        var pPerson: UUID?
+        var pCreate: Bool?
+        var pNote: String?
+    }
+    private struct DiscoveryRegistrationBody: Encodable {
+        let pRotate: Bool
+    }
+    func discoverySearch(filters: [String: String], offset: Int = 0) async throws -> DiscoverySearchResult {
+        try await rpc("discovery_staff_search", body: DiscoverySearchBody(pFilters: filters, pOffset: offset, pLimit: 20))
+    }
+    func discoveryRegistration(rotate: Bool = false) async throws -> DiscoveryRegistration {
+        try await rpc("discovery_registration", body: DiscoveryRegistrationBody(pRotate: rotate))
+    }
+    func discoveryCandidates(member: UUID, query: String) async throws -> [DiscoveryCandidate] {
+        try await rpc("discovery_candidates", body: DiscoveryMemberBody(pMember: member, pQuery: query))
+    }
+    func discoveryLink(member: UUID, person: UUID?, create: Bool) async throws {
+        let _: String? = try await rpc("discovery_link_person", body: DiscoveryMemberBody(pMember: member, pPerson: person, pCreate: create))
+    }
+    func discoveryObserve(member: UUID, note: String) async throws {
+        let _: String? = try await rpc("discovery_observe", body: DiscoveryMemberBody(pMember: member, pNote: note))
+    }
 }

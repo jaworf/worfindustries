@@ -96,8 +96,8 @@ Deno.serve(async (request: Request) => {
       if (payload.confirmation !== "DELETE") {
         return json(400, { error: "Confirm permanent account deletion." });
       }
-      const { error } = await admin.auth.admin.deleteUser(user.id);
-      if (error) throw error;
+      const { error } = await admin.auth.admin.deleteUser(user.id.toLowerCase());
+      if (error) return json(409, { error: "Account deletion could not be completed. If you are the last church administrator, appoint another administrator first. Contact support if you need help." });
       return json(200, { message: "Your account and sign-in profile have been permanently deleted." });
     }
 
@@ -110,24 +110,30 @@ Deno.serve(async (request: Request) => {
       return json(403, { error: "Only an active administrator can manage app users." });
     }
 
+    const { data: actorChurch, error: actorChurchError } = await admin.from("churches").select("is_active").eq("id", profile.church_id).single();
+    if (actorChurchError || !actorChurch?.is_active) return json(403, { error: "This church workspace is not active." });
+
     if (payload?.action === "delete_user") {
-      if (typeof payload.user_id !== "string" || payload.confirmation !== "DELETE") {
+      if (typeof payload.user_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.user_id) || payload.confirmation !== "DELETE") {
         return json(400, { error: "Choose a user and confirm permanent deletion." });
       }
+      // Foundation UUID.uuidString uses uppercase; Auth's UUID validator only
+      // accepts lowercase. Use one canonical ID for the guard and deletion.
+      const targetUserId = payload.user_id.toLowerCase();
       const { data: target, error: lookupError } = await admin.from("profiles")
-        .select("access_disabled").eq("user_id", payload.user_id).single();
+        .select("access_disabled").eq("user_id", targetUserId).single();
       if (lookupError) throw lookupError;
       // The same transactional guard protects church boundaries, platform
       // administrators, self-management, and the last active administrator.
       const { error: guardError } = await admin.rpc("manage_app_user_access", {
-        p_actor_id: user.id, p_user_id: payload.user_id, p_role: null, p_disabled: true,
+        p_actor_id: user.id, p_user_id: targetUserId, p_role: null, p_disabled: true,
       });
       if (guardError) return json(403, { error: "This account cannot be deleted by this administrator. Check church membership and administrator protections." });
-      const { error: deleteError } = await admin.auth.admin.deleteUser(payload.user_id);
+      const { error: deleteError } = await admin.auth.admin.deleteUser(targetUserId);
       if (deleteError) {
         if (!target.access_disabled) {
           const { error: restoreError } = await admin.rpc("manage_app_user_access", {
-            p_actor_id: user.id, p_user_id: payload.user_id, p_role: null, p_disabled: false,
+            p_actor_id: user.id, p_user_id: targetUserId, p_role: null, p_disabled: false,
           });
           if (restoreError) console.error("Could not restore access after unsuccessful account deletion:", restoreError);
         }
@@ -137,7 +143,12 @@ Deno.serve(async (request: Request) => {
     }
     if (payload?.action === "list") {
       let query = admin.from("profiles").select("user_id,display_name,app_role,church_id,is_platform_admin,access_disabled,must_change_password").not("church_id", "is", null);
-      if (!profile.is_platform_admin) query = query.eq("church_id", profile.church_id);
+      const requestedChurch = typeof payload?.church_id === "string" ? payload.church_id : profile.church_id;
+      if (requestedChurch !== profile.church_id) {
+        if (!profile.is_platform_admin) return json(403, { error: "This church is not available to your account." });
+        return json(403, { error: "Use the support console for another church." });
+      }
+      query = query.eq("church_id", profile.church_id);
       const { data: profiles, error } = await query.order("display_name");
       if (error) throw error;
       const users = [];
@@ -176,13 +187,9 @@ Deno.serve(async (request: Request) => {
     }
     const requestedChurchId =
       typeof payload?.church_id === "string" ? payload.church_id : null;
-    const churchId = profile.is_platform_admin && requestedChurchId
-      ? requestedChurchId
-      : profile.church_id;
+    if (requestedChurchId && requestedChurchId !== profile.church_id) return json(403, { error: "Create users from the church's own administrator account." });
+    const churchId = profile.church_id;
     if (!churchId) return json(400, { error: "Choose a church for this account." });
-    if (role === "admin" && !profile.is_platform_admin) {
-      return json(403, { error: "Only the platform administrator can create another administrator." });
-    }
     const temporaryPassword =
       typeof payload?.temporary_password === "string"
         ? payload.temporary_password
@@ -213,7 +220,7 @@ Deno.serve(async (request: Request) => {
       if (existingUser.email_confirmed_at && temporaryPassword && !reviewAccount) return json(409, { error: "This account is already active. Use Manage App Users for permissions, or password recovery to change its password." });
       if (existingProfile?.access_disabled) return json(409, { error: "This user's app access was removed. Restore access from the user list first." });
       if (existingUser.id === user.id && temporaryPassword) return json(400, { error: "Change your own password through password recovery." });
-      if (existingProfile?.is_platform_admin || (!profile.is_platform_admin && existingProfile && (existingProfile.church_id !== churchId || existingProfile.app_role === "admin"))) return json(403, { error: "You cannot change this account." });
+      if (existingProfile?.is_platform_admin || (!profile.is_platform_admin && existingProfile && existingProfile.church_id !== churchId)) return json(403, { error: "You cannot change this account." });
     }
     let userId: string;
     let responseStatus = 201;

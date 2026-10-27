@@ -79,7 +79,7 @@ test("provides a mobile authenticated administration route", async () => {
   const response = await render("/admin");
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /Riverview Ministry Volunteers/i);
+  assert.match(html, /Ministry Volunteers/i);
   assert.match(html, /secure database connection|Secure mobile access/i);
 });
 
@@ -156,7 +156,7 @@ test("keeps ordination on people and out of the public iframe", async () => {
   assert.match(adminClient, /Ordained Deacons/);
   assert.match(adminClient, /Ordination action/i);
   assert.match(adminClient, /Ordination Actions/i);
-  assert.match(adminClient, /ordination status are intentionally excluded/i);
+  assert.match(await readFile(new URL("app/admin/church-branding.tsx", root), "utf8"), /ordination status stay private/i);
   assert.doesNotMatch(adminClient, /service[_-]?role/i);
   assert.match(models, /var isOrdainedDeacon: Bool/);
   assert.match(models, /ordinationLabels/);
@@ -165,7 +165,7 @@ test("keeps ordination on people and out of the public iframe", async () => {
   assert.match(migration, /Yadelky/i);
   assert.match(migration, /Victoria/i);
   assert.doesNotMatch(migration, /update public\.assignments[\s\S]*is_ordained/i);
-  assert.doesNotMatch(reportGenerator, /ordinat/i);
+  assert.doesNotMatch(reportGenerator, /\bOrdination\b|is_ordained_|isOrdained/i);
 });
 
 test("prints with comfortable margins and page totals", async () => {
@@ -241,3 +241,17 @@ test("isolates church data and encrypts per-church Planning Center credentials",
   assert.match(webAdmin, /api\.planningcenteronline\.com\/docs\/overview\/authentication/);
   assert.doesNotMatch(webAdmin, /PCO_CLIENT_SECRET/);
 });
+
+for (const [path,title] of [["/join","Apply for your church"],["/platform","Platform Support"]]) {
+ test(`renders new ${path} route without sensitive data`,async()=>{
+  const response=await render(path);assert.equal(response.status,200);const html=await response.text();
+  assert.ok(html.includes(title));assert.ok(!html.includes('service_role'));assert.ok(!html.includes('last_sync_error'));
+ });
+}
+
+for (const path of ["/discover", "/discovery", "/discover/"+"a".repeat(64)]) {
+ test("renders ministry discovery route "+path, async()=>{
+ const response=await render(path);assert.equal(response.status,200);
+ const html=await response.text();assert.match(html,/My Ministry Profile|Discover your ministry/);if(path.startsWith("/discover/"))assert(html.includes("a".repeat(64)));assert.doesNotMatch(html,/service_role|sb_secret_/);
+ });
+}

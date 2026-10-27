@@ -8,6 +8,7 @@ export type Tab =
   | "votes"
   | "manage"
   | "reports"
+  | "users"
   | "settings";
 export type AssignmentRoute = { personId?: string; ministryId?: string };
 export type OrdinationKind = "deacon" | "deaconess" | "elder";
@@ -132,6 +133,7 @@ export const navItems: Array<{ id: Tab; label: string; short: string }> = [
   { id: "votes", label: "Awaiting Vote", short: "Votes" },
   { id: "manage", label: "Manage", short: "Manage" },
   { id: "reports", label: "Reports", short: "Reports" },
+  { id: "users", label: "Users", short: "Users" },
   { id: "settings", label: "Settings", short: "Settings" },
 ];
 

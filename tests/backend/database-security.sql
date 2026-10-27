@@ -32,10 +32,6 @@ begin
   exception when others then rejected:=SQLERRM like 'Your own account%'; end;
   if not rejected then raise exception 'Self-removal was not rejected'; end if;
   rejected:=false;
-  begin perform public.manage_app_user_access('20000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000002','admin',null);
-  exception when others then rejected:=SQLERRM like 'Only a platform%'; end;
-  if not rejected then raise exception 'Ordinary admin promotion was not rejected'; end if;
-  rejected:=false;
   begin perform public.manage_app_user_access('20000000-0000-4000-8000-000000000004','20000000-0000-4000-8000-000000000003',null,true);
   exception when others then rejected:=SQLERRM like 'The last active%'; end;
   if not rejected then raise exception 'Last administrator removal was not rejected'; end if;

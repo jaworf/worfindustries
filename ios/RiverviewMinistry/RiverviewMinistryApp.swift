@@ -190,7 +190,7 @@ struct RootView: View {
         .task {
             await model.restoreStoredSession()
         }
-        .overlay(alignment: .top) {
+        .safeAreaInset(edge: .top, spacing: 0) {
             MessageBanner()
         }
     }
@@ -215,7 +215,7 @@ private struct BrandedLaunchView: View {
                     .shadow(color: .black.opacity(0.22), radius: 18, y: 9)
 
                 VStack(spacing: 6) {
-                    Text("Riverview Ministry Volunteers")
+                    Text("Ministry Volunteers")
                         .appFont(.title, weight: .bold)
                     Text("Serving together")
                         .appFont(.headline, weight: .medium)
@@ -253,6 +253,8 @@ private struct MessageBanner: View {
                     model.noticeMessage = nil
                 } label: {
                     Image(systemName: "xmark")
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Dismiss")
@@ -272,6 +274,7 @@ private struct MessageBanner: View {
                             ? AppTheme.riverBlue.opacity(0.28)
                             : Color.red.opacity(0.28)
                     )
+                    .allowsHitTesting(false)
             }
             .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
             .padding()
@@ -363,17 +366,18 @@ struct LoginView: View {
                 AppTheme.pageBackground
                     .ignoresSafeArea()
 
+                ScrollView {
                 VStack(spacing: 26) {
-                    Spacer()
+                    Spacer(minLength: 16)
                     Image("MinistryMark")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 112, height: 112)
                         .clipShape(RoundedRectangle(cornerRadius: 25, style: .continuous))
                         .shadow(color: AppTheme.riverBlueDark.opacity(0.2), radius: 12, y: 6)
-                        .accessibilityLabel("Riverview Ministry Volunteers")
+                        .accessibilityLabel("Ministry Volunteers")
                     VStack(spacing: 8) {
-                        Text("Riverview Ministry Volunteers")
+                        Text("Ministry Volunteers")
                             .appFont(.largeTitle, weight: .bold)
                             .multilineTextAlignment(.center)
                         Text("Volunteer placement and term records")
@@ -404,6 +408,8 @@ struct LoginView: View {
                         .controlSize(.large)
                         .disabled(email.nilIfBlank == nil || password.isEmpty || model.isBusy)
 
+                        Link("Apply for a free church workspace", destination: URL(string: "https://ministryvolunteers.worf.app/join")!)
+
                         Button("Forgot Password?") {
                             model.errorMessage = nil
                             model.noticeMessage = nil
@@ -413,7 +419,7 @@ struct LoginView: View {
                         .foregroundStyle(AppTheme.riverBlue)
 
                         Text(
-                            "Use the password for your Riverview app account. " +
+                            "Use the password for your church account. " +
                             "It is separate from the Supabase project or database password."
                         )
                         .appFont(.footnote)
@@ -436,7 +442,10 @@ struct LoginView: View {
                     .foregroundStyle(.secondary)
                     Spacer()
                 }
-                .padding(30)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 24)
+                .frame(maxWidth: .infinity)
+                }
             }
             .sheet(isPresented: $showingConnection) {
                 ConfigurationView(isInitialSetup: false)
@@ -539,6 +548,7 @@ enum AppTab: Hashable {
     case votes
     case reports
     case manage
+    case users
     case settings
 }
 
@@ -598,6 +608,12 @@ struct MainShellView: View {
             .tag(AppTab.assign)
 
             NavigationStack {
+                ReportsView()
+            }
+            .tabItem { Label("Reports", systemImage: "doc.richtext") }
+            .tag(AppTab.reports)
+
+            NavigationStack {
                 VoteQueueView()
             }
             .tabItem { Label("Votes", systemImage: "checkmark.seal") }
@@ -605,16 +621,16 @@ struct MainShellView: View {
             .tag(AppTab.votes)
 
             NavigationStack {
-                ReportsView()
-            }
-            .tabItem { Label("Reports", systemImage: "doc.richtext") }
-            .tag(AppTab.reports)
-
-            NavigationStack {
                 ManageView()
             }
             .tabItem { Label("Manage", systemImage: "slider.horizontal.3") }
             .tag(AppTab.manage)
+
+            if model.isAdministrator {
+                NavigationStack { UserManagementView() }
+                    .tabItem { Label("Users", systemImage: "person.2.badge.gearshape") }
+                    .tag(AppTab.users)
+            }
 
             NavigationStack {
                 SettingsView()
