@@ -2039,3 +2039,35 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .admin-focus-votes { margin-bottom: 20px; }
 .admin-focus-votes > h3 { margin: 0 0 14px; font-size: 1.13rem; color: var(--forest-dark); }
 @media(max-width:600px) { .admin-focus-votes, .admin-user-workspace > section.admin-card { padding: 18px; } }
+
+/* Responsive refinements shared by the public and staff workspaces. */
+textarea{font:inherit}
+.admin-header-actions{max-width:100%}
+.admin-nav .admin-nav-more{display:none}
+.admin-more-panel{inset:auto 12px calc(82px + env(safe-area-inset-bottom));width:calc(100% - 24px);max-width:440px;margin:0 auto;padding:12px;border:1px solid var(--line);border-radius:18px;background:var(--surface);color:var(--ink);box-shadow:0 18px 60px rgb(7 25 36 / .25)}
+.admin-more-panel:popover-open{display:grid;gap:6px}
+.admin-more-panel>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 8px 10px;border-bottom:1px solid var(--line);margin-bottom:6px}
+.admin-more-panel h2{margin:0;font-size:1.1rem;font-weight:750;line-height:1.4}
+.admin-nav .admin-more-panel>button{width:100%;min-height:48px;font-size:1rem;text-align:left;padding:12px 16px}
+.admin-nav .admin-more-panel>header button{min-width:44px;min-height:44px;padding:4px;font-size:1.65rem;text-align:center}
+.admin-report-scroll-hint{display:none}
+.support-card{min-width:0;overflow-wrap:anywhere}
+.support-card label{display:grid;gap:8px;font-weight:650;line-height:1.5}
+.support-card input,.support-card select,.support-card textarea{min-width:0;width:100%;padding:12px;font:inherit;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.support-card textarea{min-height:110px;resize:vertical}
+@media(max-width:900px){
+ .admin-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));overflow:visible;gap:4px}
+ .admin-nav>button{min-width:0;max-width:100%;display:flex;align-items:center;justify-content:center;padding:8px 4px;line-height:1.3}
+ .admin-nav>button.admin-nav-secondary{display:none}
+ .admin-nav>button.admin-nav-more{display:flex}
+ .admin-header-actions .button{min-height:44px}
+}
+@media(max-width:760px){.admin-report-scroll-hint{display:block;margin:0;color:var(--muted);font-size:.86rem;line-height:1.5}}
+@media(max-width:620px){
+ .admin-header{flex-wrap:wrap;gap:12px}
+ .admin-brand{flex:1 1 210px}
+ .admin-brand h1{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+ .admin-header-actions{margin-left:auto;justify-content:flex-end;flex-wrap:wrap}
+ .admin-main input,.admin-main select,.admin-main textarea,.admin-login-card input,.support-card input,.support-card select,.support-card textarea,.filter-panel input,.filter-panel select{font-size:1rem}
+ .admin-section-heading h2{line-height:1.15}
+}

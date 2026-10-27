@@ -39,6 +39,7 @@ export function MinistryAdmin({
   const [profile, setProfile] = useState<Profile | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot>(emptySnapshot);
   const [activeTab, setActiveTab] = useState<Tab>("focus");
+  const secondaryTabs: Tab[] = ["votes","manage","reports","users","settings"];
   const [assignmentRoute, setAssignmentRoute] = useState<AssignmentRoute>({});
   const openAssign = (route: AssignmentRoute) => { setAssignmentRoute(route); setActiveTab("assign"); };
   const [booting, setBooting] = useState(Boolean(supabase));
@@ -231,16 +232,15 @@ export function MinistryAdmin({
       <div className="admin-workspace">
         <nav className="admin-nav" aria-label="Admin sections">
           {navItems.filter(item => item.id !== "users" || profile?.app_role === "admin").map((item) => (
-            <button
-              key={item.id}
-              className={activeTab === item.id ? "active" : ""}
-              onClick={() => setActiveTab(item.id)}
-              aria-current={activeTab === item.id ? "page" : undefined}
-            >
-              <span className="admin-nav-full">{item.label}</span>
-              <span className="admin-nav-short">{item.short}</span>
+            <button key={item.id} className={[activeTab===item.id?"active":"",secondaryTabs.includes(item.id)?"admin-nav-secondary":""].join(" ")} onClick={()=>{setActiveTab(item.id);window.scrollTo(0,0);}} aria-current={activeTab===item.id?"page":undefined}>
+              <span className="admin-nav-full">{item.label}</span><span className="admin-nav-short">{item.short}</span>
             </button>
           ))}
+          <button className={["admin-nav-more",secondaryTabs.includes(activeTab)?"active":""].join(" ")} popoverTarget="admin-more-sections" aria-haspopup="dialog">More</button>
+          <div id="admin-more-sections" popover="auto" className="admin-more-panel" role="dialog" aria-labelledby="admin-more-title">
+            <header><h2 id="admin-more-title">More sections</h2><button popoverTarget="admin-more-sections" popoverTargetAction="hide" aria-label="Close sections">×</button></header>
+            {navItems.filter(item=>secondaryTabs.includes(item.id)&&(item.id!=="users"||profile?.app_role==="admin")).map(item=><button key={item.id} className={activeTab===item.id?"active":""} aria-current={activeTab===item.id?"page":undefined} onClick={event=>{setActiveTab(item.id);event.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover();window.scrollTo(0,0);}}>{item.label}</button>)}
+          </div>
         </nav>
 
         <main className="admin-main">
