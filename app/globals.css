@@ -2190,3 +2190,5 @@ textarea{font:inherit}
 .pco-merge-history summary { cursor: pointer; font-weight: 700; }
 .pco-duplicate-review input[type="radio"] { width: 20px; height: 20px; min-width: 20px; min-height: 20px; padding: 0; margin: 0; flex: 0 0 20px; }
 .pco-duplicate-review fieldset .admin-check-row { align-items: flex-start; gap: 10px; margin: 12px 0; }
+
+@media (min-width: 1050px) { .pco-duplicate-contact-columns { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
