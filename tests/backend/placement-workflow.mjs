@@ -326,7 +326,17 @@ try {
   await cmd("vote_failed", {candidate_id:unsuccessful});
   assert.equal((await db.query("select status from public.placement_openings where id=$1", [duplicateOpening])).rows[0].status, "open"); passed++;
   assert.equal(await count("assignments"), 2); passed++;
+  for (const table of ["placement_candidates", "volunteer_contact_history"]) {
+    assert.ok(await count(table) > 0, "Admin must retain recruitment access"); passed++;
+  }
+  await as(ids.editor);
+  for (const table of ["placement_candidates", "volunteer_contact_history"]) {
+    assert.ok(await count(table) > 0, "Editor must retain recruitment access"); passed++;
+  }
   await as(ids.viewer);
+  for (const table of ["placement_candidates", "volunteer_contact_history"]) {
+    assert.equal(await count(table), 0, "Viewer must not read recruitment responses or call notes"); passed++;
+  }
   await deny(
     "call",
     { candidate_id: candidate, response: "no" },

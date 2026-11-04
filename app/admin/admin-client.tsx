@@ -237,7 +237,7 @@ export function MinistryAdmin({
 
       <div className="admin-workspace">
         <nav className="admin-nav" aria-label="Admin sections">
-          {navItems.filter(item => item.id !== "users" || profile?.app_role === "admin").map((item) => (
+          {navItems.filter(item => (item.id !== "users" || profile?.app_role === "admin") && (item.id !== "placement" || canEdit)).map((item) => (
             <button key={item.id} className={[activeTab===item.id?"active":"",secondaryTabs.includes(item.id)?"admin-nav-secondary":""].join(" ")} onClick={()=>{setActiveTab(item.id);window.scrollTo(0,0);}} aria-current={activeTab===item.id?"page":undefined}>
               <span className="admin-nav-full">{item.label}</span><span className="admin-nav-short">{item.short}</span>
             </button>
@@ -245,7 +245,7 @@ export function MinistryAdmin({
           <button className={["admin-nav-more",secondaryTabs.includes(activeTab)?"active":""].join(" ")} popoverTarget="admin-more-sections" aria-haspopup="dialog">More</button>
           <div id="admin-more-sections" popover="auto" className="admin-more-panel" role="dialog" aria-labelledby="admin-more-title">
             <header><h2 id="admin-more-title">More sections</h2><button popoverTarget="admin-more-sections" popoverTargetAction="hide" aria-label="Close sections">×</button></header>
-            {navItems.filter(item=>secondaryTabs.includes(item.id)&&(item.id!=="users"||profile?.app_role==="admin")).map(item=><button key={item.id} className={activeTab===item.id?"active":""} aria-current={activeTab===item.id?"page":undefined} onClick={event=>{setActiveTab(item.id);event.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover();window.scrollTo(0,0);}}>{item.label}</button>)}
+            {navItems.filter(item=>secondaryTabs.includes(item.id)&&(item.id!=="users"||profile?.app_role==="admin")&&(item.id!=="placement"||canEdit)).map(item=><button key={item.id} className={activeTab===item.id?"active":""} aria-current={activeTab===item.id?"page":undefined} onClick={event=>{setActiveTab(item.id);event.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover();window.scrollTo(0,0);}}>{item.label}</button>)}
           </div>
         </nav>
 
@@ -270,7 +270,7 @@ export function MinistryAdmin({
           )}
           {!loading && profile && (
             <>
-              {activeTab === "placement" && <PlacementWorkflow supabase={supabase} snapshot={snapshot} profile={profile} onChanged={() => loadData(session.user.id, true)} />}
+              {activeTab === "placement" && canEdit && <PlacementWorkflow supabase={supabase} snapshot={snapshot} profile={profile} onChanged={() => loadData(session.user.id, true)} />}
               {activeTab === "focus" && (
                 <FocusDashboard
                   onVotes={() => setActiveTab("votes")}
@@ -312,7 +312,7 @@ export function MinistryAdmin({
               )}
               {activeTab === "votes" && (
                 <>
-                <PlacementWorkflow supabase={supabase} snapshot={snapshot} profile={profile} onChanged={() => loadData(session.user.id,true)} initialView="nominations" votesOnly/>
+                {canEdit && <PlacementWorkflow supabase={supabase} snapshot={snapshot} profile={profile} onChanged={() => loadData(session.user.id,true)} initialView="nominations" votesOnly/>}
                 <VoteView
                   supabase={supabase}
                   assignments={snapshot.assignments}
@@ -826,7 +826,7 @@ function PersonEditor({
           </div>
           <button onClick={onClose} aria-label="Close">×</button>
         </header>
-        <PersonContactHistory key={person.id} supabase={supabase} personId={person.id}/>
+        {canEdit && <PersonContactHistory key={person.id} supabase={supabase} personId={person.id}/>}
         <div className="admin-person-contact">
           {person.membership_status && <span>{person.membership_status}</span>}
           {person.email && <a href={`mailto:${person.email}`}>{person.email}</a>}
