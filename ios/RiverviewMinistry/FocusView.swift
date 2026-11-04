@@ -818,8 +818,9 @@ struct PlacementWorkflowView: View {
                 if opening.status == "open" {
                     NativeSearchPicker(title: "Add a candidate", selection: $personId, options: model.people.filter { person in person.isActive && !data.candidates.contains { $0.openingId == opening.id && $0.personId == person.id } }.map { NativeSearchOption(id: $0.id.uuidString, title: $0.displayName, detail: [$0.email, $0.mobilePhone].compactMap { $0 }.joined(separator: " · ")) })
                     Button("Add Candidate") { Task { await command("candidate", ["opening_id": opening.id.uuidString, "person_id": personId]); personId = "" } }.buttonStyle(.borderedProminent).disabled(personId.isEmpty || model.isBusy)
+                    Text("Close the opening when recruitment is finished. It moves to Completed; candidate and call history are kept.").font(.caption).foregroundStyle(.secondary)
                     HStack {
-                        Button("Finish Recruiting") { Task { if await command("finish_opening", ["opening_id":opening.id.uuidString]) { selectedOpening = nil } } }
+                        Button("Close Opening") { Task { if await command("finish_opening", ["opening_id":opening.id.uuidString]) { selectedOpening = nil } } }
                         Spacer(minLength: 10)
                         Button("Move to Trash", role: .destructive) { trashOpening = opening.id; showingTrashConfirmation = true }
                     }.font(.callout).disabled(model.isBusy)
@@ -888,12 +889,14 @@ struct PlacementCandidateView: View {
     @State private var assignee = ""
     @State private var response = ""
     @State private var notes = ""
+    @FocusState private var editingNotes: Bool
     @State private var callDate = Date()
     @State private var actionDate = Date()
     @State private var followUp = Date()
     @State private var includeFollowUp = false
     @State private var error: String?
     private func execute(_ action: String) async {
+        editingNotes = false
         var body = ["candidate_id": candidateId.uuidString, "date": AppDate.storage(action == "call" ? callDate : actionDate), "notes": notes]
         if action == "call" { body["caller_id"] = model.isAdministrator ? callerId : model.currentProfile?.userId.uuidString; body["response"] = response }
         if action == "assign_call" { body["caller_id"] = assignee }
@@ -939,6 +942,7 @@ struct PlacementCandidateView: View {
                         Toggle("Schedule follow-up", isOn: $includeFollowUp)
                         if includeFollowUp { DatePicker("Follow up", selection: $followUp, displayedComponents: .date) }
                         TextField("Notes / explanation", text: $notes, axis: .vertical)
+                            .focused($editingNotes)
                         Button("Save Call to Person’s History") { Task { await execute("call") } }.disabled(model.isBusy || response.isEmpty || (response == "other" && notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
                     }
                 }
@@ -962,6 +966,15 @@ struct PlacementCandidateView: View {
                 Section("Person’s Volunteer Contact History") { VolunteerHistoryRows(entries: data.history.filter { $0.personId == person.id }) }
             }
         }.navigationTitle("Candidate")
+            .scrollDismissesKeyboard(.interactively)
+            .toolbar {
+                #if os(iOS)
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { editingNotes = false }
+                }
+                #endif
+            }
             .onAppear {
                 let candidate = data.candidates.first { $0.id == candidateId }
                 callerId = (model.isAdministrator ? candidate?.assignedTo : nil)?.uuidString ?? model.currentProfile?.userId.uuidString ?? ""

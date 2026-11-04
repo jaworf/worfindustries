@@ -404,7 +404,7 @@ export function PlacementWorkflow({
               <div className="placement-section-heading">
                 <h3>{label(currentOpening)}</h3>
                 <button className="button" onClick={() => setSelected("")}>
-                  Close
+                  Collapse Details
                 </button>
               </div>
               {currentOpening.notes && <p>{currentOpening.notes}</p>}
@@ -424,6 +424,7 @@ export function PlacementWorkflow({
                       command("candidate", { opening_id: selected, person_id })
                     }
                   />
+                  <p className="admin-help">Close the opening when recruitment is finished. It moves to Completed; candidate and call history are kept.</p>
                   <div className="placement-actions">
                     <button
                       className="button"
@@ -432,7 +433,7 @@ export function PlacementWorkflow({
                         void command("finish_opening", { opening_id: selected })
                       }
                     >
-                      Finish Recruiting
+                      Close Opening
                     </button>
                     <button
                       className="button"
