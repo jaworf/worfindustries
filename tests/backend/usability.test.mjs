@@ -124,6 +124,22 @@ test("flexible openings, duplicate/trash protection, safe account linking and ne
         ])
       ).rows[0].term_id,
     );
+    const votedOpening = (await q("select * from public.placement_openings where id=$1", [voted.id])).rows[0];
+    await q("insert into public.assignments(id,church_id,person_id,role_id,sub_role_id,term_id,status) values($1,$2,$3,$4,$5,$6,'active')", [id(999),id(100),id(13),votedOpening.role_id,votedOpening.sub_role_id,votedOpening.term_id]);
+    const voteStep = args => rpc("assignment_vote_step", {p_assignment:id(999),...args});
+    await assert.rejects(() => voteStep({p_vote_date:"2026-11-04"}), /first reading publication/);
+    await auth(3);
+    await assert.rejects(() => voteStep({p_published:true}), /Administrator or editor/);
+    await auth(2);
+    await voteStep({p_published:true});
+    assert.equal((await q("select first_reading_published from public.assignment_details where id=$1",[id(999)])).rows[0].first_reading_published,true);
+    await voteStep({p_published:false});
+    await assert.rejects(() => voteStep({p_vote_date:"2026-11-04"}), /first reading publication/);
+    await voteStep({p_published:true});
+    await voteStep({p_vote_date:"2026-11-04"});
+    assert.equal((await q("select vote_missing from public.assignment_details where id=$1",[id(999)])).rows[0].vote_missing,false);
+    await assert.rejects(() => voteStep({p_published:false}), /awaiting a vote/);
+    await auth(1);
     for (const person_id of [id(10), id(12)]) {
       const c = await cmd("candidate", { opening_id: o.id, person_id });
       await cmd("call", { candidate_id: c.id, response: "yes" });

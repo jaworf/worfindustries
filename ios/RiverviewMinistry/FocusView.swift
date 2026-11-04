@@ -803,12 +803,7 @@ struct PlacementWorkflowView: View {
                 }
             }
             if scope == "Nominations" {
-                Section("Bulletin Text") {
-                    Text("First reading").font(.headline)
-                    Text(bulletin(stage: "nominated")).textSelection(.enabled)
-                    Text("Second reading").font(.headline)
-                    Text(bulletin(stage: "first_reading")).textSelection(.enabled)
-                }
+                BulletinSuggestionsSection(data: data)
             }
             ForEach(displayed) { candidate in
                 if let person = model.people.first(where: { $0.id == candidate.personId }), let opening = data.openings.first(where: { $0.id == candidate.openingId }) {
@@ -832,13 +827,7 @@ struct PlacementWorkflowView: View {
         .toolbar { Button("Refresh") { Task { await refresh() } } }
         .sheet(isPresented: $showingOpening, onDismiss: { Task { await refresh() } }) { NewPlacementOpeningView() }
     }
-    private func bulletin(stage: String) -> String {
-        let lines = data.candidates.filter { $0.stage == stage }.compactMap { candidate -> String? in
-            guard let person = model.people.first(where: { $0.id == candidate.personId }), let opening = data.openings.first(where: { $0.id == candidate.openingId }) else { return nil }
-            return "\(person.displayName) — \(title(opening))"
-        }
-        return lines.isEmpty ? "None" : lines.joined(separator: "\n")
-    }
+
 }
 
 private struct NewPlacementOpeningView: View {
@@ -881,7 +870,7 @@ private struct NewPlacementOpeningView: View {
     }
 }
 
-private struct PlacementCandidateView: View {
+struct PlacementCandidateView: View {
     @EnvironmentObject private var model: AppModel
     let candidateId: UUID
     @State var data: PlacementSnapshot
@@ -948,13 +937,14 @@ private struct PlacementCandidateView: View {
                     Section("Selection and Approval") {
                         Text(requirement ? "Church vote required" : "Appointment — no church vote required")
                         if let date = candidate.nominatedOn { Text("Nominated: \(date)") }
-                        if let date = candidate.firstReading { Text("First reading: \(date)") }
-                        if let date = candidate.secondReading { Text("Second reading: \(date)") }
-                        DatePicker("Actual action date", selection: $actionDate, in: ...Date(), displayedComponents: .date)
+                        if ["nominated", "first_reading", "second_reading"].contains(candidate.stage) {
+                            Toggle("First reading published", isOn: Binding(get: { candidate.firstReading != nil }, set: { checked in Task { await execute(checked ? "first_reading" : "unpublish_first_reading") } }))
+                                .disabled(model.isBusy)
+                        }
+                        if ["first_reading", "second_reading"].contains(candidate.stage) { Text("Recording the vote confirms the second reading.") }
+                        if candidate.stage != "nominated" { DatePicker(["first_reading", "second_reading"].contains(candidate.stage) ? "Vote date" : "Actual action date", selection: $actionDate, in: ...Date(), displayedComponents: .date) }
                         if candidate.stage == "considering" && candidate.response == "yes" { actionButton(requirement ? "Nominate — Pending Vote" : "Appoint Volunteer", requirement ? "nominate" : "appoint") }
-                        if candidate.stage == "nominated" { actionButton("Record First Reading", "first_reading") }
-                        if candidate.stage == "first_reading" { actionButton("Record Second Reading", "second_reading") }
-                        if candidate.stage == "second_reading" { actionButton("Vote Passed — Activate", "vote_passed"); actionButton("Vote Did Not Pass", "vote_failed") }
+                        if ["first_reading", "second_reading"].contains(candidate.stage) { actionButton("Vote Passed — Activate", "vote_passed"); actionButton("Vote Did Not Pass", "vote_failed") }
                         if ["nominated", "first_reading", "second_reading"].contains(candidate.stage) { actionButton("Defer", "defer") }
                         if candidate.stage == "deferred" { actionButton("Resume Nomination", "resume") }
                         actionButton("Withdraw Candidate", "withdraw")
@@ -968,5 +958,26 @@ private struct PlacementCandidateView: View {
     }
     private func actionButton(_ title: String, _ action: String) -> some View {
         Button(title) { Task { await execute(action) } }.disabled(model.isBusy)
+    }
+}
+
+struct BulletinSuggestionsSection: View {
+    @EnvironmentObject private var model: AppModel
+    let data: PlacementSnapshot
+    var body: some View {
+        Section("Bulletin Suggestions") {
+            Text("First reading").font(.headline)
+            Text(bulletin(stage: "nominated")).textSelection(.enabled)
+            Text("Second reading").font(.headline)
+            Text(bulletin(stage: "first_reading")).textSelection(.enabled)
+        }
+    }
+    private func bulletin(stage: String) -> String {
+        let lines = data.candidates.filter { stage == "nominated" ? $0.stage == "nominated" : ["first_reading", "second_reading"].contains($0.stage) }.compactMap { candidate -> String? in
+            guard let person = model.people.first(where: { $0.id == candidate.personId }), let opening = data.openings.first(where: { $0.id == candidate.openingId }) else { return nil }
+            return "\(person.displayName) — \([model.roles.first { $0.id == opening.roleId }?.name, model.subRoles.first { $0.id == opening.subRoleId }?.name, model.terms.first { $0.id == opening.termId }?.name].compactMap { $0 }.joined(separator: " · "))"
+        }
+        let existing = model.assignments.filter { $0.isCurrentPlacement && $0.voteMissing && (stage == "nominated" ? $0.firstReadingPublished != true : $0.firstReadingPublished == true) }.map { "\($0.personName) — \($0.roleName)\($0.subRoleName.map { " · " + $0 } ?? "")" }
+        return (existing + lines).isEmpty ? "None" : (existing + lines).joined(separator: "\n")
     }
 }

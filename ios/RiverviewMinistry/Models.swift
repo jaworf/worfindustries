@@ -132,6 +132,7 @@ struct AssignmentDetail: Codable, Identifiable, Hashable, Sendable {
     let endDate: String?
     let termType: String?
     let voteDate: String?
+    var firstReadingPublished: Bool? = nil
     let ministryRequiresVote: Bool
     let positionRequiresVote: Bool
     let requiresVote: Bool

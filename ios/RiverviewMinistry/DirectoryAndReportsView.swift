@@ -623,6 +623,13 @@ private struct PersonHistoryAssignmentRow: View {
 struct VoteQueueView: View {
     @EnvironmentObject private var model: AppModel
     @State private var search = ""
+    @State private var placement = PlacementSnapshot()
+    @State private var loadError: String?
+    private var nominees: [PlacementCandidate] { placement.candidates.filter { ["nominated", "first_reading", "second_reading"].contains($0.stage) } }
+    private func loadNominations() async {
+        do { placement = try await model.loadPlacementWorkflow(); loadError = nil }
+        catch { loadError = error.localizedDescription }
+    }
 
     private var awaitingVotes: [AssignmentDetail] {
         let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -659,6 +666,21 @@ struct VoteQueueView: View {
 
     var body: some View {
         Form {
+            if let error = loadError ?? model.errorMessage { Text(error).foregroundStyle(.red) }
+            BulletinSuggestionsSection(data: placement)
+            if !nominees.isEmpty {
+                Section("Pending nominations") {
+                    ForEach(nominees) { candidate in
+                        NavigationLink { PlacementCandidateView(candidateId: candidate.id, data: placement) } label: {
+                            VStack(alignment: .leading) {
+                                Text(model.people.first { $0.id == candidate.personId }?.displayName ?? "Nominee").font(.headline)
+                                if let opening = placement.openings.first(where: { $0.id == candidate.openingId }) { Text([model.roles.first { $0.id == opening.roleId }?.name, model.subRoles.first { $0.id == opening.subRoleId }?.name].compactMap { $0 }.joined(separator: " · ")) }
+                                Text(candidate.firstReading == nil ? "First reading pending" : "Second reading and vote pending").font(.caption)
+                            }
+                        }
+                    }
+                }
+            }
             Section {
                 TextField(
                     "Search person, ministry, position, or term",
@@ -716,7 +738,9 @@ struct VoteQueueView: View {
         .frame(maxWidth: 920)
         .frame(maxWidth: .infinity)
         .background(AppTheme.pageBackground)
-        .navigationTitle("Awaiting Church Vote")
+        .navigationTitle("Needing Votes")
+        .task { await loadNominations() }
+        .refreshable { await model.reload(); await loadNominations() }
     }
 }
 
@@ -754,6 +778,8 @@ struct PendingVoteRow: View {
                     .foregroundStyle(.orange)
             }
 
+            Toggle("First reading published", isOn: Binding(get: { assignment.firstReadingPublished == true }, set: { published in Task { await model.setFirstReadingPublished(assignment.id, published: published) } }))
+                .disabled(model.isBusy || !model.canEdit)
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) {
                     DatePicker(
@@ -790,7 +816,7 @@ struct PendingVoteRow: View {
             Label("Record Vote", systemImage: "checkmark.seal")
         }
         .buttonStyle(.borderedProminent)
-        .disabled(model.isBusy)
+        .disabled(model.isBusy || !model.canEdit || assignment.firstReadingPublished != true)
     }
 }
 

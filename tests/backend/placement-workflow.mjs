@@ -227,17 +227,17 @@ try {
   await cmd("nominate", { candidate_id: second });
   await cmd("withdraw", { candidate_id: second });
   passed++;
-  await deny("vote_passed", { candidate_id: candidate }, /both readings/);
+  await deny("vote_passed", { candidate_id: candidate }, /first reading publication/);
   await deny("cancel_opening", { opening_id: opening }, /Withdraw pending/);
   await cmd("first_reading", { candidate_id: candidate, date: "2026-11-01" });
-  await deny(
-    "second_reading",
-    { candidate_id: candidate, date: "2026-11-01" },
-    /later date/,
-  );
-  await cmd("second_reading", { candidate_id: candidate, date: "2026-11-02" });
+  assert.equal((await db.query("select stage from public.placement_candidates where id=$1", [candidate])).rows[0].stage, "first_reading"); passed++;
+  await cmd("unpublish_first_reading", {candidate_id:candidate});
+  await deny("vote_passed", {candidate_id:candidate}, /first reading publication/);
+  await cmd("first_reading", {candidate_id:candidate});
+  // The vote itself confirms the second reading; no separate date entry.
+
   await cmd("defer", { candidate_id: candidate });
-  await deny("vote_passed", { candidate_id: candidate }, /both readings/);
+  await deny("vote_passed", { candidate_id: candidate }, /first reading publication/);
   await cmd("resume", { candidate_id: candidate });
   await cmd("call", {
     candidate_id: candidate,

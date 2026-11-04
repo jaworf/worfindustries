@@ -407,6 +407,15 @@ final class AppModel: ObservableObject {
         return succeeded
     }
 
+    func setFirstReadingPublished(_ assignmentId: UUID, published: Bool) async {
+        await perform {
+            let client = try requireClient()
+            try await client.assignmentVoteStep(assignmentId, published: published)
+            try await reload(using: client)
+            noticeMessage = "First-reading publication updated."
+        }
+    }
+
     func recordAssignmentVote(
         assignmentId: UUID,
         voteDate: Date
@@ -414,10 +423,7 @@ final class AppModel: ObservableObject {
         var succeeded = false
         await perform {
             let client = try requireClient()
-            try await client.updateAssignmentVoteDate(
-                assignmentId: assignmentId,
-                voteDate: voteDate
-            )
+            try await client.assignmentVoteStep(assignmentId, voteDate: voteDate)
             try await reload(using: client)
             noticeMessage = "Church vote recorded."
             succeeded = true

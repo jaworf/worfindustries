@@ -148,16 +148,16 @@ test("willing candidate uses nomination for voted roles and appointment for team
   assert.ok(html.includes("Appoint Volunteer"));
   assert.ok(!html.includes("Nominate — Pending"));
 });
-test("both readings are separate from vote activation", () => {
+test("publication confirmation leads directly to the vote", () => {
   assert.ok(
     render("editor", {
       candidate: { ...candidate, stage: "nominated" },
-    }).includes("Record First Reading"),
+    }).includes("First reading published"),
   );
   assert.ok(
     render("editor", {
       candidate: { ...candidate, stage: "first_reading" },
-    }).includes("Record Second Reading"),
+    }).includes("Vote Passed — Activate"),
   );
   const html = render("editor", {
     candidate: { ...candidate, stage: "second_reading" },

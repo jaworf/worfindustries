@@ -327,6 +327,11 @@ actor SupabaseRESTClient {
         )
     }
 
+    func assignmentVoteStep(_ id: UUID, published: Bool? = nil, voteDate: Date? = nil) async throws {
+        struct VoteStep: Encodable { let pAssignment: UUID; let pPublished: Bool?; let pVoteDate: String? }
+        let _: EmptyBody = try await rpc("assignment_vote_step", body: VoteStep(pAssignment: id, pPublished: published, pVoteDate: voteDate.map(AppDate.storage)))
+    }
+
     func updateAssignmentVoteDate(
         assignmentId: UUID,
         voteDate: Date?

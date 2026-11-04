@@ -924,7 +924,7 @@ function VoteView({
 
   return (
     <>
-      <SectionHeading title="Existing placements missing a vote record" detail="Complete historical vote records below. New nominations and readings are handled above." />
+      <SectionHeading title="Existing placements missing a vote record" detail="Confirm first-reading publication, then record the vote to complete the second reading." />
       <div className="admin-search-row">
         <input type="search" placeholder="Search person or ministry" value={query} onChange={(event) => setQuery(event.target.value)} />
       </div>
@@ -938,9 +938,10 @@ function VoteView({
               assignment={assignment}
               canEdit={canEdit}
               working={working}
+              publish={async (published) => { await mutate("First-reading publication updated.", async () => { const {error} = await supabase.rpc("assignment_vote_step", {p_assignment:assignment.id,p_published:published}); if(error) throw error; }); }}
               save={async (voteDate) => {
                 await mutate("Church vote recorded.", async () => {
-                  const { error } = await supabase.from("assignments").update({ vote_date: voteDate }).eq("id", assignment.id);
+                  const { error } = await supabase.rpc("assignment_vote_step", {p_assignment:assignment.id,p_vote_date:voteDate});
                   if (error) throw new Error(await functionErrorMessage(error));
                 });
               }}
@@ -952,13 +953,14 @@ function VoteView({
   );
 }
 
-function VoteRow({ assignment, canEdit, working, save }: { assignment: Assignment; canEdit: boolean; working: boolean; save: (date: string) => Promise<void> }) {
+function VoteRow({ assignment, canEdit, working, save, publish }: { assignment: Assignment; canEdit: boolean; working: boolean; save: (date: string) => Promise<void>; publish:(published:boolean)=>Promise<void> }) {
   const [date, setDate] = useState(todayISO());
   return (
     <article className="admin-card admin-vote-row">
       <div><strong>{assignment.person_name}</strong><span>{assignment.role_name}{assignment.sub_role_name ? ` · ${assignment.sub_role_name}` : ""}</span><small>{assignment.term_name || "Term required"}</small></div>
+      <label className="admin-check-row"><input type="checkbox" checked={!!assignment.first_reading_published} disabled={!canEdit||working} onChange={e=>void publish(e.target.checked)}/>First reading published</label>
       <label>Vote date<input type="date" value={date} onChange={(event) => setDate(event.target.value)} disabled={!canEdit || working} /></label>
-      <button className="button button-primary" disabled={!canEdit || working || !date} onClick={() => save(date)}>Record Vote</button>
+      <button className="button button-primary" disabled={!canEdit || working || !date || !assignment.first_reading_published} onClick={() => save(date)}>Record Vote</button>
     </article>
   );
 }

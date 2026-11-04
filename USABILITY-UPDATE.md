@@ -14,4 +14,8 @@ The web placement workspace now supports setting up a church while recruiting vo
 
 91 backend/component regression tests, 18 rendered-route tests, 45 placement workflow/database checks, the existing account and church SQL checks, TypeScript, lint (warnings only), and the production build pass. Browser checks cover searchable controls, inline creation, duplicate warnings, Trash/restore, calls, editor restrictions, invitation setup, Focus, opt-in matching, desktop/mobile layouts, and a printed report using fictional records. The printed PDF was rendered and visually inspected.
 
-This update changes the web app and shared backend. It does not contain a new native iOS build.
+The follow-up Bulletin Suggestions workflow includes every pending nomination and current placement missing a vote. A First reading published checkbox moves names into the second-reading suggestions, where they remain until a vote is recorded. The checkbox can be corrected before the vote. No first-reading date is requested; the existing internal history remains available. Recording a vote also confirms the second reading.
+
+Native version 1.3 build 19 includes this workflow, a distinct Placement clipboard icon, immediate persistence of rotated sign-in sessions, and automatic return to sign-in for rejected saved sessions. Native validation: 21 tests on the macOS target and a signed iOS archive. Physical iPhone/iPad verification remains for TestFlight. The public App Store submission remains withdrawn with manual release selected.
+
+Follow-up validation: 91 backend/component tests, 18 rendered-route tests, 46 placement database checks, existing SQL security checks, lint (warnings only), TypeScript and production build. A browser test using fictional records confirms first/second suggestion membership, checkbox correction, vote completion/removal, and mobile layout.

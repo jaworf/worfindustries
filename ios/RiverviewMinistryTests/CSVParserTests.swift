@@ -187,6 +187,22 @@ final class CSVParserTests: XCTestCase {
         )
     }
 
+    func testVotePublicationUsesCheckboxAndFinalVoteRPC() async throws {
+        VoteStepURLProtocol.reset()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [VoteStepURLProtocol.self]
+        let client = SupabaseRESTClient(configuration: SupabaseConfiguration(projectURL: "https://example.supabase.co", publishableKey: "test"), session: SupabaseSession(accessToken: "token", refreshToken: "refresh", expiresAt: 4102444800, user: SupabaseUser(id: UUID(), email: "test@example.com")), urlSession: URLSession(configuration: configuration))
+        let id = UUID()
+        try await client.assignmentVoteStep(id, published: true)
+        try await client.assignmentVoteStep(id, voteDate: AppDate.parse("2026-11-04"))
+        let bodies = try VoteStepURLProtocol.bodies.map { try XCTUnwrap(JSONSerialization.jsonObject(with: $0) as? [String: Any]) }
+        XCTAssertEqual(bodies.count, 2)
+        XCTAssertEqual(bodies[0]["p_published"] as? Bool, true)
+        XCTAssertNil(bodies[0]["p_vote_date"])
+        XCTAssertEqual(bodies[1]["p_vote_date"] as? String, "2026-11-04")
+        XCTAssertNil(bodies[1]["p_published"])
+    }
+
     func testChurchAdministratorsCanDelegateAllSupportedRoles() {
         XCTAssertEqual(AppUserRole.invitationChoices, [.admin, .editor, .viewer])
         XCTAssertTrue(AppUserRole.invitationChoices.contains(.admin))
@@ -599,5 +615,33 @@ private final class RefreshCoalescingURLProtocol: URLProtocol, @unchecked Sendab
         client?.urlProtocolDidFinishLoading(self)
     }
 
+    override func stopLoading() {}
+}
+
+private final class VoteStepURLProtocol: URLProtocol, @unchecked Sendable {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var stored: [Data] = []
+    static var bodies: [Data] { lock.withLock { stored } }
+    static func reset() { lock.withLock { stored = [] } }
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        XCTAssertEqual(request.url?.path, "/rest/v1/rpc/assignment_vote_step")
+        var body = request.httpBody ?? Data()
+        if let stream = request.httpBodyStream {
+            stream.open(); defer { stream.close() }
+            var buffer = [UInt8](repeating: 0, count: 1024)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                if count <= 0 { break }
+                body.append(contentsOf: buffer.prefix(count))
+            }
+        }
+        Self.lock.withLock { Self.stored.append(body) }
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type":"application/json"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data("null".utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
     override func stopLoading() {}
 }

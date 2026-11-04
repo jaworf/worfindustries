@@ -101,6 +101,7 @@ export type Assignment = {
   end_date: string | null;
   term_type: string | null;
   vote_date: string | null;
+  first_reading_published?: boolean;
   ministry_requires_vote: boolean;
   position_requires_vote: boolean;
   requires_vote: boolean;

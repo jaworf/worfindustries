@@ -471,7 +471,7 @@ export function PlacementWorkflow({
       {view === "calls" && <p>Calls assigned to you and follow-ups due.</p>}
       {view === "nominations" && (
         <details className="admin-card">
-          <summary>Bulletin text</summary>
+          <summary>Bulletin Suggestions</summary>
           {[
             ["nominated", "First reading"],
             ["first_reading", "Second reading"],
@@ -479,13 +479,12 @@ export function PlacementWorkflow({
             <section key={stage}>
               <h3>{heading}</h3>
               <pre className="placement-notes">
-                {candidates
-                  .filter((c) => c.stage === stage)
+                {[...snapshot.assignments.filter(a => isCurrent(a) && a.vote_missing && (stage === "nominated" ? !a.first_reading_published : a.first_reading_published)).map(a => `${a.person_name} — ${a.role_name}${a.sub_role_name ? " · " + a.sub_role_name : ""}`), ...candidates
+                  .filter((c) => stage === "nominated" ? c.stage === "nominated" : ["first_reading", "second_reading"].includes(c.stage))
                   .map(
                     (c) =>
                       `${personName(snapshot.people.find((p) => p.id === c.person_id)!)} — ${label(openings.find((o) => o.id === c.opening_id)!)}`,
-                  )
-                  .join("\n") || "None"}
+                  )].join("\n") || "None"}
               </pre>
             </section>
           ))}
@@ -1005,14 +1004,10 @@ export function CandidateCard({
                   : "Appointment — no church vote required"}
               </p>
               {c.nominated_on && <p>Nominated: {formatDate(c.nominated_on)}</p>}
-              {c.first_reading && (
-                <p>First reading: {formatDate(c.first_reading)}</p>
-              )}
-              {c.second_reading && (
-                <p>Second reading: {formatDate(c.second_reading)}</p>
-              )}
-              <label>
-                Actual action date
+              {["nominated", "first_reading", "second_reading"].includes(c.stage) && <label className="admin-check-row"><input type="checkbox" checked={!!c.first_reading} disabled={busy} onChange={e => void command(e.target.checked ? "first_reading" : "unpublish_first_reading", {candidate_id:c.id})}/>First reading published</label>}
+              {["first_reading", "second_reading"].includes(c.stage) && <p>The second reading is confirmed when you record the vote.</p>}
+              {c.stage !== "nominated" && <label>
+                {["first_reading", "second_reading"].includes(c.stage) ? "Vote date" : "Actual action date"}
                 <input
                   type="date"
                   required
@@ -1020,7 +1015,7 @@ export function CandidateCard({
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                 />
-              </label>
+              </label>}
               <label>
                 Action notes
                 <textarea
@@ -1043,25 +1038,7 @@ export function CandidateCard({
                       : "Appoint Volunteer"}
                   </button>
                 )}
-                {c.stage === "nominated" && (
-                  <button
-                    className="button"
-                    disabled={busy || !date}
-                    onClick={() => void act("first_reading")}
-                  >
-                    Record First Reading
-                  </button>
-                )}
-                {c.stage === "first_reading" && (
-                  <button
-                    className="button"
-                    disabled={busy || !date}
-                    onClick={() => void act("second_reading")}
-                  >
-                    Record Second Reading
-                  </button>
-                )}
-                {c.stage === "second_reading" && (
+                {["first_reading", "second_reading"].includes(c.stage) && (
                   <>
                     <button
                       className="button button-primary"
