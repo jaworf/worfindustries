@@ -105,7 +105,7 @@ export function adminClient(): SupabaseClient {
 
 export async function requireEditor(
   request: Request,
-): Promise<{ userId: string; churchId: string }> {
+): Promise<{ userId: string; churchId: string; appRole: string }> {
   const authorization = request.headers.get("Authorization");
   if (!authorization) {
     throw new Error("Authentication is required.");
@@ -146,7 +146,7 @@ export async function requireEditor(
   }
   const { data: church, error: churchError } = await client.from("churches").select("is_active").eq("id",profile.church_id).single();
   if (churchError || !church?.is_active) throw new Error("This church workspace is not active.");
-  return { userId: user.id, churchId: profile.church_id };
+  return { userId: user.id, churchId: profile.church_id, appRole: profile.app_role };
 }
 
 export type PlanningCenterCredentials = {
@@ -204,8 +204,8 @@ function relationshipResources(
     : relationship
       ? [relationship]
       : [];
-  const ids = new Set(identifiers.map((identifier) => identifier.id));
-  return included.filter((resource) => ids.has(resource.id));
+  const ids = new Set(identifiers.map((identifier) => `${identifier.type}:${identifier.id}`));
+  return included.filter((resource) => ids.has(`${resource.type}:${resource.id}`));
 }
 
 function primaryResource(resources: JsonApiResource[]): JsonApiResource | null {

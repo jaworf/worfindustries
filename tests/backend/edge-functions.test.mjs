@@ -64,7 +64,7 @@ async function handler(name, options = {}) {
         }
         if(table==='churches') return {data:{id:filters.find(item=>item[1]==='id')?.[2] ?? 'church-a',name:'Test Church',is_active:!options.inactiveChurch,slug:'test-church'},error:null};
         if(table==='person_external_ids') {calls.push(['person_lookup',filters]);return {data:options.personLink ?? null,error:null};}
-        if(table==='people') {calls.push(['people_filters',filters]);return {data:null,error:options.peopleError ?? null};}
+        if(table==='people') {calls.push(['people_filters',filters]);return {data:options.peopleRecord ?? null,error:options.peopleError ?? null};}
         if(table==='import_runs') return {data:{id:'run-1'},error:null};
         if(table==='webhook_deliveries') return {data:{id:'delivery-row',status:options.priorStatus ?? 'completed'},error:operation==='insert'&&options.duplicate ? {code:'23505'} : null};
         return {data: value ?? [],error:null};
@@ -77,7 +77,7 @@ async function handler(name, options = {}) {
   let serve;
   const context=vm.createContext({Request,Response,Headers,URL,TextEncoder,TextDecoder,crypto:webcrypto,btoa,console,
     Deno:{env:{get:key=>env[key]},serve:fn=>{serve=fn;}},
-    fetch:async (url,init) => {calls.push(['fetch',url,init.headers.Authorization]);return new Response(JSON.stringify({data:options.person ?? [],links:{next:options.pcoNext??null}}),{status:200});},
+    fetch:async (url,init) => {calls.push(['fetch',url,init.headers.Authorization]);return new Response(JSON.stringify({data:options.person ?? [],included:options.included??[],links:{next:options.pcoNext??null}}),{status:200});},
   });
   const cache=new Map();
   async function load(path) {
@@ -350,3 +350,11 @@ test('membership pagination refuses foreign URLs before sending credentials',asy
 test('Planning Center browser preflight does not require login or contact PCO',async()=>{const {request,calls}=await handler('planning-center-sync');assert.equal((await request({}, {}, 'OPTIONS')).status,200);assert.equal(calls.length,0);});
 
 test('inactive churches cannot retrieve Planning Center membership types',async()=>{const {request,calls}=await handler('planning-center-sync',{inactiveChurch:true});assert.equal((await request({action:'membership_types'})).status,400);assert.equal(calls.length,0);});
+
+const matchingPerson={type:'Person',id:'111',attributes:{first_name:'Alex',last_name:'Example',status:'active'},relationships:{}};
+const matchingRequest={action:'preview',person_id:'d1000000-0000-4000-8000-000000000300',external_id:'111'};
+for(const role of ['editor','viewer'])test('matching rejects '+role+' before contacting Planning Center',async()=>{const {request,calls}=await handler('planning-center-matching',{caller:{app_role:role,church_id:'church-a'}});assert.equal((await request(matchingRequest)).status,403);assert.equal(calls.filter(c=>c[0]==='fetch').length,0);});
+test('matching rejects missing or other-church contacts before reading credentials',async()=>{const{request,calls}=await handler('planning-center-matching');assert.equal((await request(matchingRequest)).status,404);assert.equal(calls.filter(c=>c[0]==='rpc'||c[0]==='fetch').length,0);});
+test('matching requires an unchanged live preview and ignores client-supplied contact data',async()=>{const person=structuredClone(matchingPerson);const{request,calls}=await handler('planning-center-matching',{person,peopleRecord:{id:matchingRequest.person_id,first_name:'Alex',last_name:'Example',updated_at:'2026-11-04T00:00:00Z'}});const preview=await(await request(matchingRequest)).json();assert.equal(preview.record.first_name,'Alex');assert.ok(preview.local_contact);assert.equal((await request({...matchingRequest,action:'link',confirmed:true,revision:'forged',local_updated_at:preview.local_updated_at})).status,409);assert.equal((await request({...matchingRequest,action:'link',confirmed:true,revision:preview.revision,local_updated_at:preview.local_updated_at,record:{first_name:'FORGED'}})).status,200);const linked=calls.find(c=>c[1]==='link_planning_center_contact');assert.equal(linked[2].p_actor_id,'actor');assert.equal(linked[2].p_record.first_name,'Alex');person.attributes.first_name='Changed';assert.equal((await request({...matchingRequest,action:'link',confirmed:true,revision:preview.revision,local_updated_at:preview.local_updated_at})).status,409);});
+
+test('live matching keeps resource types separate when PCO reuses numeric IDs',async()=>{const person={...matchingPerson,relationships:{emails:{data:[{type:'Email',id:'1'}]},phone_numbers:{data:[{type:'PhoneNumber',id:'1'}]},addresses:{data:[{type:'Address',id:'1'}]}}};const included=[{type:'PhoneNumber',id:'1',attributes:{primary:true,location:'Mobile',number:'509-555-0123'}},{type:'Email',id:'1',attributes:{primary:true,address:'right@example.invalid'}},{type:'Address',id:'1',attributes:{primary:true,street_line_1:'Fictional street'}}];const{request}=await handler('planning-center-matching',{person,included,peopleRecord:{id:matchingRequest.person_id,updated_at:'2026-11-04T00:00:00Z'}});const response=await request(matchingRequest);assert.equal(response.status,200);const data=await response.json();assert.equal(data.record.email,'right@example.invalid');assert.equal(data.record.mobile_phone,'509-555-0123');assert.equal(data.record.address_line_1,'Fictional street');});
