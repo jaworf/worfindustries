@@ -2168,3 +2168,6 @@ textarea{font:inherit}
 .limited-directory th { font-weight:700;background:#e8f2f8; }
 .limited-directory td::before { display:none!important; }
 @media(max-width:600px) { .website-embeds { padding:18px; }.embed-option-card { padding:16px!important; }.limited-directory {padding:16px;}.limited-directory-tools label {min-width:100%;}.limited-directory th,.limited-directory td {padding:10px 7px;} }
+
+.person-contact-history { margin-top:22px; }
+.person-contact-history > p { margin:0 0 12px;line-height:1.6; }

@@ -157,8 +157,8 @@ export function PersonContactHistory({
     };
   }, [supabase, personId]);
   return (
-    <section>
-      <h3>Volunteer Contact History</h3>
+    <section className="admin-modal-section person-contact-history">
+      <h4>Volunteer Contact History</h4>
       <p>
         Private church records. Responses apply to the opportunity discussed.
       </p>
