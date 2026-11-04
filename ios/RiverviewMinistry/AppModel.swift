@@ -165,6 +165,21 @@ final class AppModel: ObservableObject {
             : nil
     }
 
+    func loadPlacementWorkflow() async throws -> PlacementSnapshot {
+        try await requireClient().placementSnapshot()
+    }
+
+    func savePlacementAction(_ action: String, data: [String: String]) async -> Bool {
+        var succeeded = false
+        await perform {
+            try await requireClient().placementCommand(action, data: data)
+            try await reload(using: requireClient())
+            succeeded = true
+            noticeMessage = "Placement process saved."
+        }
+        return succeeded
+    }
+
     func reload() async {
         await perform {
             try await reload(using: requireClient())

@@ -1,0 +1,11 @@
+"use client";
+import {useEffect,useState} from 'react';
+import type {Session,SupabaseClient} from '@supabase/supabase-js';
+import {type Profile,normalizeError} from './admin-shared';
+type Owner={user_id:string};
+type Admin={user_id:string;display_name:string|null};
+export function ChurchOwnerControls({supabase,profile,session}:{supabase:SupabaseClient;profile:Profile;session:Session}){
+ const [owner,setOwner]=useState<Owner|null>(null),[admins,setAdmins]=useState<Admin[]>([]),[selected,setSelected]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ useEffect(()=>{let live=true;void Promise.all([supabase.from('church_owners').select('user_id').eq('church_id',profile.church_id).maybeSingle(),supabase.from('profiles').select('user_id,display_name').eq('church_id',profile.church_id).eq('app_role','admin').eq('access_disabled',false).eq('must_change_password',false)]).then(([o,a])=>{if(!live)return;if(o.error||a.error){setError(normalizeError(o.error??a.error));return;}setOwner(o.data);setAdmins(a.data??[]);});return()=>{live=false;};},[supabase,profile.church_id]);
+ return <section className="admin-card admin-settings-card full-panel"><h3>Church Ownership</h3><p>Owner: {admins.find(a=>a.user_id===owner?.user_id)?.display_name??(owner?'Current church owner':'Not assigned')}</p><p>Other administrators cannot demote, disable, or delete the owner. Transfer ownership before removing the owner’s account.</p>{error&&<p role="alert">{error}</p>}{(owner?.user_id===session.user.id||profile.is_platform_admin)&&<><label>New owner<select value={selected} onChange={e=>setSelected(e.target.value)}><option value="">Choose another active administrator</option>{admins.filter(a=>a.user_id!==owner?.user_id).map(a=><option key={a.user_id} value={a.user_id}>{a.display_name??a.user_id}</option>)}</select></label><button className="button" disabled={busy||!selected} onClick={async()=>{if(!window.confirm('Transfer church ownership to this administrator? Only the new owner or platform administrator can transfer it again.'))return;setBusy(true);const {error}=await supabase.rpc('transfer_church_ownership',{p_church_id:profile.church_id,p_user_id:selected});if(error)setError(normalizeError(error));else{setOwner({user_id:selected});setSelected('');setError('');}setBusy(false);}}>Transfer Ownership</button></>}</section>;
+}

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 export type AppRole = "admin" | "editor" | "viewer";
 export type Tab =
+  | "placement"
   | "focus"
   | "assign"
   | "ministries"
@@ -126,6 +127,7 @@ export const emptySnapshot: Snapshot = {
 };
 
 export const navItems: Array<{ id: Tab; label: string; short: string }> = [
+  { id: "placement", label: "Placement Process", short: "Placement" },
   { id: "focus", label: "Focus", short: "Focus" },
   { id: "assign", label: "Assign", short: "Assign" },
   { id: "ministries", label: "Ministry Directory", short: "Ministries" },

@@ -283,8 +283,10 @@ struct PeopleDirectoryView: View {
 
     var body: some View {
         Form {
-            Section("Ministry discovery") {
-                NavigationLink("Search skills and assessment results") { DiscoveryProfilesView() }
+            if model.canEdit {
+                Section("Ministry discovery") {
+                    NavigationLink("Search skills and assessment results") { DiscoveryProfilesView() }
+                }
             }
             Section {
                 TextField(
@@ -449,6 +451,7 @@ private struct PersonMinistryHistory: View {
     var body: some View {
         NavigationStack {
             Form {
+                PersonVolunteerHistorySection(personId: person.id)
                 Section("Person") {
                     LabeledContent("Name", value: person.displayName)
                     if let email = person.email.nilIfBlank {
@@ -493,8 +496,10 @@ private struct PersonMinistryHistory: View {
                 }
                 .disabled(!model.canEdit)
 
-                Section("Ministry discovery") {
-                    NavigationLink("Skills and assessment summary") { DiscoveryProfilesView(personId: person.id) }
+                if model.canEdit {
+                    Section("Ministry discovery") {
+                        NavigationLink("Skills and assessment summary") { DiscoveryProfilesView(personId: person.id) }
+                    }
                 }
 
                 Section("Current ministries") {

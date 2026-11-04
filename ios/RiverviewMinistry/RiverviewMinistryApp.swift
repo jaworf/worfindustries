@@ -541,6 +541,7 @@ private struct ForgotPasswordView: View {
 }
 
 enum AppTab: Hashable {
+    case placement
     case ministries
     case people
     case focus
@@ -579,6 +580,9 @@ struct MainShellView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
+            NavigationStack { PlacementWorkflowView() }
+                .tabItem { Label("Placement", systemImage: "person.3.sequence") }
+                .tag(AppTab.placement)
             NavigationStack {
                 DirectoryView()
             }

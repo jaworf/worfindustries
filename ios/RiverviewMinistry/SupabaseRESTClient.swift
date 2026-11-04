@@ -631,6 +631,18 @@ actor SupabaseRESTClient {
         return try await rpc("upsert_assignment_from_source", body: body)
     }
 
+    func placementSnapshot() async throws -> PlacementSnapshot {
+        async let openings: [PlacementOpening] = restAll("placement_openings", query: [.init(name: "order", value: "created_at,id")])
+        async let candidates: [PlacementCandidate] = restAll("placement_candidates", query: [.init(name: "order", value: "created_at,id")])
+        async let history: [VolunteerContactEntry] = restAll("volunteer_contact_history", query: [.init(name: "order", value: "created_at.desc,id")])
+        async let staff: [PlacementStaff] = rpc("placement_staff", body: [String: String]())
+        return try await PlacementSnapshot(openings: openings, candidates: candidates, history: history, staff: staff)
+    }
+
+    func placementCommand(_ action: String, data: [String: String]) async throws {
+        let _: PlacementCommandResult = try await rpc("placement_command", body: PlacementCommandRequest(pAction: action, pData: data))
+    }
+
     private func rpc<Response: Decodable, Body: Encodable>(
         _ name: String,
         body: Body

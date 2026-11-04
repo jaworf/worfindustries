@@ -687,3 +687,286 @@ private struct VolunteerActivationRow: View {
         .padding(.vertical, 5)
     }
 }
+
+private let placementResponses = ["considering", "yes", "no", "maybe_later", "no_answer", "message_left", "other"]
+private func placementLabel(_ value: String) -> String {
+    if value == "yes" { return "Yes / Willing" }
+    return value.replacingOccurrences(of: "_", with: " ").capitalized
+}
+
+struct VolunteerHistoryRows: View {
+    let entries: [VolunteerContactEntry]
+    var body: some View {
+        if entries.isEmpty { Text("No volunteer contact history recorded.").foregroundStyle(.secondary) }
+        ForEach(entries) { entry in
+            VStack(alignment: .leading, spacing: 6) {
+                Text("\(entry.happenedOn) · \(placementLabel(entry.kind == "call" ? (entry.response ?? "call") : entry.kind))").font(.headline)
+                Text(entry.roleLabel)
+                if let caller = entry.callerName { Text("Caller: \(caller)") }
+                Text("Recorded by: \(entry.recorderName)").font(.caption)
+                if !entry.notes.isEmpty { Text(entry.notes) }
+                if let followUp = entry.followUp { Text("Follow up: \(followUp)") }
+            }.padding(.vertical, 5)
+        }
+    }
+}
+
+struct PersonVolunteerHistorySection: View {
+    @EnvironmentObject private var model: AppModel
+    let personId: UUID
+    @State private var entries: [VolunteerContactEntry] = []
+    @State private var error: String?
+    @State private var loading = true
+    var body: some View {
+        Section("Volunteer Contact History") {
+            Text("Private church records. Responses apply to the opportunity discussed.").font(.caption)
+            if loading { ProgressView() }
+            if let error { Text(error).foregroundStyle(.red) }
+            if !loading && error == nil { VolunteerHistoryRows(entries: entries) }
+        }.task(id: personId) {
+            loading = true
+            do { entries = try await model.loadPlacementWorkflow().history.filter { $0.personId == personId }; error = nil }
+            catch { self.error = error.localizedDescription }
+            loading = false
+        }
+    }
+}
+
+struct PlacementWorkflowView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var data = PlacementSnapshot()
+    @State private var scope = "Openings"
+    @State private var selectedOpening: UUID?
+    @State private var error: String?
+    @State private var showingOpening = false
+    @State private var personId = ""
+    @State private var search = ""
+
+    private func title(_ opening: PlacementOpening) -> String {
+        [model.roles.first { $0.id == opening.roleId }?.name,
+         model.subRoles.first { $0.id == opening.subRoleId }?.name,
+         model.terms.first { $0.id == opening.termId }?.name].compactMap { $0 }.joined(separator: " · ")
+    }
+    private var displayed: [PlacementCandidate] {
+        data.candidates.filter { candidate in
+            switch scope {
+            case "My Calls":
+                return candidate.assignedTo == model.currentProfile?.userId
+                    && data.openings.contains { $0.id == candidate.openingId && $0.status == "open" }
+                    && !["elected", "appointed", "withdrawn", "not_elected"].contains(candidate.stage)
+                    && (!["yes", "no"].contains(candidate.response) || candidate.followUp != nil)
+            case "Nominations": return ["nominated", "first_reading", "second_reading", "deferred"].contains(candidate.stage)
+            default: return candidate.openingId == selectedOpening
+            }
+        }
+    }
+    private func refresh() async {
+        do { data = try await model.loadPlacementWorkflow(); error = nil }
+        catch { self.error = error.localizedDescription }
+    }
+    var body: some View {
+        List {
+            Picker("Show", selection: $scope) {
+                Text("Openings").tag("Openings")
+                Text("My Calls").tag("My Calls")
+                Text("Nominations").tag("Nominations")
+            }
+            if let error { Text(error).foregroundStyle(.red) }
+            if scope == "Openings" {
+                if model.canEdit { Button("Create Opening") { showingOpening = true } }
+                Picker("Opening", selection: $selectedOpening) {
+                    Text("Choose opening").tag(nil as UUID?)
+                    ForEach(data.openings) { opening in
+                        Text("\(title(opening)) — \(opening.status)").tag(Optional(opening.id))
+                    }
+                }
+                if let opening = data.openings.first(where: { $0.id == selectedOpening }) {
+                    Section(title(opening)) {
+                        Text("\(opening.quantity) needed · \(data.candidates.filter { $0.openingId == opening.id && ["elected", "appointed"].contains($0.stage) }.count) filled")
+                        if !opening.notes.isEmpty { Text(opening.notes) }
+                        if model.canEdit && opening.status == "open" {
+                            TextField("Find candidate", text: $search)
+                            Picker("Candidate", selection: $personId) {
+                                Text("Choose person").tag("")
+                                ForEach(model.people.filter { person in person.isActive && (search.isEmpty || person.displayName.localizedCaseInsensitiveContains(search)) && !data.candidates.contains { $0.openingId == opening.id && $0.personId == person.id } }) { person in
+                                    Text(person.displayName).tag(person.id.uuidString)
+                                }
+                            }
+                            Button("Add Candidate") {
+                                Task { if await model.savePlacementAction("candidate", data: ["opening_id": opening.id.uuidString, "person_id": personId]) { personId = ""; await refresh() } }
+                            }.disabled(personId.isEmpty || model.isBusy)
+                            Button("Close Opening", role: .destructive) {
+                                Task { if await model.savePlacementAction("cancel_opening", data: ["opening_id": opening.id.uuidString]) { await refresh() } }
+                            }.disabled(model.isBusy)
+                        }
+                    }
+                }
+            }
+            if scope == "Nominations" {
+                Section("Bulletin Text") {
+                    Text("First reading").font(.headline)
+                    Text(bulletin(stage: "nominated")).textSelection(.enabled)
+                    Text("Second reading").font(.headline)
+                    Text(bulletin(stage: "first_reading")).textSelection(.enabled)
+                }
+            }
+            ForEach(displayed) { candidate in
+                if let person = model.people.first(where: { $0.id == candidate.personId }), let opening = data.openings.first(where: { $0.id == candidate.openingId }) {
+                    NavigationLink {
+                        PlacementCandidateView(candidateId: candidate.id, data: data)
+                    } label: {
+                        VStack(alignment: .leading) {
+                            Text(person.displayName).font(.headline)
+                            Text(title(opening))
+                            Text("\(placementLabel(candidate.response)) · \(placementLabel(candidate.stage))").font(.caption)
+                            if let followUp = candidate.followUp { Text("Follow up: \(followUp)").font(.caption) }
+                        }
+                    }
+                }
+            }
+            if scope != "Openings" && displayed.isEmpty { Text("Nothing in this list.") }
+        }
+        .navigationTitle("Placement Process")
+        .task { await refresh() }
+        .refreshable { await refresh() }
+        .toolbar { Button("Refresh") { Task { await refresh() } } }
+        .sheet(isPresented: $showingOpening, onDismiss: { Task { await refresh() } }) { NewPlacementOpeningView() }
+    }
+    private func bulletin(stage: String) -> String {
+        let lines = data.candidates.filter { $0.stage == stage }.compactMap { candidate -> String? in
+            guard let person = model.people.first(where: { $0.id == candidate.personId }), let opening = data.openings.first(where: { $0.id == candidate.openingId }) else { return nil }
+            return "\(person.displayName) — \(title(opening))"
+        }
+        return lines.isEmpty ? "None" : lines.joined(separator: "\n")
+    }
+}
+
+private struct NewPlacementOpeningView: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var roleId = ""
+    @State private var positionId = ""
+    @State private var termId = ""
+    @State private var quantity = 1
+    @State private var notes = ""
+    var body: some View {
+        NavigationStack {
+            Form {
+                Picker("Ministry", selection: $roleId) {
+                    Text("Choose ministry").tag("")
+                    ForEach(model.roles.filter(\.isActive)) { Text($0.name).tag($0.id.uuidString) }
+                }.onChange(of: roleId) { _, _ in positionId = "" }
+                Picker("Position", selection: $positionId) {
+                    Text("Team member — no vote").tag("")
+                    ForEach(model.subRoles.filter { $0.roleId?.uuidString == roleId && $0.isActive }) { Text($0.name).tag($0.id.uuidString) }
+                }
+                Picker("Term", selection: $termId) {
+                    Text("No term").tag("")
+                    ForEach(model.terms.filter(\.isActive)) { Text($0.name).tag($0.id.uuidString) }
+                }
+                Stepper("People needed: \(quantity)", value: $quantity, in: 1...100)
+                TextField("Committee notes", text: $notes, axis: .vertical)
+                if let error = model.errorMessage { Text(error).foregroundStyle(.red) }
+                Button("Create Opening") {
+                    Task {
+                        var body = ["role_id": roleId, "quantity": String(quantity), "notes": notes]
+                        if !positionId.isEmpty { body["sub_role_id"] = positionId }
+                        if !termId.isEmpty { body["term_id"] = termId }
+                        if await model.savePlacementAction("opening", data: body) { dismiss() }
+                    }
+                }.disabled(roleId.isEmpty || model.isBusy)
+            }.navigationTitle("Create Opening")
+                .toolbar { Button("Cancel") { dismiss() } }
+        }
+    }
+}
+
+private struct PlacementCandidateView: View {
+    @EnvironmentObject private var model: AppModel
+    let candidateId: UUID
+    @State var data: PlacementSnapshot
+    @State private var callerId = ""
+    @State private var assignee = ""
+    @State private var response = "considering"
+    @State private var notes = ""
+    @State private var callDate = Date()
+    @State private var actionDate = Date()
+    @State private var followUp = Date()
+    @State private var includeFollowUp = false
+    @State private var error: String?
+    private func execute(_ action: String) async {
+        var body = ["candidate_id": candidateId.uuidString, "date": AppDate.storage(action == "call" ? callDate : actionDate), "notes": notes]
+        if action == "call" { body["caller_id"] = model.isAdministrator ? callerId : model.currentProfile?.userId.uuidString; body["response"] = response }
+        if action == "assign_call" { body["caller_id"] = assignee }
+        if includeFollowUp && ["call", "assign_call"].contains(action) { body["follow_up"] = AppDate.storage(followUp) }
+        if await model.savePlacementAction(action, data: body) {
+            do { data = try await model.loadPlacementWorkflow(); notes = ""; error = nil }
+            catch { self.error = error.localizedDescription }
+        }
+    }
+    var body: some View {
+        Form {
+            if let candidate = data.candidates.first(where: { $0.id == candidateId }), let person = model.people.first(where: { $0.id == candidate.personId }), let opening = data.openings.first(where: { $0.id == candidate.openingId }) {
+                let closed = ["elected", "appointed", "withdrawn", "not_elected"].contains(candidate.stage) || opening.status != "open"
+                let requirement = candidate.requiresVote ?? (opening.subRoleId != nil && (model.roles.first { $0.id == opening.roleId }?.requiresVote == true || model.subRoles.first { $0.id == opening.subRoleId }?.requiresVote == true))
+                Section(person.displayName) {
+                    Text("\(placementLabel(candidate.response)) · \(placementLabel(candidate.stage))")
+                    ForEach([person.mobilePhone, person.homePhone].compactMap { $0 }.filter { !$0.isEmpty }, id: \.self) { phone in
+                        if let url = URL(string: "tel:" + phone.filter { $0.isNumber || $0 == "+" }) { Link(phone, destination: url) }
+                    }
+                    if let email = person.email, let url = URL(string: "mailto:\(email)") { Link(email, destination: url) }
+                    Text("Assigned caller: \(data.staff.first { $0.userId == candidate.assignedTo }?.displayName ?? "Unassigned")")
+                    if let due = candidate.followUp { Text("Follow up: \(due)") }
+                    ForEach(model.assignments.filter { $0.personId == person.id && $0.isCurrentPlacement }) { assignment in Text("Serving: \(assignment.roleName) · \(assignment.subRoleName ?? "Team member")") }
+                    if data.candidates.contains(where: { other in other.personId == person.id && other.id != candidate.id && other.assignedTo != nil && data.openings.contains { $0.id == other.openingId && $0.status == "open" } }) { Text("This person has other assigned recruitment activity. Review their history before calling.") }
+                }
+                if let error { Text(error).foregroundStyle(.red) }
+                if let error = model.errorMessage { Text(error).foregroundStyle(.red) }
+                if model.isAdministrator && !closed {
+                    Section("Assign Call") {
+                        Picker("Caller", selection: $assignee) {
+                            Text("Unassigned").tag("")
+                            ForEach(data.staff) { Text($0.displayName).tag($0.userId.uuidString) }
+                        }
+                        Button("Save Call Assignment") { Task { await execute("assign_call") } }.disabled(model.isBusy)
+                    }
+                }
+                if model.canEdit {
+                    Section("Record Call") {
+                        if model.isAdministrator {
+                            Picker("Call made by", selection: $callerId) { ForEach(data.staff) { Text($0.displayName).tag($0.userId.uuidString) } }
+                        } else { Text("Call made by you. Only an admin may enter another caller’s results.") }
+                        DatePicker("Call date", selection: $callDate, in: ...Date(), displayedComponents: .date)
+                        Picker("Response", selection: $response) { ForEach(placementResponses, id: \.self) { Text(placementLabel($0)).tag($0) } }
+                        Toggle("Schedule follow-up", isOn: $includeFollowUp)
+                        if includeFollowUp { DatePicker("Follow up", selection: $followUp, displayedComponents: .date) }
+                        TextField("Notes / explanation", text: $notes, axis: .vertical)
+                        Button("Save Call to Person’s History") { Task { await execute("call") } }.disabled(model.isBusy || (response == "other" && notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+                    }
+                }
+                if model.canEdit && !closed {
+                    Section("Selection and Approval") {
+                        Text(requirement ? "Church vote required" : "Appointment — no church vote required")
+                        if let date = candidate.nominatedOn { Text("Nominated: \(date)") }
+                        if let date = candidate.firstReading { Text("First reading: \(date)") }
+                        if let date = candidate.secondReading { Text("Second reading: \(date)") }
+                        DatePicker("Actual action date", selection: $actionDate, in: ...Date(), displayedComponents: .date)
+                        if candidate.stage == "considering" && candidate.response == "yes" { actionButton(requirement ? "Nominate — Pending Vote" : "Appoint Volunteer", requirement ? "nominate" : "appoint") }
+                        if candidate.stage == "nominated" { actionButton("Record First Reading", "first_reading") }
+                        if candidate.stage == "first_reading" { actionButton("Record Second Reading", "second_reading") }
+                        if candidate.stage == "second_reading" { actionButton("Vote Passed — Activate", "vote_passed"); actionButton("Vote Did Not Pass", "vote_failed") }
+                        if ["nominated", "first_reading", "second_reading"].contains(candidate.stage) { actionButton("Defer", "defer") }
+                        if candidate.stage == "deferred" { actionButton("Resume Nomination", "resume") }
+                        actionButton("Withdraw Candidate", "withdraw")
+                    }
+                }
+                Section("Person’s Volunteer Contact History") { VolunteerHistoryRows(entries: data.history.filter { $0.personId == person.id }) }
+            }
+        }.navigationTitle("Candidate")
+            .onAppear { callerId = model.currentProfile?.userId.uuidString ?? ""; assignee = data.candidates.first { $0.id == candidateId }?.assignedTo?.uuidString ?? "" }
+            .task { do { data = try await model.loadPlacementWorkflow() } catch { self.error = error.localizedDescription } }
+    }
+    private func actionButton(_ title: String, _ action: String) -> some View {
+        Button(title) { Task { await execute(action) } }.disabled(model.isBusy)
+    }
+}

@@ -20,11 +20,12 @@ jobs:
       - run: pnpm run lint
       - run: pnpm run typecheck
       - run: pnpm run test:backend
+      - run: pnpm run test:database
       - run: pnpm test
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.2.0
-      - run: deno check --node-modules-dir=auto supabase/functions/admin-users/index.ts supabase/functions/planning-center-sync/index.ts supabase/functions/planning-center-webhook/index.ts
+      - run: deno check --node-modules-dir=auto supabase/functions/admin-users/index.ts supabase/functions/church-platform/index.ts supabase/functions/planning-center-sync/index.ts supabase/functions/planning-center-webhook/index.ts
   database-security:
     runs-on: ubuntu-latest
     steps:
@@ -35,5 +36,6 @@ jobs:
       - run: supabase start
       - run: supabase db reset --local
       - run: psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f tests/backend/database-security.sql
+      - run: psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f tests/backend/multi-church-security.sql
       - if: always()
         run: supabase stop --no-backup

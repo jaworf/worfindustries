@@ -2071,3 +2071,27 @@ textarea{font:inherit}
  .admin-main input,.admin-main select,.admin-main textarea,.admin-login-card input,.support-card input,.support-card select,.support-card textarea,.filter-panel input,.filter-panel select{font-size:1rem}
  .admin-section-heading h2{line-height:1.15}
 }
+
+.placement-contact,.placement-actions { display:flex; flex-wrap:wrap; gap:12px; margin:12px 0; }
+.placement-candidate { margin-top:16px; }
+.placement-candidate details { margin:16px 0; }
+.placement-candidate label { display:grid; gap:6px; margin:12px 0; }
+.placement-history { border-top:1px solid #d5dee5; padding:12px 0; }
+.placement-notes { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; }
+
+.placement-workflow > h2 { font-size: clamp(1.6rem, 3vw, 2.1rem); font-weight: 700; margin-bottom: 10px; }
+.placement-workflow > p { line-height: 1.6; margin: 10px 0 18px; }
+.placement-toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+.placement-workflow .admin-card { padding: 24px; margin: 18px 0; }
+.placement-workflow h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 10px; }
+.placement-workflow h4 { font-weight: 700; margin: 18px 0 10px; }
+.placement-workflow summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
+.placement-workflow .admin-form-stack { margin: 16px 0; }
+.placement-workflow p { line-height: 1.6; }
+.placement-workflow textarea { width: 100%; min-height: 90px; padding: 12px; border: 1px solid #b4c9d8; border-radius: 10px; }
+@media (max-width: 600px) {
+ .placement-workflow .admin-card { padding: 18px; }
+ .placement-toolbar .button { flex: 1 1 140px; }
+ .placement-contact { flex-direction: column; gap: 8px; }
+ .placement-actions .button { flex: 1 1 160px; }
+}

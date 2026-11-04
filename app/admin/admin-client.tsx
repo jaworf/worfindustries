@@ -11,6 +11,8 @@ import {
 } from "react";
 
 import { type AppRole, type Tab, type AssignmentRoute, type OrdinationKind, type Profile, type Person, type Ministry, type Position, type Term, type Assignment, type Snapshot, emptySnapshot, navItems, personName, ordinationKind, ordinationLabels, ordinationField, todayISO, formatDate, isCurrent, normalizeError, loadAllPeople, functionErrorMessage, isFutureJwtError, adminErrorMessage, wait, membershipPriority, type MutationRunner } from "./admin-shared";
+import { ChurchOwnerControls } from "./church-owner";
+import { PlacementWorkflow, PersonContactHistory } from "./placement-workflow";
 import { AssignView } from "./assign-view";
 import { SectionHeading } from "./section-heading";
 import { ChurchLogoSettings, ChurchReport } from "./church-branding";
@@ -264,6 +266,7 @@ export function MinistryAdmin({
           )}
           {!loading && profile && (
             <>
+              {activeTab === "placement" && <PlacementWorkflow supabase={supabase} snapshot={snapshot} profile={profile} onChanged={() => loadData(session.user.id, true)} />}
               {activeTab === "focus" && (
                 <FocusView
                   onAssign={openAssign}
@@ -802,7 +805,7 @@ function PeopleView({
         title="People Directory"
         detail="Search contact details, ministry history, membership, and permanent ordination status."
       />
-      <DiscoveryPeople client={supabase} canEdit={canEdit} onPerson={setSelectedId}/>
+      {canEdit && <DiscoveryPeople client={supabase} canEdit={canEdit} onPerson={setSelectedId}/>}
       <div className="admin-search-row two">
         <input type="search" placeholder="Search people or ordination status" value={query} onChange={(event) => setQuery(event.target.value)} />
         <select value={filter} onChange={(event) => setFilter(event.target.value)} aria-label="Filter by ordination">
@@ -901,6 +904,7 @@ function PersonEditor({
           </div>
           <button onClick={onClose} aria-label="Close">×</button>
         </header>
+        <PersonContactHistory key={person.id} supabase={supabase} personId={person.id}/>
         <div className="admin-person-contact">
           {person.membership_status && <span>{person.membership_status}</span>}
           {person.email && <a href={`mailto:${person.email}`}>{person.email}</a>}
@@ -926,7 +930,7 @@ function PersonEditor({
             </button>
           )}
         </section>
-        <DiscoveryPersonSummary client={supabase} personId={person.id} canEdit={canEdit}/>
+        {canEdit && <DiscoveryPersonSummary client={supabase} personId={person.id} canEdit={canEdit}/>}
         <AssignmentHistory title="Current ministries" assignments={current} canEdit={canEdit} working={working} onArchive={onArchive} />
         <AssignmentHistory title="Archived & historical ministries" assignments={history} canEdit={canEdit} working={working} onArchive={onArchive} />
       </section>
@@ -1254,7 +1258,7 @@ function UsersView({supabase,session,profile,working,mutate}: {supabase: Supabas
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<AppRole>("editor");
   const [temporaryPassword, setTemporaryPassword] = useState("");
-  return <><SectionHeading title="Users" detail="Invite your church’s team and manage their access." /><div className="admin-user-workspace">
+  return <><SectionHeading title="Users" detail="Invite your church’s team and manage their access." /><div className="admin-user-workspace"><ChurchOwnerControls supabase={supabase} profile={profile} session={session}/>
         {profile.app_role === "admin" && (
           <section className="admin-card admin-settings-card full-panel">
             <h3>Create or resend an app user</h3>
