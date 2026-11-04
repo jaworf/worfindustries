@@ -24,7 +24,7 @@ async function load(url) {
   await loadedModule.link(async (spec) => {
     if (spec.startsWith("."))
       return load(
-        new URL(spec.endsWith("admin-shared") ? spec + ".ts" : spec, url),
+        new URL(spec.endsWith("admin-shared") ? spec + ".ts" : /\.[cm]?[jt]sx?$/.test(spec) ? spec : spec + ".tsx", url),
       );
     const ns = await import(spec);
     return new vm.SyntheticModule(
@@ -84,6 +84,7 @@ const base = {
   history: [],
   otherCalls: [],
   busy: false,
+  defaultExpanded: true,
   command: async () => true,
 };
 function render(role, changes = {}) {
@@ -120,7 +121,8 @@ test("editor can record own calls and cannot select another caller or assign cal
 test("admin can assign calls and enter the actual caller", () => {
   const html = render("admin");
   assert.ok(html.includes("Save Assignment"));
-  assert.ok(html.includes("Call made by<select"));
+  assert.ok(html.includes('role="combobox"'));
+  assert.ok(html.includes("Call made by"));
   assert.ok(html.includes("Editor One"));
 });
 test("viewer has contact and history access without mutation controls", () => {
@@ -190,3 +192,5 @@ test("history retains role, response, caller and recorder and safely renders not
     assert.ok(html.includes(value));
   assert.ok(!html.includes("<script>"));
 });
+
+test("candidate card starts compact until opened",()=>{const html=render("admin",{defaultExpanded:false});assert.ok(html.includes("Alice Example"));assert.ok(html.includes("Current positions"));assert.ok(html.includes('aria-expanded="false"'));assert.ok(!html.includes("Save Assignment"));assert.ok(!html.includes("Save Call"));});

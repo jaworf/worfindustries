@@ -1,4 +1,5 @@
 "use client";
+import { SearchSelect } from "./search-select";
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -177,12 +178,14 @@ export function PlacementWorkflow({
   profile,
   onChanged,
   initialView = "openings",
+  votesOnly = false,
 }: {
   supabase: SupabaseClient;
   snapshot: Snapshot;
   profile: Profile;
   onChanged: () => Promise<void>;
   initialView?: string;
+  votesOnly?: boolean;
 }) {
   const [openings, setOpenings] = useState<Opening[]>([]),
     [candidates, setCandidates] = useState<Candidate[]>([]),
@@ -247,13 +250,18 @@ export function PlacementWorkflow({
     setError("");
     setNotice("");
     try {
-      const { error } = await supabase.rpc("placement_command", {
+      const { data: result, error } = await supabase.rpc("placement_command", {
         p_action: action,
         p_data: data,
       });
       if (error) throw error;
       await load();
       await onChanged();
+      if (action === "opening") setSelected(result.id);
+      if (
+        ["cancel_opening", "finish_opening", "restore_opening"].includes(action)
+      )
+        setSelected("");
       setNotice("Saved.");
       return true;
     } catch (e) {
@@ -288,23 +296,43 @@ export function PlacementWorkflow({
         ? pending(c)
         : c.opening_id === selected,
   );
+  const activeOpenings = openings.filter((o) => o.status === "open");
+  const shownOpenings = openings.filter((o) =>
+    view === "trash"
+      ? o.status === "cancelled"
+      : view === "completed"
+        ? o.status === "filled"
+        : o.status === "open",
+  );
   return (
     <div className="placement-workflow">
-      <h2>Placement Process</h2>
+      <h2>{votesOnly ? "Needing Votes" : "Placement Process"}</h2>
       <p>
-        Collect candidates, coordinate calls, and complete nominations or
-        appointments.
+        {votesOnly
+          ? "Record bulletin readings and church votes for pending nominations."
+          : "Choose an opening to work with its candidates, calls and nominations."}
       </p>
       <div className="placement-toolbar">
-        <button className="button" onClick={() => setView("openings")}>
-          Openings
-        </button>
-        <button className="button" onClick={() => setView("calls")}>
-          My Calls
-        </button>
-        <button className="button" onClick={() => setView("nominations")}>
-          Nominations & Votes
-        </button>
+        {!votesOnly &&
+          [
+            ["openings", "Openings"],
+            ["calls", "My Calls"],
+            ["nominations", "Nominations & Votes"],
+            ["completed", "Completed"],
+            ["trash", "Trash"],
+          ].map(([key, name]) => (
+            <button
+              className={"button " + (view === key ? "button-primary" : "")}
+              key={key}
+              onClick={() => {
+                setView(key);
+                setSelected("");
+              }}
+            >
+              {name}
+              {key === "openings" ? ` (${activeOpenings.length})` : ""}
+            </button>
+          ))}
         <button
           className="button"
           disabled={busy}
@@ -320,50 +348,65 @@ export function PlacementWorkflow({
       )}
       {notice && <p role="status">{notice}</p>}
       {!loaded && !error && <p>Loading placement process…</p>}
-      {view === "openings" && (
+      {["openings", "completed", "trash"].includes(view) && (
         <>
-          {canEdit && (
+          {view === "openings" && canEdit && (
             <NewOpening
+              key={openings.length}
               snapshot={snapshot}
               busy={busy}
+              openings={openings}
               save={(data) => command("opening", data)}
             />
           )}
-          <label>
-            Opening
-            <select
-              value={selected}
-              onChange={(e) => setSelected(e.target.value)}
-            >
-              <option value="">Choose an opening</option>
-              {openings.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {label(o)} — {o.status} (
+          <div className="opening-grid">
+            {shownOpenings.map((o) => (
+              <button
+                key={o.id}
+                className={
+                  "opening-card " + (selected === o.id ? "selected" : "")
+                }
+                onClick={() => setSelected(selected === o.id ? "" : o.id)}
+                aria-expanded={selected === o.id}
+              >
+                <strong>{label(o)}</strong>
+                <span>
                   {
                     candidates.filter(
                       (c) =>
                         c.opening_id === o.id &&
-                        ["elected", "appointed"].includes(c.stage),
+                        !["withdrawn", "not_elected"].includes(c.stage),
                     ).length
-                  }
-                  /{o.quantity} filled)
-                </option>
-              ))}
-            </select>
-          </label>
+                  }{" "}
+                  candidates ·{" "}
+                  {
+                    candidates.filter(
+                      (c) => c.opening_id === o.id && pending(c),
+                    ).length
+                  }{" "}
+                  pending nominations
+                </span>
+                <small>
+                  {selected === o.id ? "Close details" : "Open details →"}
+                </small>
+              </button>
+            ))}
+          </div>
+          {!shownOpenings.length && loaded && (
+            <p>
+              {view === "trash"
+                ? "Trash is empty."
+                : "No openings in this view."}
+            </p>
+          )}
           {currentOpening && (
             <section className="admin-card">
-              <h3>{label(currentOpening)}</h3>
-              <p>
-                {currentOpening.quantity} needed ·{" "}
-                {stageLabel(currentOpening.status)} ·{" "}
-                {
-                  candidates.filter(
-                    (c) => c.opening_id === currentOpening.id && pending(c),
-                  ).length
-                }{" "}
-                pending nominees
-              </p>
+              <div className="placement-section-heading">
+                <h3>{label(currentOpening)}</h3>
+                <button className="button" onClick={() => setSelected("")}>
+                  Close
+                </button>
+              </div>
               {currentOpening.notes && <p>{currentOpening.notes}</p>}
               {canEdit && currentOpening.status === "open" && (
                 <>
@@ -381,67 +424,72 @@ export function PlacementWorkflow({
                       command("candidate", { opening_id: selected, person_id })
                     }
                   />
-                  <button
-                    className="button"
-                    disabled={busy}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          "Close this opening? Candidate and contact history will be retained.",
+                  <div className="placement-actions">
+                    <button
+                      className="button"
+                      disabled={busy}
+                      onClick={() =>
+                        void command("finish_opening", { opening_id: selected })
+                      }
+                    >
+                      Finish Recruiting
+                    </button>
+                    <button
+                      className="button"
+                      disabled={busy}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            "Move this opening to Trash? Candidate and call history will be kept.",
+                          )
                         )
-                      )
-                        void command("cancel_opening", {
-                          opening_id: selected,
-                        });
-                    }}
-                  >
-                    Close opening
-                  </button>
+                          void command("cancel_opening", {
+                            opening_id: selected,
+                          });
+                      }}
+                    >
+                      Move to Trash
+                    </button>
+                  </div>
                 </>
+              )}
+              {canEdit && currentOpening.status !== "open" && (
+                <button
+                  className="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void command("restore_opening", { opening_id: selected })
+                  }
+                >
+                  Reopen Recruitment
+                </button>
               )}
             </section>
           )}
         </>
       )}
-      {view === "calls" && (
-        <p>
-          Calls assigned to you, including follow-ups. A No or Yes response
-          leaves this list unless another follow-up is scheduled.
-        </p>
-      )}
+      {view === "calls" && <p>Calls assigned to you and follow-ups due.</p>}
       {view === "nominations" && (
-        <>
-          <p>
-            Pending nominees do not count as active volunteers. Actual reading
-            and vote dates are recorded separately.
-          </p>
-          <details className="admin-card">
-            <summary>Bulletin text</summary>
-            <h3>First reading — pending publication</h3>
-            <pre className="placement-notes">
-              {candidates
-                .filter((c) => c.stage === "nominated")
-                .map(
-                  (c) =>
-                    `${personName(snapshot.people.find((p) => p.id === c.person_id)!)} — ${label(openings.find((o) => o.id === c.opening_id)!)}`,
-                )
-                .join("\n") || "None"}
-            </pre>
-            <h3>Second reading — pending publication and vote</h3>
-            <pre className="placement-notes">
-              {candidates
-                .filter((c) => c.stage === "first_reading")
-                .map(
-                  (c) =>
-                    `${personName(snapshot.people.find((p) => p.id === c.person_id)!)} — ${label(openings.find((o) => o.id === c.opening_id)!)}`,
-                )
-                .join("\n") || "None"}
-            </pre>
-          </details>
-        </>
-      )}
-      {loaded && view !== "openings" && !displayed.length && (
-        <p>Nothing in this list.</p>
+        <details className="admin-card">
+          <summary>Bulletin text</summary>
+          {[
+            ["nominated", "First reading"],
+            ["first_reading", "Second reading"],
+          ].map(([stage, heading]) => (
+            <section key={stage}>
+              <h3>{heading}</h3>
+              <pre className="placement-notes">
+                {candidates
+                  .filter((c) => c.stage === stage)
+                  .map(
+                    (c) =>
+                      `${personName(snapshot.people.find((p) => p.id === c.person_id)!)} — ${label(openings.find((o) => o.id === c.opening_id)!)}`,
+                  )
+                  .join("\n") || "None"}
+              </pre>
+            </section>
+          ))}
+        </details>
       )}
       {displayed.map((c) => {
         const person = snapshot.people.find((p) => p.id === c.person_id),
@@ -449,7 +497,7 @@ export function PlacementWorkflow({
         if (!person || !o) return null;
         return (
           <CandidateCard
-            key={`${c.id}:${c.assigned_to}`}
+            key={c.id}
             candidate={c}
             person={person}
             opening={o}
@@ -486,109 +534,197 @@ function NewOpening({
   snapshot,
   busy,
   save,
+  openings,
 }: {
   snapshot: Snapshot;
   busy: boolean;
   save: (d: Record<string, unknown>) => Promise<boolean>;
+  openings: Opening[];
 }) {
   const [role, setRole] = useState(""),
-    [position, setPosition] = useState(""),
-    [term, setTerm] = useState(""),
-    [quantity, setQuantity] = useState(1),
-    [notes, setNotes] = useState("");
+    [position, setPosition] = useState("none"),
+    [term, setTerm] = useState("none"),
+    [notes, setNotes] = useState(""),
+    [newRole, setNewRole] = useState(""),
+    [newPosition, setNewPosition] = useState(""),
+    [vote, setVote] = useState(false),
+    [expanded, setExpanded] = useState(false),
+    [newTerm, setNewTerm] = useState(""),
+    [termStart, setTermStart] = useState(""),
+    [termEnd, setTermEnd] = useState("");
+  const duplicate = openings.some(
+    (o) =>
+      o.status === "open" &&
+      o.role_id === role &&
+      (o.sub_role_id ?? "none") === position &&
+      (o.term_id ?? "none") === term,
+  );
+  const requirement =
+    position !== "none" &&
+    (snapshot.ministries.find((r) => r.id === role)?.requires_vote ||
+      (position === "new"
+        ? vote
+        : snapshot.positions.find((p) => p.id === position)?.requires_vote));
   return (
-    <details className="admin-card">
-      <summary>Create opening</summary>
-      <form
-        className="admin-form-stack"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (
-            await save({
-              role_id: role,
-              sub_role_id: position || null,
-              term_id: term || null,
-              quantity,
-              notes,
-            })
-          ) {
-            setNotes("");
-          }
-        }}
+    <section className="admin-card">
+      <button
+        type="button"
+        className="opening-create-toggle"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((v) => !v)}
       >
-        <label>
-          Ministry
-          <select
-            required
-            value={role}
-            onChange={(e) => {
-              setRole(e.target.value);
-              setPosition("");
-            }}
+        ＋ Create Opening
+      </button>
+      {expanded && (
+        <form
+          className="admin-form-stack"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (duplicate) return;
+            const ok = await save({
+              role_id: role === "new" ? null : role,
+              new_role_name: role === "new" ? newRole : null,
+              sub_role_id: ["new", "none"].includes(position) ? null : position,
+              new_position_name: position === "new" ? newPosition : null,
+              new_position_vote: vote,
+              term_id: ["none", "new"].includes(term) ? null : term,
+              new_term_name: term === "new" ? newTerm : null,
+              term_start: termStart || null,
+              term_end: termEnd || null,
+              notes,
+            });
+            if (ok) {
+              setNotes("");
+              setExpanded(false);
+            }
+          }}
+        >
+          <div className="admin-form-grid">
+            <SearchSelect
+              label="Ministry"
+              value={role}
+              required
+              options={[
+                ...snapshot.ministries
+                  .filter((r) => r.is_active)
+                  .map((r) => ({ value: r.id, label: r.name })),
+                ...(role === "new" ? [{ value: "new", label: newRole }] : []),
+              ]}
+              onChange={(v) => {
+                setRole(v);
+                setPosition("none");
+              }}
+              onCreate={(name) => {
+                setNewRole(name);
+                setRole("new");
+                setPosition("none");
+              }}
+              createLabel="Create a new ministry"
+            />
+            <SearchSelect
+              label="Position"
+              value={position}
+              disabled={!role}
+              options={[
+                { value: "none", label: "Team member — no position" },
+                ...snapshot.positions
+                  .filter((p) => p.role_id === role && p.is_active)
+                  .map((p) => ({ value: p.id, label: p.name })),
+                ...(position === "new"
+                  ? [{ value: "new", label: newPosition }]
+                  : []),
+              ]}
+              onChange={setPosition}
+              onCreate={(name) => {
+                setNewPosition(name);
+                setPosition("new");
+              }}
+              createLabel="Create a new position"
+            />
+            <SearchSelect
+              label={requirement ? "Term (required)" : "Term"}
+              value={term}
+              options={[
+                { value: "none", label: "No term" },
+                ...snapshot.terms
+                  .filter((t) => t.is_active)
+                  .map((t) => ({ value: t.id, label: t.name })),
+                ...(term === "new" ? [{ value: "new", label: newTerm }] : []),
+              ]}
+              onChange={setTerm}
+              onCreate={(name) => {
+                setNewTerm(name);
+                setTerm("new");
+              }}
+              createLabel="Create a new term"
+            />
+          </div>
+          {term === "new" && (
+            <div className="admin-form-grid">
+              <label>
+                Term start
+                <input
+                  type="date"
+                  required
+                  value={termStart}
+                  onChange={(e) => setTermStart(e.target.value)}
+                />
+              </label>
+              <label>
+                Term end
+                <input
+                  type="date"
+                  required
+                  min={termStart}
+                  value={termEnd}
+                  onChange={(e) => setTermEnd(e.target.value)}
+                />
+              </label>
+            </div>
+          )}
+          {position === "new" && (
+            <label className="admin-check-row">
+              <input
+                type="checkbox"
+                checked={vote}
+                onChange={(e) => setVote(e.target.checked)}
+              />
+              Position requires a church vote
+            </label>
+          )}
+          {requirement && term === "none" && (
+            <p>Choose a term for this voted position.</p>
+          )}
+          <label>
+            Committee notes
+            <textarea
+              maxLength={10000}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </label>
+          {duplicate && (
+            <p role="alert">
+              An open recruitment already exists for this ministry, position and
+              term. Open its card below instead.
+            </p>
+          )}
+          <button
+            className="button button-primary"
+            disabled={
+              busy ||
+              !role ||
+              !position ||
+              !term ||
+              duplicate ||
+              (requirement && term === "none")
+            }
           >
-            <option value="">Choose ministry</option>
-            {snapshot.ministries
-              .filter((r) => r.is_active)
-              .map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-          </select>
-        </label>
-        <label>
-          Position
-          <select
-            value={position}
-            onChange={(e) => setPosition(e.target.value)}
-          >
-            <option value="">Team member (no church vote)</option>
-            {snapshot.positions
-              .filter((p) => p.role_id === role && p.is_active)
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-          </select>
-        </label>
-        <label>
-          Term
-          <select value={term} onChange={(e) => setTerm(e.target.value)}>
-            <option value="">No term</option>
-            {snapshot.terms
-              .filter((t) => t.is_active)
-              .map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-          </select>
-        </label>
-        <label>
-          People needed
-          <input
-            type="number"
-            required
-            min={1}
-            max={100}
-            value={quantity}
-            onChange={(e) => setQuantity(Number(e.target.value))}
-          />
-        </label>
-        <label>
-          Committee notes
-          <textarea
-            maxLength={10000}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </label>
-        <button className="button button-primary" disabled={busy || !role}>
-          Create Opening
-        </button>
-      </form>
-    </details>
+            Create Opening
+          </button>
+        </form>
+      )}
+    </section>
   );
 }
 function AddCandidate({
@@ -600,46 +736,26 @@ function AddCandidate({
   busy: boolean;
   save: (id: string) => Promise<boolean>;
 }) {
-  const [query, setQuery] = useState(""),
-    [person, setPerson] = useState("");
+  const [person, setPerson] = useState("");
   return (
     <form
-      className="admin-form-stack"
+      className="candidate-add"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (await save(person)) setPerson("");
+        if (person && (await save(person))) setPerson("");
       }}
     >
-      <label>
-        Find a candidate
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setPerson("");
-          }}
-        />
-      </label>
-      <label>
-        Candidate
-        <select
-          required
-          value={person}
-          onChange={(e) => setPerson(e.target.value)}
-        >
-          <option value="">Choose person</option>
-          {people
-            .filter((p) =>
-              personName(p).toLowerCase().includes(query.toLowerCase()),
-            )
-            .map((p) => (
-              <option value={p.id} key={p.id}>
-                {personName(p)}
-              </option>
-            ))}
-        </select>
-      </label>
+      <SearchSelect
+        label="Add a candidate"
+        value={person}
+        required
+        options={people.map((p) => ({
+          value: p.id,
+          label: personName(p),
+          detail: [p.email, p.mobile_phone].filter(Boolean).join(" · "),
+        }))}
+        onChange={setPerson}
+      />
       <button className="button" disabled={busy || !person}>
         Add Candidate
       </button>
@@ -660,7 +776,9 @@ export function CandidateCard({
   canEdit,
   admin,
   command,
+  defaultExpanded = false,
 }: {
+  defaultExpanded?: boolean;
   candidate: Candidate;
   person: Person;
   opening: Opening;
@@ -675,12 +793,16 @@ export function CandidateCard({
   admin: boolean;
   command: (action: string, data: Record<string, unknown>) => Promise<boolean>;
 }) {
-  const [assignee, setAssignee] = useState(c.assigned_to ?? ""),
-    [caller, setCaller] = useState(profile.user_id),
-    [response, setResponse] = useState("considering"),
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [assignee, setAssignee] = useState(c.assigned_to ?? "none"),
+    [caller, setCaller] = useState(
+      admin ? (c.assigned_to ?? profile.user_id) : profile.user_id,
+    ),
+    [response, setResponse] = useState(""),
     [notes, setNotes] = useState(""),
+    [actionNotes, setActionNotes] = useState(""),
     [date, setDate] = useState(todayISO()),
-    [followUp, setFollowUp] = useState(""),
+    [followUp, setFollowUp] = useState(c.follow_up ?? ""),
     [callDate, setCallDate] = useState(todayISO());
   const closed =
     ["elected", "appointed", "withdrawn", "not_elected"].includes(c.stage) ||
@@ -691,29 +813,25 @@ export function CandidateCard({
       (snapshot.ministries.find((r) => r.id === o.role_id)?.requires_vote ||
         snapshot.positions.find((p) => p.id === o.sub_role_id)?.requires_vote));
   const act = (action: string) =>
-    command(action, { candidate_id: c.id, date, notes });
+    command(action, { candidate_id: c.id, date, notes: actionNotes });
   return (
     <article className="admin-card placement-candidate">
-      <h3>{personName(person)}</h3>
-      <p>{title}</p>
-      <ContactLinks person={person} />
-      <p>
-        <strong>
+      <button
+        type="button"
+        className="candidate-toggle"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <strong>{personName(person)}</strong>
+        <span>
           {responseLabels[c.response]} · {stageLabel(c.stage)}
-        </strong>
-      </p>
-      <p>
-        Caller:{" "}
-        {staff.find((s) => s.user_id === c.assigned_to)?.display_name ??
-          "Unassigned"}
-        {c.follow_up &&
-          ` · Follow up ${formatDate(c.follow_up)}${c.follow_up <= todayISO() ? " — due" : ""}`}
-      </p>
-      {otherCalls.length > 0 && (
-        <p>Also being approached: {otherCalls.join("; ")}</p>
-      )}
-      <p>
-        Current commitments:{" "}
+          {c.follow_up ? ` · Follow up ${formatDate(c.follow_up)}` : ""}
+        </span>
+        <span aria-hidden="true">{expanded ? "▴" : "▾"}</span>
+      </button>
+      <ContactLinks person={person} />
+      <p className="candidate-commitments">
+        Current positions:{" "}
         {snapshot.assignments
           .filter((a) => a.person_id === person.id && isCurrent(a))
           .map(
@@ -722,258 +840,293 @@ export function CandidateCard({
           )
           .join("; ") || "None recorded"}
       </p>
-      {admin && !closed && (
-        <details>
-          <summary>Assign call</summary>
-          <label>
-            Caller
-            <select
-              value={assignee}
-              onChange={(e) => setAssignee(e.target.value)}
-            >
-              <option value="">Unassigned</option>
-              {staff.map((s) => (
-                <option key={s.user_id} value={s.user_id}>
-                  {s.display_name} ({s.app_role})
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Follow-up date
-            <input
-              type="date"
-              value={followUp}
-              onChange={(e) => setFollowUp(e.target.value)}
-            />
-          </label>
-          <button
-            className="button"
-            disabled={busy}
-            onClick={() =>
-              void command("assign_call", {
-                candidate_id: c.id,
-                caller_id: assignee || null,
-                follow_up: followUp || null,
-              })
-            }
-          >
-            Save Assignment
-          </button>
-        </details>
-      )}
-      {canEdit && (
-        <details>
-          <summary>Record a call</summary>
-          <form
-            className="admin-form-stack"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (
-                await command("call", {
-                  candidate_id: c.id,
-                  caller_id: admin ? caller : profile.user_id,
-                  response,
-                  notes,
-                  date: callDate,
-                  follow_up: followUp || null,
-                })
-              )
-                setNotes("");
-            }}
-          >
-            {admin ? (
-              <label>
-                Call made by
-                <select
-                  value={caller}
-                  onChange={(e) => setCaller(e.target.value)}
-                >
-                  {staff.map((s) => (
-                    <option key={s.user_id} value={s.user_id}>
-                      {s.display_name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <p>
-                Call made by you. Only an admin can enter another caller’s
-                results.
-              </p>
-            )}
-            <label>
-              Call date
-              <input
-                type="date"
-                required
-                max={todayISO()}
-                value={callDate}
-                onChange={(e) => setCallDate(e.target.value)}
-              />
-            </label>
-            <label>
-              Response
-              <select
-                value={response}
-                onChange={(e) => setResponse(e.target.value)}
-              >
-                {Object.entries(responseLabels).map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Notes
-              <textarea
-                maxLength={10000}
-                required={response === "other"}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-            </label>
-            <label>
-              Follow-up date (optional)
-              <input
-                type="date"
-                min={callDate}
-                value={followUp}
-                onChange={(e) => setFollowUp(e.target.value)}
-              />
-            </label>
-            <button className="button button-primary" disabled={busy}>
-              Save Call to Person’s History
+      {expanded && (
+        <div className="candidate-workspace">
+          <div className="placement-section-heading">
+            <h4>{title}</h4>
+            <button className="button" onClick={() => setExpanded(false)}>
+              Close
             </button>
-          </form>
-        </details>
-      )}
-      {canEdit && !closed && (
-        <section>
-          <h4>Selection and approval</h4>
+          </div>
           <p>
-            {requirement
-              ? "Church vote required"
-              : "Appointment — no church vote required"}
+            Assigned caller:{" "}
+            {staff.find((s) => s.user_id === c.assigned_to)?.display_name ??
+              "Unassigned"}
           </p>
-          {c.nominated_on && <p>Nominated: {formatDate(c.nominated_on)}</p>}
-          {c.first_reading && (
-            <p>First reading: {formatDate(c.first_reading)}</p>
+          {otherCalls.length > 0 && (
+            <p>Also being approached: {otherCalls.join("; ")}</p>
           )}
-          {c.second_reading && (
-            <p>Second reading: {formatDate(c.second_reading)}</p>
+          {admin && !closed && (
+            <section className="call-assignment-panel">
+              <h4>Assign call</h4>
+              <div className="call-assignment-grid">
+                <SearchSelect
+                  label="Assign caller"
+                  value={assignee}
+                  required
+                  options={[
+                    { value: "none", label: "Unassigned" },
+                    ...staff.map((s) => ({
+                      value: s.user_id,
+                      label: s.display_name,
+                      detail: s.app_role,
+                    })),
+                  ]}
+                  onChange={setAssignee}
+                />
+                <label>
+                  Follow-up date
+                  <input
+                    type="date"
+                    value={followUp}
+                    onChange={(e) => setFollowUp(e.target.value)}
+                  />
+                </label>
+                <button
+                  className="button"
+                  disabled={busy || !assignee}
+                  onClick={() =>
+                    void command("assign_call", {
+                      candidate_id: c.id,
+                      caller_id: assignee === "none" ? null : assignee,
+                      follow_up: followUp || null,
+                    })
+                  }
+                >
+                  Save Assignment
+                </button>
+              </div>
+            </section>
           )}
-          <label>
-            Actual action date
-            <input
-              type="date"
-              required
-              max={todayISO()}
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </label>
-          <label>
-            Action notes
-            <textarea
-              maxLength={10000}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </label>
-          <div className="placement-actions">
-            {c.stage === "considering" && c.response === "yes" && (
-              <button
-                className="button button-primary"
-                disabled={busy || !date}
-                onClick={() => void act(requirement ? "nominate" : "appoint")}
+          {canEdit && (
+            <section className="call-result-panel">
+              <h4>Record a call</h4>
+              <form
+                className="admin-form-stack call-result-grid"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (
+                    await command("call", {
+                      candidate_id: c.id,
+                      caller_id: admin ? caller : profile.user_id,
+                      response,
+                      notes,
+                      date: callDate,
+                      follow_up: followUp || null,
+                    })
+                  )
+                    setNotes("");
+                }}
               >
-                {requirement
-                  ? "Nominate — Pending Church Vote"
-                  : "Appoint Volunteer"}
-              </button>
-            )}
-            {c.stage === "nominated" && (
-              <button
-                className="button"
-                disabled={busy || !date}
-                onClick={() => void act("first_reading")}
-              >
-                Record First Reading
-              </button>
-            )}
-            {c.stage === "first_reading" && (
-              <button
-                className="button"
-                disabled={busy || !date}
-                onClick={() => void act("second_reading")}
-              >
-                Record Second Reading
-              </button>
-            )}
-            {c.stage === "second_reading" && (
-              <>
+                {admin ? (
+                  <SearchSelect
+                    label="Call made by"
+                    value={caller}
+                    required
+                    options={staff.map((s) => ({
+                      value: s.user_id,
+                      label: s.display_name,
+                    }))}
+                    onChange={setCaller}
+                  />
+                ) : (
+                  <p>
+                    Call made by you. Only an admin can enter another caller’s
+                    results.
+                  </p>
+                )}
+                <label>
+                  Call date
+                  <input
+                    type="date"
+                    required
+                    max={todayISO()}
+                    value={callDate}
+                    onChange={(e) => setCallDate(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Response
+                  <select
+                    value={response}
+                    onChange={(e) => setResponse(e.target.value)}
+                  >
+                    <option value="">Choose a response</option>
+                    {Object.entries(responseLabels).map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Notes
+                  <textarea
+                    maxLength={10000}
+                    required={response === "other"}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Follow-up date (optional)
+                  <input
+                    type="date"
+                    min={callDate}
+                    value={followUp}
+                    onChange={(e) => setFollowUp(e.target.value)}
+                  />
+                </label>
                 <button
                   className="button button-primary"
-                  disabled={busy || !date}
-                  onClick={() => void act("vote_passed")}
+                  disabled={busy || !caller || !response}
                 >
-                  Vote Passed — Activate
+                  Save Call to Person’s History
                 </button>
+              </form>
+            </section>
+          )}
+          {canEdit && !closed && (
+            <details
+              open={
+                c.response === "yes" ||
+                [
+                  "nominated",
+                  "first_reading",
+                  "second_reading",
+                  "deferred",
+                ].includes(c.stage)
+              }
+            >
+              <summary>Selection and approval</summary>
+              <p>
+                {requirement
+                  ? "Church vote required"
+                  : "Appointment — no church vote required"}
+              </p>
+              {c.nominated_on && <p>Nominated: {formatDate(c.nominated_on)}</p>}
+              {c.first_reading && (
+                <p>First reading: {formatDate(c.first_reading)}</p>
+              )}
+              {c.second_reading && (
+                <p>Second reading: {formatDate(c.second_reading)}</p>
+              )}
+              <label>
+                Actual action date
+                <input
+                  type="date"
+                  required
+                  max={todayISO()}
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </label>
+              <label>
+                Action notes
+                <textarea
+                  maxLength={10000}
+                  value={actionNotes}
+                  onChange={(e) => setActionNotes(e.target.value)}
+                />
+              </label>
+              <div className="placement-actions">
+                {c.stage === "considering" && c.response === "yes" && (
+                  <button
+                    className="button button-primary"
+                    disabled={busy || !date}
+                    onClick={() =>
+                      void act(requirement ? "nominate" : "appoint")
+                    }
+                  >
+                    {requirement
+                      ? "Nominate — Pending Church Vote"
+                      : "Appoint Volunteer"}
+                  </button>
+                )}
+                {c.stage === "nominated" && (
+                  <button
+                    className="button"
+                    disabled={busy || !date}
+                    onClick={() => void act("first_reading")}
+                  >
+                    Record First Reading
+                  </button>
+                )}
+                {c.stage === "first_reading" && (
+                  <button
+                    className="button"
+                    disabled={busy || !date}
+                    onClick={() => void act("second_reading")}
+                  >
+                    Record Second Reading
+                  </button>
+                )}
+                {c.stage === "second_reading" && (
+                  <>
+                    <button
+                      className="button button-primary"
+                      disabled={busy || !date}
+                      onClick={() => void act("vote_passed")}
+                    >
+                      Vote Passed — Activate
+                    </button>
+                    <button
+                      className="button"
+                      disabled={busy || !date}
+                      onClick={() => {
+                        if (window.confirm("Record an unsuccessful vote?"))
+                          void act("vote_failed");
+                      }}
+                    >
+                      Vote Did Not Pass
+                    </button>
+                  </>
+                )}
+                {["nominated", "first_reading", "second_reading"].includes(
+                  c.stage,
+                ) && (
+                  <button
+                    className="button"
+                    disabled={busy || !date}
+                    onClick={() => void act("defer")}
+                  >
+                    Defer
+                  </button>
+                )}
+                {c.stage === "deferred" && (
+                  <button
+                    className="button"
+                    disabled={busy || !date}
+                    onClick={() => void act("resume")}
+                  >
+                    Resume Nomination
+                  </button>
+                )}
                 <button
                   className="button"
                   disabled={busy || !date}
                   onClick={() => {
-                    if (window.confirm("Record an unsuccessful vote?"))
-                      void act("vote_failed");
+                    if (
+                      window.confirm(
+                        "Withdraw this candidate? History will be retained.",
+                      )
+                    )
+                      void act("withdraw");
                   }}
                 >
-                  Vote Did Not Pass
+                  Withdraw Candidate
                 </button>
-              </>
-            )}
-            {["nominated", "first_reading", "second_reading"].includes(
-              c.stage,
-            ) && (
-              <button
-                className="button"
-                disabled={busy || !date}
-                onClick={() => void act("defer")}
-              >
-                Defer
-              </button>
-            )}
-            {c.stage === "deferred" && (
-              <button
-                className="button"
-                disabled={busy || !date}
-                onClick={() => void act("resume")}
-              >
-                Resume Nomination
-              </button>
-            )}
-            <button
-              className="button"
-              disabled={busy || !date}
-              onClick={() => {
-                if (
-                  window.confirm(
-                    "Withdraw this candidate? History will be retained.",
-                  )
-                )
-                  void act("withdraw");
-              }}
-            >
-              Withdraw Candidate
-            </button>
-          </div>
-        </section>
+              </div>
+            </details>
+          )}
+          <details>
+            <summary>
+              Person’s volunteer contact history ({history.length})
+            </summary>
+            <ContactHistory entries={history} />
+          </details>
+        </div>
       )}
-      <details>
-        <summary>Person’s volunteer contact history ({history.length})</summary>
-        <ContactHistory entries={history} />
-      </details>
     </article>
   );
 }

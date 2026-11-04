@@ -19,7 +19,11 @@ export function DiscoveryRegistration({client}:{client:SupabaseClient}){
  useEffect(()=>{void load();},[load]);
  return <section className="admin-card admin-settings-card discovery-staff"><h3>Member registration</h3><p>Share this church&apos;s unique link with new and longtime members. Leaders can use the same login to participate.</p><label>Registration link<input readOnly value={link} onFocus={e=>e.target.select()}/></label><div className="discovery-actions"><button disabled={!link||busy} onClick={async()=>{try{await navigator.clipboard.writeText(link);setNotice("Link copied.");}catch{setNotice("Select the link above and copy it.");}}}>Copy link</button><a className="button" href={link||undefined} target="_blank" rel="noreferrer">Open participant workflow</a><button disabled={busy} onClick={()=>{if(window.confirm("Replace this church's registration link? Previously shared links will stop enrolling new participants. Existing profiles remain available through My Ministry Profile."))void load(true);}}>Replace link</button><button disabled={busy} onClick={()=>void load(false,!enabled)}>{enabled?"Pause registration":"Enable registration"}</button></div><p>{enabled?"Registration is open.":"New registration is paused."}</p>{notice&&<p role="status">{notice}</p>}{error&&<p role="alert">{error}</p>}</section>;
 }
-export function DiscoveryPeople({client,canEdit,onPerson}:{client:SupabaseClient;canEdit:boolean;onPerson?:(id:string)=>void}){
+export function DiscoveryPeople(props:{client:SupabaseClient;canEdit:boolean;onPerson?:(id:string)=>void}){
+ const [open,setOpen]=useState(false);
+ return <details className="discovery-search-toggle" onToggle={e=>setOpen(e.currentTarget.open)}><summary>Assessments and service filters <span>{open?'Close':'Open'} ▾</span></summary>{open&&<DiscoveryPeopleActive {...props}/>}</details>;
+}
+function DiscoveryPeopleActive({client,canEdit,onPerson}:{client:SupabaseClient;canEdit:boolean;onPerson?:(id:string)=>void}){
  const [filters,setFilters]=useState(initialFilters),[applied,setApplied]=useState(initialFilters),[offset,setOffset]=useState(0),[items,setItems]=useState<Entry[]>([]),[total,setTotal]=useState(0),[selected,setSelected]=useState<Entry|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState(false),[refresh,setRefresh]=useState(0);
  const load=useCallback(()=>setRefresh(r=>r+1),[]);
  // eslint-disable-next-line react-hooks/set-state-in-effect -- Show pending status while synchronizing server-side search filters.

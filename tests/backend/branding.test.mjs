@@ -51,3 +51,5 @@ test('reports use ministry section headings without repeated ministry cells',()=
  assert.ok(html.includes('<h2>Music &amp; Worship</h2>'));
  assert.equal((html.match(/class="ministry-report"/g)||[]).length,2);
 });
+
+test('report presents name, position, term end and Notes without vote dates',()=>{const html=render([{...base,person_name:'Name First',sub_role_name:'Position Second',vote_date:'2026-10-01',note_is_public:true,notes:'Approved for public report'}]);assert.ok(html.includes('<th>Name</th><th>Position</th><th>Term End</th><th>Notes</th>'));assert.ok(html.indexOf('<td>Name First</td>')<html.indexOf('<td>Position Second</td>'));assert.ok(!html.includes('<th>Voted</th>'));assert.ok(!html.includes('Oct 1, 2026'));assert.ok(html.includes('Approved for public report'));});

@@ -224,7 +224,9 @@ try {
   await cmd("nominate", { candidate_id: candidate, date: "2026-11-01" });
   assert.equal(await count("assignments"), 0);
   passed++;
-  await deny("nominate", { candidate_id: second }, /All places/);
+  await cmd("nominate", { candidate_id: second });
+  await cmd("withdraw", { candidate_id: second });
+  passed++;
   await deny("vote_passed", { candidate_id: candidate }, /both readings/);
   await deny("cancel_opening", { opening_id: opening }, /Withdraw pending/);
   await cmd("first_reading", { candidate_id: candidate, date: "2026-11-01" });
@@ -262,7 +264,7 @@ try {
         [opening],
       )
     ).rows[0].status,
-    "filled",
+    "open",
   );
   passed++;
   await deny("vote_passed", { candidate_id: candidate }, /closed/);
@@ -306,6 +308,7 @@ try {
     ).rows[0].n >= 3,
   );
   passed++;
+  await cmd("finish_opening", {opening_id:opening});
   const duplicateOpening = await cmd("opening", {role_id:role, sub_role_id:position, term_id:term});
   const duplicateCandidate = await cmd("candidate", {opening_id:duplicateOpening, person_id:person});
   await cmd("call", {candidate_id:duplicateCandidate, response:"yes"});

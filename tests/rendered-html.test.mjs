@@ -63,7 +63,7 @@ test("provides a password setup and recovery page", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /Reset your app password/i);
-  assert.match(html, /does not change the Supabase project or database password/i);
+  assert.match(html, /Use this password to sign in to the Ministry Volunteers app/i);
 });
 
 test("provides an App Store support page", async () => {
@@ -154,8 +154,8 @@ test("keeps ordination on people and out of the public iframe", async () => {
   assert.match(adminClient, /is_ordained_deacon/);
   assert.match(await readFile(new URL("app/admin/assign-view.tsx", root), "utf8"), /permanent person record/i);
   assert.match(adminClient, /Ordained Deacons/);
-  assert.match(adminClient, /Ordination action/i);
-  assert.match(adminClient, /Ordination Actions/i);
+  assert.match(await readFile(new URL("app/admin/focus-dashboard.tsx", root), "utf8"), /Ordination action/i);
+  assert.match(await readFile(new URL("app/admin/focus-dashboard.tsx", root), "utf8"), /Ordination Actions/i);
   assert.match(await readFile(new URL("app/admin/church-branding.tsx", root), "utf8"), /ordination status stay private/i);
   assert.doesNotMatch(adminClient, /service[_-]?role/i);
   assert.match(models, /var isOrdainedDeacon: Bool/);

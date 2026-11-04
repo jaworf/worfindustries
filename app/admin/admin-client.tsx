@@ -10,7 +10,10 @@ import {
   useState,
 } from "react";
 
-import { type AppRole, type Tab, type AssignmentRoute, type OrdinationKind, type Profile, type Person, type Ministry, type Position, type Term, type Assignment, type Snapshot, emptySnapshot, navItems, personName, ordinationKind, ordinationLabels, ordinationField, todayISO, formatDate, isCurrent, normalizeError, loadAllPeople, functionErrorMessage, isFutureJwtError, adminErrorMessage, wait, membershipPriority, type MutationRunner } from "./admin-shared";
+import { type AppRole, type Tab, type AssignmentRoute, type Profile, type Person, type Ministry, type Position, type Term, type Assignment, type Snapshot, emptySnapshot, navItems, personName, ordinationLabels, todayISO, formatDate, isCurrent, normalizeError, loadAllPeople, functionErrorMessage, isFutureJwtError, adminErrorMessage, wait, type MutationRunner } from "./admin-shared";
+import { FocusDashboard } from "./focus-dashboard";
+import { FocusMembershipSettings } from "./focus-settings";
+import { StaffProfileSetup } from "./staff-profile";
 import { ChurchOwnerControls } from "./church-owner";
 import { PlacementWorkflow, PersonContactHistory } from "./placement-workflow";
 import { AssignView } from "./assign-view";
@@ -63,7 +66,7 @@ export function MinistryAdmin({
               await Promise.all([
                 supabase
                   .from("profiles")
-                  .select("user_id,display_name,app_role,church_id,is_platform_admin,access_disabled,must_change_password,churches(name,slug,support_email)")
+                  .select("user_id,display_name,first_name,last_name,phone,person_id,app_role,church_id,is_platform_admin,access_disabled,must_change_password,churches(name,slug,support_email)")
                   .eq("user_id", userId)
                   .single(),
                 loadAllPeople(supabase),
@@ -198,6 +201,7 @@ export function MinistryAdmin({
 
   if (profile?.access_disabled) return <main className="admin-login-shell"><section className="admin-login-card"><h1>App access removed</h1><p>Contact your administrator to restore access.</p><DeleteAccountButton supabase={supabase} /><button className="button" onClick={() => void supabase.auth.signOut()}>Sign Out</button></section></main>;
   if (profile?.must_change_password) return <InitialPasswordChange supabase={supabase} complete={() => loadData(session.user.id)} />;
+  if (profile && (!profile.first_name || !profile.last_name || (!profile.person_id && !profile.phone))) return <StaffProfileSetup supabase={supabase} profile={profile} onComplete={() => loadData(session.user.id)}/>;
 
   return (
     <div className="admin-app-shell">
@@ -268,7 +272,8 @@ export function MinistryAdmin({
             <>
               {activeTab === "placement" && <PlacementWorkflow supabase={supabase} snapshot={snapshot} profile={profile} onChanged={() => loadData(session.user.id, true)} />}
               {activeTab === "focus" && (
-                <FocusView
+                <FocusDashboard
+                  onVotes={() => setActiveTab("votes")}
                   onAssign={openAssign}
                   supabase={supabase}
                   snapshot={snapshot}
@@ -306,6 +311,8 @@ export function MinistryAdmin({
                 />
               )}
               {activeTab === "votes" && (
+                <>
+                <PlacementWorkflow supabase={supabase} snapshot={snapshot} profile={profile} onChanged={() => loadData(session.user.id,true)} initialView="nominations" votesOnly/>
                 <VoteView
                   supabase={supabase}
                   assignments={snapshot.assignments}
@@ -313,6 +320,7 @@ export function MinistryAdmin({
                   working={working}
                   mutate={mutate}
                 />
+                </>
               )}
               {activeTab === "manage" && (
                 <ManageView
@@ -348,7 +356,7 @@ function InitialPasswordChange({supabase,complete}:{supabase:SupabaseClient;comp
   return <main className="admin-login-shell"><section className="admin-login-card"><DeleteAccountButton supabase={supabase} /><h1>Change your temporary password</h1><p>Choose a new password before using the app. Use at least 14 characters.</p><form className="admin-form-stack" onSubmit={async event=>{event.preventDefault(); if(password.length<14 || password!==confirmation){setError("Enter matching passwords with at least 14 characters.");return;} setBusy(true); const {error}=await supabase.auth.updateUser({password}); if(error)setError(error.message); else await complete(); setBusy(false);}}><label>New password<input type="password" autoComplete="new-password" minLength={14} value={password} onChange={e=>setPassword(e.target.value)} required /></label><label>Confirm new password<input type="password" autoComplete="new-password" value={confirmation} onChange={e=>setConfirmation(e.target.value)} required /></label>{error&&<p role="alert">{error}</p>}<button className="button button-primary" disabled={busy}>Save New Password</button><button type="button" className="button" onClick={()=>void supabase.auth.signOut()}>Sign Out</button></form></section></main>;
 }
 
-type ManagedAppUser = {user_id:string;email:string;app_role:AppRole;church_id:string;is_platform_admin:boolean;access_disabled:boolean;must_change_password:boolean;enrolled:boolean};
+type ManagedAppUser = {user_id:string;display_name?:string|null;email:string;app_role:AppRole;church_id:string;is_platform_admin:boolean;access_disabled:boolean;must_change_password:boolean;enrolled:boolean};
 function AppUserManagement({supabase,profile,session,working,mutate}:{supabase:SupabaseClient;profile:Profile;session:Session;working:boolean;mutate:MutationRunner}) {
  const [users,setUsers]=useState<ManagedAppUser[]>([]); const [error,setError]=useState<string|null>(null);
  const load=useCallback(async()=>{const {data,error}=await supabase.functions.invoke("admin-users",{body:{action:"list"}}); if(error)setError(await functionErrorMessage(error)); else{setUsers(data.users);setError(null);}},[supabase]);
@@ -363,7 +371,7 @@ function AppUserManagement({supabase,profile,session,working,mutate}:{supabase:S
    return () => {active = false;};
  }, [supabase, profile]);
  async function change(user:ManagedAppUser,action:string,role?:AppRole){if(await mutate("App access updated.",async()=>{const {error}=await supabase.functions.invoke("admin-users",{body:{action,user_id:user.user_id,role,...(action==="delete_user"?{confirmation:"DELETE"}:{})}});if(error)throw new Error(await functionErrorMessage(error));}))await load();}
- return <section className="admin-card full-panel"><h3>Manage App Users</h3><p>Changes apply to existing accounts. Remove access keeps records and can be reversed.</p><button className="button" onClick={()=>void load()}>Refresh Users</button>{error&&<p role="alert">{error}</p>}<ul className="admin-focus-list">{users.map(user=>{const protectedUser=user.user_id===session.user.id||user.is_platform_admin;return <li key={user.user_id}><strong>{user.email}</strong><p>{user.access_disabled?"Access removed":user.must_change_password?"Password change required":user.enrolled?"Active":"Invitation pending"}</p><label>Permissions for {user.email}<select value={user.app_role} disabled={working||protectedUser||user.access_disabled} onChange={e=>void change(user,"update_role",e.target.value as AppRole)}><option value="admin">Administrator</option><option value="editor">Editor</option><option value="viewer">Viewer</option></select></label><button className="button" disabled={working||protectedUser} onClick={()=>void change(user,user.access_disabled?"restore_access":"remove_access")}>{user.access_disabled?"Restore Access":"Remove Access"}</button>{!user.enrolled&&!user.access_disabled&&<button className="button" disabled={working} onClick={async()=>{await mutate("New setup email sent.",async()=>{const {error}=await supabase.functions.invoke("admin-users",{body:{email:user.email,role:user.app_role,church_id:user.church_id}});if(error)throw new Error(await functionErrorMessage(error));});}}>Resend Setup Email</button>}<button className="button button-danger" disabled={working||protectedUser} onClick={()=>{if(window.confirm(`Permanently delete ${user.email}? This deletes their login and account profile. Church-owned volunteer records and assignments are preserved. This cannot be undone.`))void change(user,"delete_user");}}>Delete User Permanently</button></li>;})}</ul></section>;
+ return <section className="admin-card full-panel"><h3>Manage App Users</h3><p>Changes apply to existing accounts. Remove access keeps records and can be reversed.</p><button className="button" onClick={()=>void load()}>Refresh Users</button>{error&&<p role="alert">{error}</p>}<ul className="admin-focus-list">{users.map(user=>{const protectedUser=user.user_id===session.user.id||user.is_platform_admin;return <li key={user.user_id}><strong>{user.display_name||user.email}</strong><p>{user.email}</p><p>{user.access_disabled?"Access removed":user.must_change_password?"Password change required":user.enrolled?"Active":"Invitation pending"}</p><label>Permissions for {user.email}<select value={user.app_role} disabled={working||protectedUser||user.access_disabled} onChange={e=>void change(user,"update_role",e.target.value as AppRole)}><option value="admin">Administrator</option><option value="editor">Editor</option><option value="viewer">Viewer</option></select></label><button className="button" disabled={working||protectedUser} onClick={()=>void change(user,user.access_disabled?"restore_access":"remove_access")}>{user.access_disabled?"Restore Access":"Remove Access"}</button>{!user.enrolled&&!user.access_disabled&&<button className="button" disabled={working} onClick={async()=>{await mutate("New setup email sent.",async()=>{const {error}=await supabase.functions.invoke("admin-users",{body:{email:user.email,role:user.app_role,church_id:user.church_id}});if(error)throw new Error(await functionErrorMessage(error));});}}>Resend Setup Email</button>}<button className="button button-danger" disabled={working||protectedUser} onClick={()=>{if(window.confirm(`Permanently delete ${user.email}? This deletes their login and account profile. Church-owned volunteer records and assignments are preserved. This cannot be undone.`))void change(user,"delete_user");}}>Delete User Permanently</button></li>;})}</ul></section>;
 }
 
 function AdminLoading({ label, compact = false }: { label: string; compact?: boolean }) {
@@ -468,95 +476,6 @@ function AdminLogin({
         </p>
       </section>
     </main>
-  );
-}
-
-function FocusView({ supabase, snapshot, canEdit, working, mutate, onAssign }: {
-  supabase: SupabaseClient; snapshot: Snapshot; canEdit: boolean; working: boolean;
-  mutate: MutationRunner; onAssign: (route: AssignmentRoute) => void;
-}) {
-  const current = snapshot.assignments.filter(isCurrent);
-  const needingVotes = current.filter(a => a.vote_missing);
-  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() + 6);
-  const ending = current.filter(a => a.end_date && a.end_date >= todayISO() && a.end_date <= cutoff.toISOString().slice(0,10));
-  const assigned = new Set(current.map(a => a.person_id));
-  const unassigned = snapshot.people.filter(p => p.is_active && !assigned.has(p.id)).sort((a,b) => membershipPriority(a.membership_status)-membershipPriority(b.membership_status) || a.last_name.localeCompare(b.last_name));
-  const occupied = new Set(current.map(a => a.role_id));
-  const empty = snapshot.ministries.filter(m => m.is_active && !occupied.has(m.id));
-  const people = new Map(snapshot.people.map(p => [p.id,p]));
-  const needs = new Map<string,{person:Person;kind:OrdinationKind;assignment:Assignment}>();
-  for (const assignment of current) { const kind = ordinationKind(assignment.role_name); const person = people.get(assignment.person_id); if (kind && person?.is_active && !person[ordinationField(kind)]) needs.set(person.id+kind,{person,kind,assignment}); }
-  return <>
-    <SectionHeading title="Placement Focus" detail="Choose a person or action to resolve the items below." />
-    <section className="admin-card admin-focus-votes"><h3>Needing Votes</h3>
-      {!needingVotes.length && <p>No placements are waiting for a vote.</p>}
-      {needingVotes.map(assignment => <VoteRow key={assignment.id} assignment={assignment} canEdit={canEdit} working={working} save={async date => { await mutate("Church vote recorded.",async () => { const {error}=await supabase.from("assignments").update({vote_date:date}).eq("id",assignment.id); if(error) throw error; }); }} />)}
-    </section>
-    <FocusList title="Ordination Actions" empty="Every current Deacon, Deaconess, and Elder is marked ordained." items={[...needs.values()].map(({person,kind,assignment}) => ({title:personName(person),detail:assignment.role_name,actionLabel:canEdit ? "Mark ordained" : undefined,actionDisabled:working,onAction:() => { void mutate("Ordination record updated.",async () => { const {error}=await supabase.from("people").update({[ordinationField(kind)]:true}).eq("id",person.id); if(error) throw error; }); }}))} />
-    <FocusList title="Terms ending in the next 6 months" empty="No current terms end in the next 6 months." items={ending.map(a => ({title:a.person_name,detail:a.role_name+" · ends "+formatDate(a.end_date),actionLabel:canEdit ? "Assign ministry" : undefined,onAction:() => onAssign({personId:a.person_id,ministryId:a.role_id})}))} />
-    <FocusList title="Ministries Needing Volunteers" empty="Every active ministry has a current volunteer." items={empty.map(m => ({title:m.name,detail:"No active placement",actionLabel:canEdit ? "Assign volunteer" : undefined,onAction:() => onAssign({ministryId:m.id})}))} />
-    <FocusList title="Volunteer Activation" empty="Every active person has a current role." items={unassigned.map(p => ({title:personName(p),detail:p.membership_status || "Membership not recorded",emphasized:membershipPriority(p.membership_status)===0,actionLabel:canEdit ? "Assign ministry" : undefined,onAction:() => onAssign({personId:p.id})}))} />
-  </>;
-}
-
-function StatCard({
-  value,
-  label,
-  tone,
-}: {
-  value: number;
-  label: string;
-  tone: "urgent" | "gold" | "blue" | "green";
-}) {
-  return (
-    <article className={`admin-stat-card ${tone}`}>
-      <strong>{value}</strong>
-      <span>{label}</span>
-    </article>
-  );
-}
-
-function FocusList({
-  title,
-  empty,
-  items,
-}: {
-  title: string;
-  empty: string;
-  items: Array<{
-    title: string;
-    detail: string;
-    emphasized?: boolean;
-    actionLabel?: string;
-    actionDisabled?: boolean;
-    onAction?: () => void;
-  }>;
-}) {
-  return (
-    <section className="admin-card admin-focus-list">
-      <h3>{title}</h3>
-      {items.length === 0 ? (
-        <p className="admin-empty">{empty}</p>
-      ) : (
-        <ul>
-          {items.map((item, index) => (
-            <li key={`${item.title}-${item.detail}-${index}`} className={item.emphasized ? "priority" : ""}>
-              {item.onAction && item.actionLabel ? <button type="button" className="button button-link" disabled={item.actionDisabled} onClick={item.onAction}>{item.title}</button> : <strong>{item.title}</strong>}
-              <span>{item.detail}</span>
-              {item.actionLabel && item.onAction && (
-                <button
-                  className="button button-small admin-focus-action"
-                  disabled={item.actionDisabled}
-                  onClick={item.onAction}
-                >
-                  {item.actionLabel}
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }
 
@@ -805,7 +724,8 @@ function PeopleView({
         title="People Directory"
         detail="Search contact details, ministry history, membership, and permanent ordination status."
       />
-      {canEdit && <DiscoveryPeople client={supabase} canEdit={canEdit} onPerson={setSelectedId}/>}
+
+      <section className="people-search-card">
       <div className="admin-search-row two">
         <input type="search" placeholder="Search people or ordination status" value={query} onChange={(event) => setQuery(event.target.value)} />
         <select value={filter} onChange={(event) => setFilter(event.target.value)} aria-label="Filter by ordination">
@@ -816,6 +736,8 @@ function PeopleView({
           <option value="none">Not ordained</option>
         </select>
       </div>
+      {canEdit && <DiscoveryPeople client={supabase} canEdit={canEdit} onPerson={setSelectedId}/>}
+      </section>
       <p className="admin-result-count">{people.length} people</p>
       <div className="admin-people-grid">
         {people.map((person) => {
@@ -1002,7 +924,7 @@ function VoteView({
 
   return (
     <>
-      <SectionHeading title="Awaiting Church Vote" detail="Quickly complete missing vote records for active placements." />
+      <SectionHeading title="Existing placements missing a vote record" detail="Complete historical vote records below. New nominations and readings are handled above." />
       <div className="admin-search-row">
         <input type="search" placeholder="Search person or ministry" value={query} onChange={(event) => setQuery(event.target.value)} />
       </div>
@@ -1220,12 +1142,13 @@ function SettingsView({
       <div className="admin-two-column">
         <section className="admin-card admin-settings-card">
           <h3>Your account</h3>
-          <dl><dt>Email</dt><dd>{session.user.email}</dd><dt>Access</dt><dd>{profile.app_role}</dd></dl>
+          <dl><dt>Name</dt><dd>{profile.first_name} {profile.last_name}</dd><dt>Phone</dt><dd>{profile.phone||"Not recorded"}</dd><dt>Email</dt><dd>{session.user.email}</dd><dt>Access</dt><dd>{profile.app_role}</dd></dl>
           <button className="button" onClick={() => void supabase.auth.signOut()}>Sign Out</button>
           <DeleteAccountButton supabase={supabase} />
         </section>
         <section className="admin-card admin-settings-card">
           <h3>Planning Center People</h3>
+          {profile.app_role === "admin" && <FocusMembershipSettings supabase={supabase} connected={pcoConnected === true}/>}
           <p>Planning Center remains the source of truth for contact and membership information. This sync is read-only and uses this church&apos;s own Personal Access Token.</p>
           <p><strong>{pcoConnected === null ? "Checking connection…" : pcoConnected ? "Connected" : "Not connected"}</strong></p>
           {profile.app_role === "admin" && (

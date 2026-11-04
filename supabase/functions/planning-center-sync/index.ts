@@ -1,7 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.110.8/cors";
 import {
   adminClient,
   fetchPeoplePage,
+  planningCenterRequest,
   mapWithConcurrency,
   mergePlanningCenterPerson,
   legacyPlanningCenterCredentials,
@@ -10,10 +12,12 @@ import {
 } from "../_shared/planning-center.ts";
 
 const jsonHeaders = {
+  ...corsHeaders,
   "Content-Type": "application/json",
 };
 
 Deno.serve(async (request: Request) => {
+  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") {
     return new Response(
       JSON.stringify({ error: "Method not allowed." }),
@@ -50,6 +54,24 @@ Deno.serve(async (request: Request) => {
       resolvedCredentials = legacyPlanningCenterCredentials();
     }
 
+    const payload = await request.json().catch(() => ({}));
+    if (payload?.action && payload.action !== "membership_types") throw new Error("Unknown Planning Center action.");
+    if (payload?.action === "membership_types") {
+      const values: string[] = [];
+      let next: string | null = "https://api.planningcenteronline.com/people/v2/membership_types?per_page=100";
+      for (let page = 0; next; page++) {
+        if (page >= 100 || new URL(next).origin !== "https://api.planningcenteronline.com" || new URL(next).pathname !== "/people/v2/membership_types") throw new Error("Invalid membership pagination.");
+        const result = await planningCenterRequest(next, resolvedCredentials);
+        for (const resource of Array.isArray(result.data) ? result.data : [result.data]) {
+          if (typeof resource.attributes.value === "string") values.push(resource.attributes.value.trim());
+        }
+        next = result.links?.next ?? null;
+      }
+      const options = [...new Set(values.filter(Boolean))].sort();
+      const { error } = await supabase.rpc("cache_pco_membership_types", { p_church_id: caller.churchId, p_values: options });
+      if (error) throw error;
+      return new Response(JSON.stringify({ membership_types: options }), { headers: jsonHeaders });
+    }
     return await runSync(caller.churchId, resolvedCredentials);
   } catch (error) {
     return new Response(

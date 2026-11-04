@@ -31,6 +31,10 @@ export function PasswordReset({ projectUrl, publishableKey }: PasswordResetProps
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [message, setMessage] = useState("");
+  const [needsProfile,setNeedsProfile]=useState(false);
+  const [firstName,setFirstName]=useState("");
+  const [lastName,setLastName]=useState("");
+  const [phone,setPhone]=useState("");
 
   useEffect(() => {
     let active = true;
@@ -58,13 +62,15 @@ export function PasswordReset({ projectUrl, publishableKey }: PasswordResetProps
 
       setAccessToken(token);
       setLinkKind(type);
-      setState("ready");
+      if (!projectUrl || !publishableKey) { setState("error"); setMessage("Account setup is not configured."); return; }
+      const headers={apikey:publishableKey,Authorization:`Bearer ${token}`};
+      void fetch(`${projectUrl}/auth/v1/user`,{headers}).then(async response=>{if(!response.ok)throw Error("This link is unavailable. Use the newest setup email.");const user=await response.json();const profileResponse=await fetch(`${projectUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(user.id)}&select=first_name,last_name,phone,person_id,church_id`,{headers});if(!profileResponse.ok)throw Error("Your account details could not be loaded. Please try the newest link.");const rows=await profileResponse.json();const profile=rows[0];if(!active)return;setFirstName(profile?.first_name??'');setLastName(profile?.last_name??'');setPhone(profile?.phone??'');setNeedsProfile(!!profile?.church_id&&(!profile.first_name||!profile.last_name||(!profile.person_id&&!profile.phone)));setState("ready");}).catch(error=>{if(active){setState("error");setMessage(error.message);}});
     });
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [projectUrl,publishableKey]);
 
   async function updatePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -86,6 +92,10 @@ export function PasswordReset({ projectUrl, publishableKey }: PasswordResetProps
 
     setState("saving");
     try {
+      if(needsProfile){
+        const profileResponse=await fetch(`${projectUrl.replace(/\/$/, "")}/rest/v1/rpc/complete_staff_profile`,{method:'POST',headers:{apikey:publishableKey,Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},body:JSON.stringify({p_first_name:firstName.trim(),p_last_name:lastName.trim(),p_phone:phone.trim()})});
+        if(!profileResponse.ok){const details=await profileResponse.json().catch(()=>null);throw new Error(details?.message??'Your name and phone number could not be saved.');}
+      }
       const response = await fetch(
         `${projectUrl.replace(/\/$/, "")}/auth/v1/user`,
         {
@@ -144,7 +154,7 @@ export function PasswordReset({ projectUrl, publishableKey }: PasswordResetProps
           {linkKind === "invite"
             ? "Choose a password for your new Riverview Ministry Volunteers account."
             : "Choose a new password for Riverview Ministry Volunteers."}{" "}
-          This does not change the Supabase project or database password.
+          Use this password to sign in to the Ministry Volunteers app.
         </p>
 
         {state === "loading" && <p className="auth-status">Checking secure link…</p>}
@@ -158,6 +168,8 @@ export function PasswordReset({ projectUrl, publishableKey }: PasswordResetProps
 
         {(state === "ready" || state === "saving") && (
           <form className="auth-form" onSubmit={updatePassword}>
+            {needsProfile&&<><p>Tell your team who you are.</p><label>First name<input required maxLength={100} autoComplete="given-name" disabled={state==='saving'} value={firstName} onChange={e=>setFirstName(e.target.value)}/></label><label>Last name<input required maxLength={100} autoComplete="family-name" disabled={state==='saving'} value={lastName} onChange={e=>setLastName(e.target.value)}/></label><label>Phone number<input type="tel" required minLength={5} maxLength={50} autoComplete="tel" disabled={state==='saving'} value={phone} onChange={e=>setPhone(e.target.value)}/></label></>}
+
             <label>
               New password
               <input
