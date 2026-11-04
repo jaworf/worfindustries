@@ -137,7 +137,7 @@ test("keeps ordination on people and out of the public iframe", async () => {
   );
   const migration = await readFile(
     new URL(
-      "supabase/migrations/20260814191710_add_person_ordination_status.sql",
+      "supabase/migrations/20260814191806_add_person_ordination_status.sql",
       root,
     ),
     "utf8",
@@ -215,7 +215,7 @@ test("keeps user creation administrator-only and server-side", async () => {
 
 test("isolates church data and encrypts per-church Planning Center credentials", async () => {
   const tenancy = await readFile(
-    new URL("supabase/migrations/20260814230000_add_multi_church_tenancy.sql", root),
+    new URL("supabase/migrations/20260815053419_add_multi_church_tenancy.sql", root),
     "utf8",
   );
   const sync = await readFile(

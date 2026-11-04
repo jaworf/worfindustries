@@ -43,7 +43,7 @@ pnpm run build
 
 ## Release
 
-Apply `supabase/migrations/20261104012221_placement_workflow.sql` to the intended environment before enabling the new screens, deploy the web build, and build/upload the Apple app with the next release number. Verify using dedicated test records before wider use. The new tables are church-scoped, reject direct client writes, and are not readable anonymously. The new RPCs delegate to checked private database functions; every mutation checks the stored profile and church.
+Apply `supabase/migrations/20261104014409_placement_workflow.sql` to the intended environment before enabling the new screens, deploy the web build, and build/upload the Apple app with the next release number. Verify using dedicated test records before wider use. The new tables are church-scoped, reject direct client writes, and are not readable anonymously. The new RPCs delegate to checked private database functions; every mutation checks the stored profile and church.
 
 A physical-device call-link and email-link check remains advisable before the Apple release. This implementation does not send reminders, calls, emails, bulletin content, or votes automatically.
 
