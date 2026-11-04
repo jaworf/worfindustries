@@ -145,6 +145,48 @@ final class CSVParserTests: XCTestCase {
         }
     }
 
+    func testRefreshedSessionIsPersistedEvenWhenDataLoadingFails() async throws {
+        RefreshCoalescingURLProtocol.reset(rejectData: true)
+        let changes = SessionChangeRecorder()
+        let client = sessionTestClient(changes: changes)
+        do {
+            _ = try await client.loadSnapshot()
+            XCTFail("The simulated data failure should propagate.")
+        } catch { }
+        let recorded = await changes.tokens
+        XCTAssertEqual(recorded, ["rotated-refresh-token"])
+        XCTAssertEqual(RefreshCoalescingURLProtocol.refreshRequestCount, 1)
+    }
+
+    func testInvalidRefreshClearsSessionAndNotifiesOnce() async throws {
+        RefreshCoalescingURLProtocol.reset(rejectRefresh: true)
+        let changes = SessionChangeRecorder()
+        let client = sessionTestClient(changes: changes)
+        do { _ = try await client.loadSnapshot(); XCTFail("Refresh should fail.") }
+        catch { }
+        let recorded = await changes.tokens
+        XCTAssertEqual(recorded, [nil])
+        let session = await client.currentSession()
+        XCTAssertNil(session)
+        do { _ = try await client.loadSnapshot(); XCTFail("Sign-in is required.") }
+        catch let error as SupabaseClientError {
+            guard case .notSignedIn = error else { return XCTFail("Expected sign-in requirement") }
+        }
+        XCTAssertEqual(RefreshCoalescingURLProtocol.refreshRequestCount, 1)
+    }
+
+    private func sessionTestClient(changes: SessionChangeRecorder) -> SupabaseRESTClient {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RefreshCoalescingURLProtocol.self]
+        return SupabaseRESTClient(
+            configuration: SupabaseConfiguration(projectURL: "https://example.supabase.co", publishableKey: "test-key"),
+            session: SupabaseSession(accessToken: "expired", refreshToken: "old", expiresAt: 0,
+                user: SupabaseUser(id: UUID(), email: "tester@example.com")),
+            urlSession: URLSession(configuration: configuration),
+            sessionDidChange: { session in await changes.record(session) }
+        )
+    }
+
     func testChurchAdministratorsCanDelegateAllSupportedRoles() {
         XCTAssertEqual(AppUserRole.invitationChoices, [.admin, .editor, .viewer])
         XCTAssertTrue(AppUserRole.invitationChoices.contains(.admin))
@@ -474,19 +516,26 @@ private final class DeletionRequestURLProtocol: URLProtocol, @unchecked Sendable
     override func stopLoading() {}
 }
 
+private actor SessionChangeRecorder {
+    var tokens: [String?] = []
+    func record(_ session: SupabaseSession?) { tokens.append(session?.refreshToken) }
+}
+
 private final class RefreshCoalescingURLProtocol: URLProtocol, @unchecked Sendable {
     private static let lock = NSLock()
     nonisolated(unsafe) private static var storedRefreshRequestCount = 0
     nonisolated(unsafe) private static var rejectRefresh = false
+    nonisolated(unsafe) private static var rejectData = false
 
     static var refreshRequestCount: Int {
         lock.withLock { storedRefreshRequestCount }
     }
 
-    static func reset(rejectRefresh: Bool = false) {
+    static func reset(rejectRefresh: Bool = false, rejectData: Bool = false) {
         lock.withLock {
             storedRefreshRequestCount = 0
             Self.rejectRefresh = rejectRefresh
+            Self.rejectData = rejectData
         }
     }
 
@@ -531,6 +580,9 @@ private final class RefreshCoalescingURLProtocol: URLProtocol, @unchecked Sendab
                     """.utf8
                 )
             }
+        } else if Self.lock.withLock({ Self.rejectData }) {
+            statusCode = 503
+            data = Data("{\"message\":\"Temporary data failure\"}".utf8)
         } else {
             statusCode = 200
             data = Data("[]".utf8)

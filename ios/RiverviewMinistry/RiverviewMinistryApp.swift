@@ -581,7 +581,7 @@ struct MainShellView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack { PlacementWorkflowView() }
-                .tabItem { Label("Placement", systemImage: "person.3.sequence") }
+                .tabItem { Label("Placement", systemImage: "list.bullet.clipboard") }
                 .tag(AppTab.placement)
             NavigationStack {
                 DirectoryView()

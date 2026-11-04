@@ -4,6 +4,7 @@ actor SupabaseRESTClient {
     private var configuration: SupabaseConfiguration
     private var session: SupabaseSession?
     private var refreshTask: Task<SupabaseSession, Error>?
+    private let sessionDidChange: (@Sendable (SupabaseSession?) async throws -> Void)?
     private let urlSession: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -11,11 +12,13 @@ actor SupabaseRESTClient {
     init(
         configuration: SupabaseConfiguration,
         session: SupabaseSession? = nil,
-        urlSession: URLSession = .shared
+        urlSession: URLSession = .shared,
+        sessionDidChange: (@Sendable (SupabaseSession?) async throws -> Void)? = nil
     ) {
         self.configuration = configuration
         self.session = session
         self.urlSession = urlSession
+        self.sessionDidChange = sessionDidChange
 
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
@@ -94,13 +97,26 @@ actor SupabaseRESTClient {
 
     private func refreshSession(using refreshToken: String) async throws -> SupabaseSession {
         let body = try encoder.encode(RefreshRequest(refreshToken: refreshToken))
-        return try await send(
-            method: "POST",
-            path: "auth/v1/token",
-            query: [URLQueryItem(name: "grant_type", value: "refresh_token")],
-            body: body,
-            requiresAuthentication: false
-        )
+        do {
+            let refreshed: SupabaseSession = try await send(
+                method: "POST",
+                path: "auth/v1/token",
+                query: [URLQueryItem(name: "grant_type", value: "refresh_token")],
+                body: body,
+                requiresAuthentication: false
+            )
+            // Persist rotation before any dependent data request can fail.
+            session = refreshed
+            try await sessionDidChange?(refreshed)
+            return refreshed
+        } catch {
+            if let clientError = error as? SupabaseClientError,
+               case .sessionExpired = clientError {
+                session = nil
+                try await sessionDidChange?(nil)
+            }
+            throw error
+        }
     }
 
     func loadSnapshot() async throws -> MinistrySnapshot {

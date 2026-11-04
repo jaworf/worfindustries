@@ -22,6 +22,7 @@ final class AppModel: ObservableObject {
     @Published var noticeMessage: String?
 
     private var client: SupabaseRESTClient?
+    private var clientGeneration = UUID()
     private let configurationKey = "supabase-configuration"
     private let sessionAccount = "supabase-session"
     private static let passwordResetURL = URL(
@@ -52,7 +53,7 @@ final class AppModel: ObservableObject {
         }
 
         if configuration.isValid {
-            client = SupabaseRESTClient(configuration: configuration)
+            client = makeClient()
         }
     }
 
@@ -77,8 +78,31 @@ final class AppModel: ObservableObject {
         }
 
         session = restored
-        client = SupabaseRESTClient(configuration: configuration, session: restored)
+        client = makeClient(session: restored)
         hasRestoredSession = true
+    }
+
+    private func makeClient(session: SupabaseSession? = nil) -> SupabaseRESTClient {
+        let generation = UUID()
+        clientGeneration = generation
+        return SupabaseRESTClient(
+            configuration: configuration,
+            session: session,
+            sessionDidChange: { [weak self] updated in
+                try await MainActor.run {
+                    guard let self, self.clientGeneration == generation else {
+                        throw CancellationError()
+                    }
+                    if let updated {
+                        try KeychainStore.save(updated, account: self.sessionAccount)
+                        self.session = updated
+                    } else {
+                        self.clearSessionState()
+                        self.errorMessage = SupabaseClientError.sessionExpired.localizedDescription
+                    }
+                }
+            }
+        )
     }
 
     private static func productionConfiguration() -> SupabaseConfiguration {
@@ -102,7 +126,7 @@ final class AppModel: ObservableObject {
             session = nil
             currentProfile = nil
             KeychainStore.delete(account: sessionAccount)
-            client = SupabaseRESTClient(configuration: configuration)
+            client = makeClient()
             hasRestoredSession = true
             noticeMessage = "Supabase connection settings saved."
         } catch {
@@ -149,6 +173,7 @@ final class AppModel: ObservableObject {
     }
 
     private func clearSessionState() {
+        clientGeneration = UUID()
         session = nil
         currentProfile = nil
         currentChurch = nil
@@ -161,7 +186,7 @@ final class AppModel: ObservableObject {
         assignments = []
         KeychainStore.delete(account: sessionAccount)
         client = configuration.isValid
-            ? SupabaseRESTClient(configuration: configuration)
+            ? makeClient()
             : nil
     }
 
