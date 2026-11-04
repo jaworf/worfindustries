@@ -35,6 +35,7 @@ export function PasswordReset({ projectUrl, publishableKey }: PasswordResetProps
   const [firstName,setFirstName]=useState("");
   const [lastName,setLastName]=useState("");
   const [phone,setPhone]=useState("");
+  const [churchName,setChurchName]=useState("");
 
   useEffect(() => {
     let active = true;
@@ -64,7 +65,7 @@ export function PasswordReset({ projectUrl, publishableKey }: PasswordResetProps
       setLinkKind(type);
       if (!projectUrl || !publishableKey) { setState("error"); setMessage("Account setup is not configured."); return; }
       const headers={apikey:publishableKey,Authorization:`Bearer ${token}`};
-      void fetch(`${projectUrl}/auth/v1/user`,{headers}).then(async response=>{if(!response.ok)throw Error("This link is unavailable. Use the newest setup email.");const user=await response.json();const profileResponse=await fetch(`${projectUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(user.id)}&select=first_name,last_name,phone,person_id,church_id`,{headers});if(!profileResponse.ok)throw Error("Your account details could not be loaded. Please try the newest link.");const rows=await profileResponse.json();const profile=rows[0];if(!active)return;setFirstName(profile?.first_name??'');setLastName(profile?.last_name??'');setPhone(profile?.phone??'');setNeedsProfile(!!profile?.church_id&&(!profile.first_name||!profile.last_name||(!profile.person_id&&!profile.phone)));setState("ready");}).catch(error=>{if(active){setState("error");setMessage(error.message);}});
+      void fetch(`${projectUrl}/auth/v1/user`,{headers}).then(async response=>{if(!response.ok)throw Error("This link is unavailable. Use the newest setup email.");const user=await response.json();const profileResponse=await fetch(`${projectUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(user.id)}&select=first_name,last_name,phone,person_id,church_id`,{headers});if(!profileResponse.ok)throw Error("Your account details could not be loaded. Please try the newest link.");const rows=await profileResponse.json();const profile=rows[0];const brandResponse=await fetch(`${projectUrl}/rest/v1/rpc/account_church_branding`,{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:'{}'}).catch(()=>null);const brand=brandResponse?.ok?await brandResponse.json().catch(()=>null):null;if(!active)return;if(typeof brand?.name==='string')setChurchName(brand.name);setFirstName(profile?.first_name??'');setLastName(profile?.last_name??'');setPhone(profile?.phone??'');setNeedsProfile(!!profile?.church_id&&(!profile.first_name||!profile.last_name||(!profile.person_id&&!profile.phone)));setState("ready");}).catch(error=>{if(active){setState("error");setMessage(error.message);}});
     });
 
     return () => {
@@ -142,9 +143,9 @@ export function PasswordReset({ projectUrl, publishableKey }: PasswordResetProps
         <img
           className="auth-mark"
           src="/ministry-logo.png"
-          alt="Riverview Ministry Volunteers logo"
+          alt="Ministry Volunteers logo"
         />
-        <p className="eyebrow">Pasco Riverview Adventist Church</p>
+        <p className="eyebrow">{churchName || "Ministry Volunteers"}</p>
         <h1>
           {linkKind === "invite"
             ? "Set up your app password"
@@ -152,8 +153,8 @@ export function PasswordReset({ projectUrl, publishableKey }: PasswordResetProps
         </h1>
         <p className="auth-intro">
           {linkKind === "invite"
-            ? "Choose a password for your new Riverview Ministry Volunteers account."
-            : "Choose a new password for Riverview Ministry Volunteers."}{" "}
+            ? "Choose a password for your new Ministry Volunteers account."
+            : "Choose a new password for Ministry Volunteers."}{" "}
           Use this password to sign in to the Ministry Volunteers app.
         </p>
 

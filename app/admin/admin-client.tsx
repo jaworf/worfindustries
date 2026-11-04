@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import { type AppRole, type Tab, type AssignmentRoute, type Profile, type Person, type Ministry, type Position, type Term, type Assignment, type Snapshot, emptySnapshot, navItems, personName, ordinationLabels, todayISO, formatDate, isCurrent, normalizeError, loadAllPeople, functionErrorMessage, isFutureJwtError, adminErrorMessage, wait, type MutationRunner } from "./admin-shared";
+import { WebsiteEmbedSettings } from "./website-embeds";
 import { FocusDashboard } from "./focus-dashboard";
 import { FocusMembershipSettings } from "./focus-settings";
 import { StaffProfileSetup } from "./staff-profile";
@@ -25,9 +26,15 @@ import { DeleteAccountButton } from "./delete-account";
 export function MinistryAdmin({
   projectUrl,
   publishableKey,
+  expectedChurchSlug,
+  churchName,
+  embedded = false,
 }: {
   projectUrl?: string;
   publishableKey?: string;
+  expectedChurchSlug?: string;
+  churchName?: string;
+  embedded?: boolean;
 }) {
   const supabase = useMemo<SupabaseClient | null>(() => {
     if (!projectUrl || !publishableKey) return null;
@@ -42,6 +49,7 @@ export function MinistryAdmin({
 
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [churchMismatch, setChurchMismatch] = useState(false);
   const [snapshot, setSnapshot] = useState<Snapshot>(emptySnapshot);
   const [activeTab, setActiveTab] = useState<Tab>("focus");
   const secondaryTabs: Tab[] = ["votes","manage","reports","users","settings"];
@@ -62,6 +70,15 @@ export function MinistryAdmin({
       try {
         for (let attempt = 0; attempt < 3; attempt += 1) {
           try {
+            if (expectedChurchSlug) {
+              const access = await supabase.from("profiles").select("churches(slug)").eq("user_id", userId).single();
+              if (access.error) throw access.error;
+              const church = Array.isArray(access.data?.churches) ? access.data.churches[0] : access.data?.churches;
+              if (church?.slug !== expectedChurchSlug) {
+                setChurchMismatch(true); setProfile(null); setSnapshot(emptySnapshot); setError(null); return;
+              }
+              setChurchMismatch(false);
+            }
             const [profileResult, peopleResult, ministryResult, positionResult, termResult, assignmentResult] =
               await Promise.all([
                 supabase
@@ -120,7 +137,7 @@ export function MinistryAdmin({
         if (!quiet) setLoading(false);
       }
     },
-    [supabase],
+    [supabase, expectedChurchSlug],
   );
 
   useEffect(() => {
@@ -141,6 +158,7 @@ export function MinistryAdmin({
       else {
         setProfile(null);
         setSnapshot(emptySnapshot);
+        setChurchMismatch(false);
       }
     });
     return () => {
@@ -154,6 +172,20 @@ export function MinistryAdmin({
     const timer = window.setTimeout(() => setNotice(null), 4_000);
     return () => window.clearTimeout(timer);
   }, [notice]);
+
+  useEffect(() => {
+    if (!embedded) return;
+    const externalSections = (event: MouseEvent) => {
+      const anchor = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!anchor || anchor.hasAttribute("download")) return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin === window.location.origin && !url.pathname.startsWith(`/embed/app/${expectedChurchSlug}`)) {
+        anchor.target = "_blank"; anchor.rel = "noopener noreferrer";
+      }
+    };
+    document.addEventListener("click", externalSections, true);
+    return () => document.removeEventListener("click", externalSections, true);
+  }, [embedded, expectedChurchSlug]);
 
   const mutate = useCallback(
     async (successMessage: string, action: () => Promise<void>) => {
@@ -196,20 +228,22 @@ export function MinistryAdmin({
   }
 
   if (!session) {
-    return <AdminLogin supabase={supabase} notice={notice} setNotice={setNotice} />;
+    return <><AdminLogin supabase={supabase} notice={notice} setNotice={setNotice} embedded={embedded} churchName={churchName}/>{embedded && <p className="embed-login-help">If your browser blocks sign-in inside this website, <a href={`/embed/app/${expectedChurchSlug}`} target="_blank" rel="noopener noreferrer">open the secure app in a new tab</a>.</p>}</>;
   }
+
+  if (churchMismatch) return <main className="admin-login-shell"><section className="admin-login-card"><h1>Use your {churchName ?? "church"} account</h1><p>This account belongs to a different church. No church records have been loaded.</p><button className="button" onClick={() => void supabase.auth.signOut({scope:"local"})}>Sign out and use another account</button></section></main>;
 
   if (profile?.access_disabled) return <main className="admin-login-shell"><section className="admin-login-card"><h1>App access removed</h1><p>Contact your administrator to restore access.</p><DeleteAccountButton supabase={supabase} /><button className="button" onClick={() => void supabase.auth.signOut()}>Sign Out</button></section></main>;
   if (profile?.must_change_password) return <InitialPasswordChange supabase={supabase} complete={() => loadData(session.user.id)} />;
   if (profile && (!profile.first_name || !profile.last_name || (!profile.person_id && !profile.phone))) return <StaffProfileSetup supabase={supabase} profile={profile} onComplete={() => loadData(session.user.id)}/>;
 
   return (
-    <div className="admin-app-shell">
+    <div className={"admin-app-shell" + (embedded ? " embedded-app" : "")}>
       <header className="admin-header">
         <div className="admin-brand">
           <img src="/ministry-logo.png" alt="Ministry Volunteers logo" />
           <div>
-            <p>{profile?.churches?.name ?? "Ministry Volunteers"}</p>
+            <p>{profile?.churches?.name ?? churchName ?? "Your church workspace"}</p>
             <h1>Ministry Volunteers</h1>
           </div>
         </div>
@@ -387,7 +421,11 @@ function AdminLogin({
   supabase,
   notice,
   setNotice,
+  embedded = false,
+  churchName,
 }: {
+  embedded?: boolean;
+  churchName?: string;
   supabase: SupabaseClient;
   notice: string | null;
   setNotice: (message: string | null) => void;
@@ -435,12 +473,12 @@ function AdminLogin({
           alt="Ministry Volunteers logo"
           className="admin-login-mark"
         />
-        <p className="eyebrow">Your church workspace</p>
+        <p className="eyebrow">{churchName ?? "Your church workspace"}</p>
         <h1>Ministry Volunteers</h1>
         <p className="admin-login-intro">
           Secure mobile access for ministry placement team members.
         </p>
-        <p>New church? <a href="/join">Apply for a free church workspace</a>.</p>
+        {!embedded && <p>New church? <a href="/join">Apply for a free church workspace</a>.</p>}
       <form onSubmit={signIn} className="admin-form-stack">
           <label>
             Email
@@ -1141,6 +1179,7 @@ function SettingsView({
       <SectionHeading title="Settings" detail="Your account, member registration, church logo, and Planning Center connection." />
       <p><Link href="/discover">Open my participant profile and assessments</Link></p>
       {profile.app_role === "admin" && <DiscoveryRegistration client={supabase}/>}
+      {profile.app_role === "admin" && <WebsiteEmbedSettings client={supabase} churchName={profile.churches?.name ?? "Your church"} churchSlug={profile.churches?.slug ?? ""}/>}
       <div className="admin-two-column">
         <section className="admin-card admin-settings-card">
           <h3>Your account</h3>

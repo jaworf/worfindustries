@@ -35,13 +35,11 @@ test("server-renders the public ministry directory", async () => {
   );
 
   const html = await response.text();
-  assert.match(html, /Volunteer ministry directory/i);
+  assert.match(html, /Ministry directory/i);
   assert.match(html, /Pasco Riverview Adventist Church/i);
-  assert.match(html, /placeholder="Person, role, position, term, or note"/i);
-  assert.match(html, /Print \/ PDF/i);
-  assert.match(html, /src="\/ministry-logo\.png"/i);
-  assert.match(html, /Contact information[\s\S]*remain private/i);
-  assert.match(html, /notes explicitly approved/i);
+  assert.match(html, /placeholder="Ministry, volunteer or term"/i);
+  assert.match(html, /Print PDF/i);
+  assert.match(html, /Read-only public view/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
@@ -54,8 +52,8 @@ test("provides a compact iframe route", async () => {
   );
   assert.equal(response.headers.get("x-frame-options"), null);
   const html = await response.text();
-  assert.match(html, /directory-shell embedded/i);
-  assert.match(html, /Volunteer ministry directory/i);
+  assert.match(html, /limited-directory embedded/i);
+  assert.match(html, /Ministry directory/i);
 });
 
 test("provides a password setup and recovery page", async () => {
@@ -116,14 +114,12 @@ test("keeps public data limited to approved directory fields", async () => {
   );
   const layout = await readFile(new URL("app/layout.tsx", root), "utf8");
 
-  assert.match(client, /public_directory_entries/);
-  assert.doesNotMatch(client, /mobile_phone|home_phone|address_line|Home Email/);
-  assert.match(client, /entry\.note/);
-  assert.match(client, /<th>Note<\/th>/);
-  assert.match(client, /<th>Term end<\/th>/);
-  assert.doesNotMatch(client, /<th>Term<\/th>/);
-  assert.doesNotMatch(client, /data-label="Term"/);
-  assert.doesNotMatch(client, /is_ordained|ordination/i);
+  assert.match(client, /limited_public_directory/);
+  assert.doesNotMatch(client, /mobile_phone|home_phone|address_line|entry\.note|vote_date/);
+  assert.match(client, /<th>Ministry<\/th>/);
+  assert.match(client, /<th>Volunteer<\/th>/);
+  assert.match(client, /<th>Term<\/th>/);
+  assert.doesNotMatch(client, /signIn|signOut|login|createClient|is_ordained/);
   const page = await readFile(new URL("app/directory/page.tsx", root), "utf8");
   assert.match(page, /SUPABASE_PUBLISHABLE_KEY/);
   assert.doesNotMatch(client, /service[_-]?role/i);
@@ -255,3 +251,12 @@ for (const path of ["/discover", "/discovery", "/discover/"+"a".repeat(64)]) {
  const html=await response.text();assert.match(html,/My Ministry Profile|Discover your ministry/);if(path.startsWith("/discover/"))assert(html.includes("a".repeat(64)));assert.doesNotMatch(html,/service_role|sb_secret_/);
  });
 }
+
+test("unconfigured church embeds do not expose a workspace or directory",async()=>{
+ for(const [route,label] of [["/embed/app/unconfigured-test-church",/Website embed is not enabled/],["/embed/directory/unconfigured-test-church",/Public directory embed is not enabled/]]){
+  const response=await render(route); assert.equal(response.status,200);
+  const html=await response.text(); assert.match(html,label);
+  assert.match(response.headers.get("Content-Security-Policy")??"",/frame-ancestors 'self'/);
+  assert.doesNotMatch(html,/PRIVATE CALL NOTE|refresh_token/);
+ }
+});
