@@ -88,6 +88,11 @@ select public.manage_app_user_access('20000000-0000-4000-8000-000000000001','200
 update public.profiles set must_change_password=false where user_id='20000000-0000-4000-8000-000000000002';
 
 -- Logo metadata uses actual Storage RLS under authenticated church roles.
+-- This rolled-back fixture has metadata rows only, never uploaded files.
+-- Match the Storage API's transaction flag so its statement guard does not
+-- obscure the cross-church DELETE RLS assertion (RLS remains enabled).
+-- https://github.com/supabase/supabase/blob/master/apps/www/_blog/2026-03-05-supabase-storage-performance-security-reliability-updates.mdx
+select set_config('storage.allow_delete_query','true',true);
 update public.churches set is_active=true where id='10000000-0000-4000-8000-000000000001';
 insert into storage.objects(bucket_id,name) values('church-logos','10000000-0000-4000-8000-000000000002/logo');
 select set_config('request.jwt.claim.sub','20000000-0000-4000-8000-000000000001',true);
