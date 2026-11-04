@@ -10,7 +10,7 @@ grant select on public.church_owners to authenticated;
 grant all on public.church_owners to service_role;
 create policy church_owners_read on public.church_owners for select to authenticated using(private.has_church_role(church_id,array['admin']));
 -- Approved founders take precedence. Legacy churches use their earliest active
--- administrator; the production preview identified Jason as Riverview's owner.
+-- administrator.
 insert into public.church_owners(church_id,user_id)
 select distinct on (p.church_id) p.church_id,p.user_id
 from public.profiles p left join public.church_applications a on a.church_id=p.church_id and a.applicant_id=p.user_id and a.status='approved'
