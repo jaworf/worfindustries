@@ -2177,3 +2177,16 @@ textarea{font:inherit}
 .pco-matching-workspace{display:grid;gap:18px}.pco-matching-workspace h2{font-size:1.6rem;font-weight:700}.pco-matching-workspace h3{font-size:1.1rem;font-weight:700;margin-bottom:14px}.pco-matching-workspace h4{font-weight:700;margin-bottom:12px}
 .pco-matching-sync{display:flex;align-items:center;gap:16px;justify-content:space-between}.pco-match-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.pco-match-panel{padding:22px;background:#fff;border:1px solid var(--line);border-radius:14px;min-width:0}.pco-match-panel label{display:grid;gap:6px;margin-bottom:12px}.pco-match-panel input[type=search],.pco-match-panel select{width:100%;min-width:0;padding:10px;border:1px solid var(--line);border-radius:8px}.pco-match-options{max-height:440px;overflow:auto;display:grid;gap:10px;margin-top:16px}.pco-match-option{display:grid;gap:5px;padding:14px;border:1px solid var(--line);border-radius:10px;text-align:left;overflow-wrap:anywhere;cursor:pointer}.pco-match-option.selected{border-color:#1b557a;background:#e9f2f8}.pco-match-option small{color:var(--muted)}.pco-match-option strong{font-weight:700}.pco-match-search{display:flex;align-items:end;gap:8px}.pco-match-search label{flex:1;margin:0}.pco-match-search .button{padding:10px}.pco-contact-details{display:grid;grid-template-columns:100px minmax(0,1fr);gap:8px;margin-bottom:16px}.pco-contact-details dt{font-weight:600}.pco-contact-details dd{overflow-wrap:anywhere}.pco-match-comparison>p{margin:16px 0;line-height:1.6}.pco-match-comparison .admin-check-row{display:flex;align-items:center;gap:10px;margin:16px 0}
 @media(max-width:700px){.pco-match-columns{grid-template-columns:1fr}.pco-match-panel{padding:18px}.pco-matching-sync{align-items:stretch;flex-direction:column}.pco-match-options{max-height:320px}}
+
+.pco-duplicate-review { margin-top: 24px; }
+.pco-duplicate-review > .pco-match-columns { margin: 18px 0; }
+.pco-duplicate-review h5 { margin: 18px 0 8px; font-size: 1rem; }
+.pco-merge-entry { padding: 12px 0; border-top: 1px solid var(--line, #d0dfeb); overflow-wrap: anywhere; }
+.pco-merge-entry p { margin: 6px 0; }
+.pco-preserved-note { white-space: pre-wrap; }
+.pco-duplicate-review fieldset { min-width: 0; margin: 16px 0; padding: 14px; border: 1px solid var(--line, #d0dfeb); border-radius: 12px; }
+.pco-duplicate-review legend { padding: 0 6px; font-weight: 700; }
+.pco-merge-history { margin-top: 20px; }
+.pco-merge-history summary { cursor: pointer; font-weight: 700; }
+.pco-duplicate-review input[type="radio"] { width: 20px; height: 20px; min-width: 20px; min-height: 20px; padding: 0; margin: 0; flex: 0 0 20px; }
+.pco-duplicate-review fieldset .admin-check-row { align-items: flex-start; gap: 10px; margin: 12px 0; }
