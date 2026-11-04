@@ -1,4 +1,5 @@
 "use client";
+import {PlanningCenterMatchingCard,PlanningCenterMatching} from "./pco-matching";
 import Link from "next/link";
 
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
@@ -337,6 +338,7 @@ export function MinistryAdmin({
               )}
               {activeTab === "people" && (
                 <PeopleView
+                  canMatch={profile.app_role === "admin"}
                   supabase={supabase}
                   snapshot={snapshot}
                   canEdit={canEdit}
@@ -721,15 +723,18 @@ function PeopleView({
   supabase,
   snapshot,
   canEdit,
+  canMatch,
   working,
   mutate,
 }: {
   supabase: SupabaseClient;
   snapshot: Snapshot;
   canEdit: boolean;
+  canMatch: boolean;
   working: boolean;
   mutate: MutationRunner;
 }) {
+  const [matching,setMatching]=useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -756,8 +761,10 @@ function PeopleView({
     })
     .sort((a, b) => a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name));
 
+  if(matching&&canMatch)return <PlanningCenterMatching client={supabase} mutate={mutate} onClose={()=>setMatching(false)}/>;
   return (
     <>
+      {canMatch&&<PlanningCenterMatchingCard client={supabase} onOpen={()=>setMatching(true)}/>}
       <SectionHeading
         title="People Directory"
         detail="Search contact details, ministry history, membership, and permanent ordination status."
@@ -1192,6 +1199,7 @@ function SettingsView({
           {profile.app_role === "admin" && <FocusMembershipSettings supabase={supabase} connected={pcoConnected === true}/>}
           <p>Planning Center remains the source of truth for contact and membership information. This sync is read-only and uses this church&apos;s own Personal Access Token.</p>
           <p><strong>{pcoConnected === null ? "Checking connection…" : pcoConnected ? "Connected" : "Not connected"}</strong></p>
+          {pcoConnected && <p className="admin-help">Credentials are saved securely and are not displayed. Leave these fields blank unless you are replacing the connection.</p>}
           {profile.app_role === "admin" && (
             <div className="admin-form-grid">
               <label>Personal Access Token application ID<input type="password" autoComplete="off" value={pcoApplicationId} onChange={(event) => setPcoApplicationId(event.target.value)} /></label>
