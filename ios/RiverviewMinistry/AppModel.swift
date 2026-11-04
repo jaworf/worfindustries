@@ -190,6 +190,25 @@ final class AppModel: ObservableObject {
             : nil
     }
 
+    func loadFocusOverview() async throws -> FocusOverview {
+        try await requireClient().focusOverview()
+    }
+    func loadFocusPreferences() async throws -> FocusPreferences {
+        try await requireClient().focusPreferences()
+    }
+    func refreshFocusMembershipTypes() async throws -> [String] {
+        try await requireClient().planningCenterMembershipTypes()
+    }
+    func saveFocusMemberships(_ values: [String]) async -> Bool {
+        var saved = false
+        await perform {
+            try await requireClient().saveFocusMemberships(values)
+            noticeMessage = "Volunteer Activation membership types saved."
+            saved = true
+        }
+        return saved
+    }
+
     func loadPlacementWorkflow() async throws -> PlacementSnapshot {
         try await requireClient().placementSnapshot()
     }

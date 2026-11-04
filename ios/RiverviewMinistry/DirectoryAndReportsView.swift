@@ -451,7 +451,7 @@ private struct PersonMinistryHistory: View {
     var body: some View {
         NavigationStack {
             Form {
-                PersonVolunteerHistorySection(personId: person.id)
+                if model.canEdit { PersonVolunteerHistorySection(personId: person.id) }
                 Section("Person") {
                     LabeledContent("Name", value: person.displayName)
                     if let email = person.email.nilIfBlank {
@@ -625,122 +625,75 @@ struct VoteQueueView: View {
     @State private var search = ""
     @State private var placement = PlacementSnapshot()
     @State private var loadError: String?
-    private var nominees: [PlacementCandidate] { placement.candidates.filter { ["nominated", "first_reading", "second_reading"].contains($0.stage) } }
+    @State private var loading = true
+    private func matches(_ values: [String]) -> Bool {
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        return query.isEmpty || values.contains { $0.localizedCaseInsensitiveContains(query) }
+    }
+    private var nominees: [PlacementCandidate] {
+        placement.candidates.filter { candidate in
+            guard ["nominated", "first_reading", "second_reading"].contains(candidate.stage) else { return false }
+            let person = model.people.first { $0.id == candidate.personId }
+            let opening = placement.openings.first { $0.id == candidate.openingId }
+            return matches([person?.displayName ?? "", model.roles.first { $0.id == opening?.roleId }?.name ?? "", model.subRoles.first { $0.id == opening?.subRoleId }?.name ?? "", model.terms.first { $0.id == opening?.termId }?.name ?? ""])
+        }
+    }
     private func loadNominations() async {
+        defer { loading = false }
         do { placement = try await model.loadPlacementWorkflow(); loadError = nil }
         catch { loadError = error.localizedDescription }
     }
-
     private var awaitingVotes: [AssignmentDetail] {
-        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
-        return model.assignments
-            .filter { assignment in
-                guard assignment.isCurrentPlacement, assignment.voteMissing else {
-                    return false
-                }
-                guard !query.isEmpty else { return true }
-                return [
-                    assignment.personName,
-                    assignment.roleName,
-                    assignment.subRoleName ?? "",
-                    assignment.termName ?? ""
-                ].contains { $0.localizedCaseInsensitiveContains(query) }
-            }
-            .sorted {
-                let roleOrder = $0.roleName.localizedCaseInsensitiveCompare($1.roleName)
-                if roleOrder != .orderedSame { return roleOrder == .orderedAscending }
-                let lastOrder = $0.lastName.localizedCaseInsensitiveCompare($1.lastName)
-                if lastOrder != .orderedSame { return lastOrder == .orderedAscending }
-                return $0.firstName.localizedCaseInsensitiveCompare($1.firstName)
-                    == .orderedAscending
-            }
+        model.assignments.filter { $0.isCurrentPlacement && $0.voteMissing && matches([$0.personName, $0.roleName, $0.subRoleName ?? "", $0.termName ?? ""]) }
+            .sorted { $0.personName.localizedCaseInsensitiveCompare($1.personName) == .orderedAscending }
     }
-
-    private var grouped: [(String, [AssignmentDetail])] {
-        Dictionary(grouping: awaitingVotes, by: \.roleName)
-            .map { ($0.key, $0.value) }
-            .sorted {
-                $0.0.localizedCaseInsensitiveCompare($1.0) == .orderedAscending
-            }
-    }
-
     var body: some View {
-        Form {
-            if let error = loadError ?? model.errorMessage { Text(error).foregroundStyle(.red) }
-            BulletinSuggestionsSection(data: placement)
-            if !nominees.isEmpty {
-                Section("Pending nominations") {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if let error = loadError ?? model.errorMessage { Text(error).foregroundStyle(.red).modifier(WorkflowCardStyle()) }
+                BulletinSuggestionsSection(data: placement)
+                VStack(alignment: .leading, spacing: 10) {
+                    TextField("Search person, ministry, position or term", text: $search).textFieldStyle(.roundedBorder)
+                    Text("\(awaitingVotes.count + nominees.count) pending vote\(awaitingVotes.count + nominees.count == 1 ? "" : "s")").font(.subheadline).foregroundStyle(.secondary)
+                }.modifier(WorkflowCardStyle())
+                if loading { ProgressView("Loading nominations…") }
+                if !nominees.isEmpty {
+                    Text("Pending nominations").font(.headline).padding(.top, 6)
                     ForEach(nominees) { candidate in
-                        NavigationLink { PlacementCandidateView(candidateId: candidate.id, data: placement) } label: {
-                            VStack(alignment: .leading) {
-                                Text(model.people.first { $0.id == candidate.personId }?.displayName ?? "Nominee").font(.headline)
-                                if let opening = placement.openings.first(where: { $0.id == candidate.openingId }) { Text([model.roles.first { $0.id == opening.roleId }?.name, model.subRoles.first { $0.id == opening.subRoleId }?.name].compactMap { $0 }.joined(separator: " · ")) }
-                                Text(candidate.firstReading == nil ? "First reading pending" : "Second reading and vote pending").font(.caption)
-                            }
+                        if let person = model.people.first(where: { $0.id == candidate.personId }), let opening = placement.openings.first(where: { $0.id == candidate.openingId }) {
+                            PlacementCandidateCard(candidate: candidate, person: person, title: [model.roles.first { $0.id == opening.roleId }?.name, model.subRoles.first { $0.id == opening.subRoleId }?.name].compactMap { $0 }.joined(separator: " · "), data: placement)
                         }
                     }
                 }
-            }
-            Section {
-                TextField(
-                    "Search person, ministry, position, or term",
-                    text: $search
-                )
-                .textFieldStyle(.roundedBorder)
-
-                LabeledContent("Assignments awaiting a vote") {
-                    Text("\(awaitingVotes.count)")
-                        .monospacedDigit()
-                        .fontWeight(.semibold)
-                        .foregroundStyle(awaitingVotes.isEmpty ? Color.secondary : Color.orange)
+                if !awaitingVotes.isEmpty {
+                    Text("Existing placements missing a vote").font(.headline).padding(.top, 6)
+                    ForEach(awaitingVotes) { assignment in PendingVoteRow(assignment: assignment) }
                 }
-            } header: {
-                Text("Church vote work queue")
-            } footer: {
-                Text(
-                    "An assignment appears here when either its ministry or position " +
-                    "requires a church vote and no vote date has been recorded."
-                )
-            }
-
-            if grouped.isEmpty {
-                Section {
-                    ContentUnavailableView(
-                        search.nilIfBlank == nil ? "No votes awaiting" : "No matching votes",
-                        systemImage: "checkmark.seal.fill",
-                        description: Text(
-                            search.nilIfBlank == nil
-                                ? "Every required church vote has a recorded date."
-                                : "Try a different search or clear the search field."
-                        )
-                    )
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 32)
+                if !loading && nominees.isEmpty && awaitingVotes.isEmpty {
+                    Label(search.isEmpty ? "No votes awaiting" : "No matching votes", systemImage: "checkmark.seal").foregroundStyle(.secondary).modifier(WorkflowCardStyle())
                 }
-            } else {
-                ForEach(grouped, id: \.0) { ministryName, assignments in
-                    Section {
-                        ForEach(assignments) { assignment in
-                            PendingVoteRow(assignment: assignment)
-                                .environmentObject(model)
-                        }
-                    } header: {
-                        Text(ministryName)
-                            .appFont(.title2, weight: .bold)
-                            .foregroundStyle(AppTheme.riverBlueDark)
-                            .textCase(nil)
-                    }
-                }
-            }
+            }.padding(16).frame(maxWidth: 920).frame(maxWidth: .infinity)
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .frame(maxWidth: 920)
-        .frame(maxWidth: .infinity)
         .background(AppTheme.pageBackground)
         .navigationTitle("Needing Votes")
         .task { await loadNominations() }
         .refreshable { await model.reload(); await loadNominations() }
+        .toolbar { Button { Task { await model.reload(); await loadNominations() } } label: { Label("Refresh", systemImage: "arrow.clockwise") }.disabled(model.isBusy) }
+    }
+}
+
+struct CompactVoteButton: View {
+    var disabled: Bool = false
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Label("Record Vote", systemImage: "checkmark.seal")
+                .font(.callout.weight(.semibold)).lineLimit(1).fixedSize(horizontal: true, vertical: false)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.regular)
+        .fixedSize(horizontal: true, vertical: false)
+        .disabled(disabled)
     }
 }
 
@@ -748,75 +701,23 @@ struct PendingVoteRow: View {
     @EnvironmentObject private var model: AppModel
     let assignment: AssignmentDetail
     @State private var voteDate = Date()
-
-    private var requirementLabel: String {
-        switch (assignment.ministryRequiresVote, assignment.positionRequiresVote) {
-        case (true, true): "Ministry and position require a vote"
-        case (true, false): "Ministry requires a vote"
-        case (false, true): "Position requires a vote"
-        case (false, false): "Vote required"
-        }
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(assignment.personName)
-                        .appFont(.headline, weight: .semibold)
-                    Text(
-                        [assignment.subRoleName, assignment.termName]
-                            .compactMap { $0?.nilIfBlank }
-                            .joined(separator: " • ")
-                    )
-                    .appFont(.callout)
-                    .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Label(requirementLabel, systemImage: "exclamationmark.circle")
-                    .appFont(.caption, weight: .semibold)
-                    .foregroundStyle(.orange)
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(assignment.personName).font(.headline)
+                Text([assignment.roleName, assignment.subRoleName].compactMap { $0 }.joined(separator: " · ")).font(.subheadline)
+                if let term = assignment.termName { Text(term).font(.caption).foregroundStyle(.secondary) }
             }
-
-            Toggle("First reading published", isOn: Binding(get: { assignment.firstReadingPublished == true }, set: { published in Task { await model.setFirstReadingPublished(assignment.id, published: published) } }))
+            Toggle(isOn: Binding(get: { assignment.firstReadingPublished == true }, set: { published in Task { await model.setFirstReadingPublished(assignment.id, published: published) } })) { Text("First reading published").font(.callout) }
                 .disabled(model.isBusy || !model.canEdit)
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) {
-                    DatePicker(
-                        "Vote date",
-                        selection: $voteDate,
-                        displayedComponents: .date
-                    )
-                    Spacer()
-                    recordButton
-                }
-                VStack(alignment: .leading, spacing: 10) {
-                    DatePicker(
-                        "Vote date",
-                        selection: $voteDate,
-                        displayedComponents: .date
-                    )
-                    recordButton
-                        .frame(maxWidth: .infinity)
+            DatePicker("Vote date", selection: $voteDate, in: ...Date(), displayedComponents: .date).datePickerStyle(.compact).font(.callout)
+            HStack {
+                Spacer(minLength: 0)
+                CompactVoteButton(disabled: model.isBusy || !model.canEdit || assignment.firstReadingPublished != true) {
+                    Task { await model.recordAssignmentVote(assignmentId: assignment.id, voteDate: voteDate) }
                 }
             }
-        }
-        .padding(.vertical, 4)
-    }
-
-    private var recordButton: some View {
-        Button {
-            Task {
-                await model.recordAssignmentVote(
-                    assignmentId: assignment.id,
-                    voteDate: voteDate
-                )
-            }
-        } label: {
-            Label("Record Vote", systemImage: "checkmark.seal")
-        }
-        .buttonStyle(.borderedProminent)
-        .disabled(model.isBusy || !model.canEdit || assignment.firstReadingPublished != true)
+        }.modifier(WorkflowCardStyle())
     }
 }
 

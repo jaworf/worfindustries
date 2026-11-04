@@ -197,324 +197,214 @@ struct PlacementFocusSnapshot {
     }
 }
 
-private enum VolunteerActivationScope: String, CaseIterable, Identifiable {
-    case new = "New"
-    case local = "Local"
-    case all = "All"
-
+private enum FocusArea: String, CaseIterable, Identifiable {
+    case votes = "Needing Votes"
+    case ordination = "Ordination Actions"
+    case ending = "Terms ending in next 6 months"
+    case ministries = "Ministries needing volunteers"
+    case activation = "Volunteer Activation"
     var id: String { rawValue }
+    var symbol: String {
+        switch self {
+        case .votes: "checkmark.seal"
+        case .ordination: "person.crop.circle.badge.checkmark"
+        case .ending: "calendar"
+        case .ministries: "person.3"
+        case .activation: "person.badge.plus"
+        }
+    }
+}
+
+struct FocusAttentionCard: View {
+    let title: String
+    let symbol: String
+    let count: Int?
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol).font(.title3).frame(width: 26)
+            Text(title).font(.headline).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+            Text(count.map(String.init) ?? "…").font(.title3.bold()).monospacedDigit()
+            Image(systemName: "chevron.right").font(.caption.bold())
+        }
+        .foregroundStyle(Color.primary)
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        .background(count == nil ? Color.gray.opacity(0.08) : (count! > 0 ? Color.orange.opacity(0.15) : Color.green.opacity(0.09)), in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(count == nil ? Color.gray.opacity(0.2) : (count! > 0 ? Color.orange.opacity(0.45) : Color.green.opacity(0.25))))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct WorkflowCardStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.secondary.opacity(0.16)))
+    }
 }
 
 struct FocusView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var activationScope: VolunteerActivationScope = .local
-    @State private var membershipFilter = "All membership statuses"
+    @State private var expanded: FocusArea?
+    @State private var overview: FocusOverview?
+    @State private var error: String?
     @State private var search = ""
-
+    let votes: () -> Void
     let assign: (AssignmentRoute) -> Void
 
-    private struct ViewData {
-        let snapshot: PlacementFocusSnapshot
-        let ordinationNeeds: [OrdinationFocusNeed]
-        let unassignedPeople: [Person]
-        let newUnassignedCount: Int
-        let membershipOptions: [String]
-        let filteredPeople: [Person]
-        let displayedPeople: [Person]
+    private var current: [AssignmentDetail] { model.assignments.filter(\.isCurrentPlacement) }
+    private var ordinations: [OrdinationFocusNeed] { makeOrdinationFocusNeeds(people: model.people, assignments: model.assignments) }
+    private var ending: [AssignmentDetail] {
+        let start = Calendar.current.startOfDay(for: Date())
+        let cutoff = Calendar.current.date(byAdding: .month, value: 6, to: start) ?? start
+        return current.filter { $0.endDateValue.map { $0 >= start && $0 <= cutoff } ?? false }
+            .sorted { ($0.endDate ?? "") < ($1.endDate ?? "") }
     }
-
-    private func makeViewData() -> ViewData {
-        let snapshot = PlacementFocusSnapshot(
-            roles: model.roles,
-            subRoles: model.subRoles,
-            assignments: model.assignments
-        )
-        let activePersonIds = snapshot.activePersonIds
-        let unassignedPeople = model.people.filter {
-            $0.isActive && !activePersonIds.contains($0.id)
+    private var emptyMinistries: [MinistryRole] {
+        let occupied = Set(current.map(\.roleId))
+        return model.roles.filter { $0.isActive && !occupied.contains($0.id) }
+    }
+    private func count(_ area: FocusArea) -> Int? {
+        switch area {
+        case .votes: overview.map { $0.pendingNominations + current.filter(\.voteMissing).count }
+        case .ordination: ordinations.count
+        case .ending: ending.count
+        case .ministries: emptyMinistries.count
+        case .activation: overview?.people.count
         }
-        let newCutoff = Calendar.autoupdatingCurrent.date(
-            byAdding: .day,
-            value: -90,
-            to: Date()
-        ) ?? Date.distantPast
-        let addedDates = Dictionary(
-            uniqueKeysWithValues: unassignedPeople.compactMap { person in
-                person.addedDate.map { (person.id, $0) }
-            }
-        )
-        let newUnassignedCount = unassignedPeople.filter {
-            (addedDates[$0.id] ?? .distantPast) >= newCutoff
-        }.count
-        let membershipValues = Set(
-            unassignedPeople.compactMap { $0.membershipStatus.nilIfBlank }
-        )
-        .filter { $0 != "No membership status" }
-        let membershipOptions = ["All membership statuses", "No membership status"]
-            + membershipValues.sorted {
-                $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
-            }
-        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
-        let filteredPeople = unassignedPeople
-            .filter { person in
-                switch activationScope {
-                case .new:
-                    guard (addedDates[person.id] ?? .distantPast) >= newCutoff else {
-                        return false
-                    }
-                case .local:
-                    guard ["Riverview Member", "Regular Attender"].contains(
-                        person.membershipStatus ?? ""
-                    ) else {
-                        return false
-                    }
-                case .all:
-                    break
-                }
-
-                if membershipFilter == "No membership status" {
-                    guard person.membershipStatus.nilIfBlank == nil else { return false }
-                } else if membershipFilter != "All membership statuses" {
-                    guard person.membershipStatus == membershipFilter else { return false }
-                }
-
-                guard !query.isEmpty else { return true }
-                return [
-                    person.displayName,
-                    person.email ?? "",
-                    person.mobilePhone ?? "",
-                    person.homePhone ?? "",
-                    person.membershipStatus ?? ""
-                ].contains { $0.localizedCaseInsensitiveContains(query) }
-            }
-            .sorted { left, right in
-                let leftMembershipPriority = left.membershipStatus == "Riverview Member" ? 0 : 1
-                let rightMembershipPriority = right.membershipStatus == "Riverview Member" ? 0 : 1
-                if leftMembershipPriority != rightMembershipPriority {
-                    return leftMembershipPriority < rightMembershipPriority
-                }
-                let leftDate = addedDates[left.id] ?? .distantPast
-                let rightDate = addedDates[right.id] ?? .distantPast
-                if leftDate != rightDate { return leftDate > rightDate }
-                let lastOrder = left.lastName.localizedCaseInsensitiveCompare(right.lastName)
-                if lastOrder != .orderedSame { return lastOrder == .orderedAscending }
-                return left.firstName.localizedCaseInsensitiveCompare(right.firstName)
-                    == .orderedAscending
-            }
-        return ViewData(
-            snapshot: snapshot,
-            ordinationNeeds: makeOrdinationFocusNeeds(
-                people: model.people,
-                assignments: model.assignments
-            ),
-            unassignedPeople: unassignedPeople,
-            newUnassignedCount: newUnassignedCount,
-            membershipOptions: membershipOptions,
-            filteredPeople: filteredPeople,
-            displayedPeople: Array(filteredPeople.prefix(75))
-        )
     }
-
+    private func refresh() async {
+        do { overview = try await model.loadFocusOverview(); error = nil }
+        catch { self.error = error.localizedDescription }
+    }
     var body: some View {
-        let data = makeViewData()
-
-        Form {
-            Section("Needing Votes") {
-                ForEach(model.assignments.filter { $0.isCurrentPlacement && $0.voteMissing }) { assignment in
-                    PendingVoteRow(assignment: assignment).disabled(!model.canEdit || model.isBusy)
-                }
-            }
-            Section {
-                if data.ordinationNeeds.isEmpty {
-                    Label(
-                        "Every current Deacon, Deaconess, and Elder is marked ordained.",
-                        systemImage: "checkmark.circle.fill"
-                    )
-                    .foregroundStyle(.green)
-                    .padding(.vertical, 12)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if let error { Text(error).foregroundStyle(.red).modifier(WorkflowCardStyle()) }
+                if let expanded {
+                    HStack {
+                        Button { self.expanded = nil } label: { Label(expanded.rawValue, systemImage: "chevron.left").font(.headline) }
+                            .buttonStyle(.plain).accessibilityLabel("Collapse " + expanded.rawValue)
+                        Spacer(minLength: 8)
+                        Button("Close") { self.expanded = nil }.buttonStyle(.bordered).controlSize(.small)
+                    }.padding(.vertical, 6)
+                    expandedContent(expanded)
                 } else {
-                    ForEach(data.ordinationNeeds) { need in
-                        OrdinationFocusRow(need: need)
+                    ForEach(FocusArea.allCases) { area in
+                        Button {
+                            if area == .votes { votes() } else { expanded = area }
+                        } label: { FocusAttentionCard(title: area.rawValue, symbol: area.symbol, count: count(area)) }
+                        .buttonStyle(.plain)
                     }
                 }
-            } header: {
-                Text("Ordination Actions")
-            } footer: {
-                Text(
-                    "This queue shows current Deacons, Deaconesses, and Elders whose matching " +
-                    "permanent ordination record is not checked. Ordination is never included in reports."
-                )
-            }
-
-            Section("Terms ending in the next 6 months") {
-                ForEach(model.assignments.filter { assignment in
-                    guard assignment.isCurrentPlacement, let end = assignment.endDateValue,
-                          let cutoff = Calendar.autoupdatingCurrent.date(byAdding: .month, value: 6, to: Date()) else { return false }
-                    return end >= Calendar.autoupdatingCurrent.startOfDay(for: Date()) && end <= cutoff
-                }) { assignment in
-                    Button {
-                        assign(AssignmentRoute(personId: assignment.personId, roleId: assignment.roleId, subRoleId: assignment.subRoleId))
-                    } label: {
-                        VStack(alignment: .leading) {
-                            Text(assignment.personName).fontWeight(.semibold)
-                            Text(assignment.roleName).foregroundStyle(.secondary)
-                        }
-                    }.disabled(!model.canEdit)
-                }
-            }
-            Section {
-                if data.snapshot.ministryNeeds.isEmpty {
-                    Label("Every active ministry currently has coverage.", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                        .padding(.vertical, 12)
-                } else {
-                    ForEach(data.snapshot.ministryNeeds) { need in
-                        MinistryFocusRow(need: need, assign: assign)
-                    }
-                }
-            } header: {
-                Text("Ministries Needing Volunteers")
-            } footer: {
-                Text(
-                    "A ministry appears here when it has no active volunteer or when the " +
-                    "most recently completed position has fewer replacements than outgoing volunteers."
-                )
-            }
-
-            Section {
-                Picker("People to show", selection: $activationScope) {
-                    ForEach(VolunteerActivationScope.allCases) { scope in
-                        Text(scope.rawValue).tag(scope)
-                    }
-                }
-                .pickerStyle(.segmented)
-
-                Picker("Membership", selection: $membershipFilter) {
-                    ForEach(data.membershipOptions, id: \.self) { membership in
-                        Text(membership).tag(membership)
-                    }
-                }
-
-                TextField("Search name, contact information, or membership", text: $search)
-                    .textFieldStyle(.roundedBorder)
-
-                LabeledContent("People matching filters") {
-                    Text("\(data.filteredPeople.count)")
-                        .monospacedDigit()
-                        .foregroundStyle(AppTheme.riverBlueDark)
-                }
-            } header: {
-                Text("Volunteer Activation")
-            } footer: {
-                Text(
-                    "New means added to Planning Center or this app within 90 days. Local " +
-                    "shows unassigned Riverview Members and Regular Attenders. All keeps " +
-                    "every active unassigned person available."
-                )
-            }
-
-            Section {
-                if data.filteredPeople.isEmpty {
-                    ContentUnavailableView(
-                        "No unassigned people match",
-                        systemImage: "person.crop.circle.badge.checkmark",
-                        description: Text("Try another scope, membership status, or search.")
-                    )
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 28)
-                } else {
-                    ForEach(data.displayedPeople) { person in
-                        VolunteerActivationRow(person: person) {
-                            assign(
-                                AssignmentRoute(
-                                    personId: person.id,
-                                    roleId: nil,
-                                    subRoleId: nil
-                                )
-                            )
-                        }
-                    }
-                }
-            } header: {
-                Text("People ready to connect")
-            } footer: {
-                if data.filteredPeople.count > data.displayedPeople.count {
-                    Text(
-                        "Showing the first \(data.displayedPeople.count) of \(data.filteredPeople.count). " +
-                        "Use search or membership filters to narrow the list."
-                    )
-                }
-            }
+            }.padding(16).frame(maxWidth: 960).frame(maxWidth: .infinity)
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .frame(maxWidth: 960)
-        .frame(maxWidth: .infinity)
         .background(AppTheme.pageBackground)
         .navigationTitle("Placement Focus")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    Task { await model.reload() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .disabled(model.isBusy)
-                .accessibilityLabel("Reload")
+        .task { await refresh() }
+        .onChange(of: model.assignments) { _, _ in Task { await refresh() } }
+        .refreshable { await model.reload(); await refresh() }
+        .toolbar { Button { Task { await model.reload(); await refresh() } } label: { Label("Refresh", systemImage: "arrow.clockwise") }.disabled(model.isBusy) }
+    }
+    @ViewBuilder private func expandedContent(_ area: FocusArea) -> some View {
+        switch area {
+        case .votes: EmptyView()
+        case .ordination:
+            if ordinations.isEmpty { empty("No ordination actions needed") }
+            ForEach(ordinations) { OrdinationFocusRow(need: $0).modifier(WorkflowCardStyle()) }
+        case .ending:
+            if ending.isEmpty { empty("No terms ending in the next six months") }
+            ForEach(ending) { assignment in
+                Button { assign(AssignmentRoute(personId: assignment.personId, roleId: assignment.roleId, subRoleId: assignment.subRoleId)) } label: {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(assignment.personName).font(.headline)
+                        Text([assignment.roleName, assignment.subRoleName].compactMap { $0 }.joined(separator: " · ")).font(.subheadline)
+                        Text("Term ends " + (assignment.endDate ?? "")).font(.caption).foregroundStyle(.secondary)
+                    }.modifier(WorkflowCardStyle())
+                }.buttonStyle(.plain).disabled(!model.canEdit)
+            }
+        case .ministries:
+            if emptyMinistries.isEmpty { empty("Every active ministry has a volunteer") }
+            ForEach(emptyMinistries) { ministry in
+                Button { assign(AssignmentRoute(personId: nil, roleId: ministry.id, subRoleId: nil)) } label: {
+                    HStack { Text(ministry.name).font(.headline); Spacer(); Image(systemName: "person.badge.plus") }.modifier(WorkflowCardStyle())
+                }.buttonStyle(.plain).disabled(!model.canEdit)
+            }
+        case .activation:
+            VStack(alignment: .leading, spacing: 10) {
+                Text("The 100 newest eligible Planning Center contacts, excluding current volunteers.").font(.subheadline)
+                Text("Membership: " + (overview?.preferences.selected.isEmpty == false ? overview!.preferences.selected.joined(separator: ", ") : "All membership types")).font(.caption).foregroundStyle(.secondary)
+                if model.isAdministrator { NavigationLink("Change membership types") { FocusMembershipSettingsView() } }
+                TextField("Search name or contact details", text: $search).textFieldStyle(.roundedBorder)
+            }.modifier(WorkflowCardStyle())
+            if overview == nil { ProgressView("Loading eligible contacts…") }
+            else if activationPeople.isEmpty { empty("No eligible contacts match") }
+            ForEach(activationPeople) { person in
+                VolunteerActivationRow(person: person) { assign(AssignmentRoute(personId: person.id, roleId: nil, subRoleId: nil)) }
+                    .modifier(WorkflowCardStyle())
             }
         }
-        .onChange(of: activationScope) { _, _ in
-            membershipFilter = "All membership statuses"
-        }
     }
+    private var activationPeople: [Person] {
+        (overview?.people ?? []).filter { search.isEmpty || [$0.displayName, $0.email ?? "", $0.mobilePhone ?? "", $0.homePhone ?? ""].contains { $0.localizedCaseInsensitiveContains(search) } }
+    }
+    private func empty(_ text: String) -> some View {
+        Label(text, systemImage: "checkmark.circle").foregroundStyle(.secondary).modifier(WorkflowCardStyle())
+    }
+}
 
-    @ViewBuilder
-    private func summaryCards(data: ViewData) -> some View {
-        FocusSummaryCard(
-            title: "Ministries to review",
-            value: data.snapshot.ministryNeeds.count,
-            systemImage: "exclamationmark.circle.fill",
-            color: .orange
-        )
-        FocusSummaryCard(
-            title: "New and unassigned",
-            value: data.newUnassignedCount,
-            systemImage: "person.crop.circle.badge.plus",
-            color: AppTheme.riverBlue
-        )
-        FocusSummaryCard(
-            title: "All unassigned",
-            value: data.unassignedPeople.count,
-            systemImage: "person.2.slash",
-            color: AppTheme.riverBlueDark
-        )
-        FocusSummaryCard(
-            title: "Awaiting ordination",
-            value: data.ordinationNeeds.count,
-            systemImage: "person.crop.circle.badge.exclamationmark",
-            color: .orange
-        )
+struct FocusMembershipSettingsView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var preferences = FocusPreferences()
+    @State private var error: String?
+    @State private var busy = false
+    @State private var loading = true
+    @State private var notice: String?
+    private var options: [String] {
+        var seen = Set<String>()
+        return (preferences.options + preferences.selected).filter { seen.insert($0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()).inserted }.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+    private func refreshTypes() async {
+        busy = true; defer { busy = false }
+        do { preferences.options = try await model.refreshFocusMembershipTypes(); error = nil }
+        catch { self.error = error.localizedDescription }
+    }
+    var body: some View {
+        Form {
+            Section {
+                Text("Choose one or more membership types for the newest 100 Planning Center contacts who are not currently volunteering. These settings are shared with the web app.")
+                ForEach(options, id: \.self) { value in
+                    Toggle(value, isOn: Binding(get: { preferences.selected.contains { $0.caseInsensitiveCompare(value) == .orderedSame } }, set: { checked in
+                        preferences.selected.removeAll { $0.caseInsensitiveCompare(value) == .orderedSame }
+                        if checked { preferences.selected.append(value) }
+                    }))
+                }
+                Button("Use all membership types") { preferences.selected = [] }
+                Button("Refresh types from Planning Center") { Task { await refreshTypes() } }.disabled(busy || model.planningCenterStatus?.connected != true)
+                Button("Save Membership Types") { Task { if await model.saveFocusMemberships(preferences.selected) { notice = "Membership types saved." } } }.disabled(busy || loading || model.isBusy)
+            } header: { Text("Volunteer Activation") } footer: { Text("No selection means all membership types.") }
+            if let error = error ?? model.errorMessage { Text(error).foregroundStyle(.red) }
+            if let notice { Text(notice).foregroundStyle(.green) }
+        }
+        .navigationTitle("Membership Types")
+        .task {
+            defer { loading = false }
+            do { preferences = try await model.loadFocusPreferences() } catch { self.error = error.localizedDescription }
+            if model.planningCenterStatus?.connected == true { await refreshTypes() }
+        }
     }
 }
 
 private struct OrdinationFocusRow: View {
     @EnvironmentObject private var model: AppModel
     let need: OrdinationFocusNeed
-
     var body: some View {
-        HStack(alignment: .center, spacing: 14) {
-            Image(systemName: "person.crop.circle.badge.exclamationmark")
-                .appFont(.title2)
-                .foregroundStyle(.orange)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(need.person.displayName)
-                    .appFont(.headline, weight: .semibold)
-                Text("\(need.ministryName) · \(need.kind.label) is not checked")
-                    .appFont(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
+        VStack(alignment: .leading, spacing: 12) {
+            Text(need.person.displayName).font(.headline)
+            Text("\(need.ministryName) · \(need.kind.label) is not checked").font(.subheadline).foregroundStyle(.secondary)
             if model.canEdit {
+                HStack { Spacer()
                 Button("Mark \(need.kind.label)") {
                     var ordination = PersonOrdinationDraft(person: need.person)
                     switch need.kind {
@@ -530,11 +420,12 @@ private struct OrdinationFocusRow: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .controlSize(.regular)
+                .font(.callout).lineLimit(1).fixedSize()
                 .disabled(model.isBusy)
+                }
             }
         }
-        .padding(.vertical, 5)
     }
 }
 
@@ -651,40 +542,22 @@ private struct MinistryFocusRow: View {
 }
 
 private struct VolunteerActivationRow: View {
+    @EnvironmentObject private var model: AppModel
     let person: Person
     let assign: () -> Void
-
     var body: some View {
-        HStack(alignment: .center, spacing: 14) {
-            Image(systemName: "person.crop.circle.fill")
-                .appFont(.title2)
-                .foregroundStyle(AppTheme.riverBlue)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(person.displayName)
-                    .appFont(.headline, weight: .semibold)
-                HStack(spacing: 8) {
-                    Text(person.membershipStatus.nilIfBlank ?? "No membership status")
-                    if let addedDate = person.addedDate {
-                        Text("•")
-                        Text("Added \(AppDate.display(addedDate))")
-                    }
-                }
-                .appFont(.caption)
-                .foregroundStyle(.secondary)
-                if let contact = person.email.nilIfBlank
-                    ?? person.mobilePhone.nilIfBlank
-                    ?? person.homePhone.nilIfBlank {
-                    Text(contact)
-                        .appFont(.caption)
-                        .foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: 10) {
+            Text(person.displayName).font(.headline)
+            Text(person.membershipStatus.nilIfBlank ?? "No membership status").font(.caption).foregroundStyle(.secondary)
+            if let added = person.addedDate { Text("Added " + AppDate.display(added)).font(.caption).foregroundStyle(.secondary) }
+            if let phone = person.mobilePhone.nilIfBlank ?? person.homePhone.nilIfBlank,
+               let url = URL(string:"tel:" + phone.filter { $0.isNumber || $0 == "+" }) { Link(destination:url) { Label(phone,systemImage:"phone") }.font(.callout) }
+            if let email = person.email.nilIfBlank, let url = URL(string:"mailto:" + email) { Link(destination:url) { Label(email,systemImage:"envelope") }.font(.callout).lineLimit(1).truncationMode(.middle) }
+            HStack {
+                Spacer()
+                Button("Assign", action: assign).buttonStyle(.borderedProminent).controlSize(.regular).font(.callout).lineLimit(1).fixedSize().disabled(!model.canEdit || model.isBusy)
             }
-            Spacer()
-            Button("Assign", action: assign)
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
         }
-        .padding(.vertical, 5)
     }
 }
 
@@ -732,6 +605,124 @@ struct PersonVolunteerHistorySection: View {
     }
 }
 
+struct NativeSearchOption: Identifiable {
+    let id: String
+    let title: String
+    var detail: String? = nil
+}
+
+struct NativeSearchPicker: View {
+    let title: String
+    @Binding var selection: String
+    let options: [NativeSearchOption]
+    var createTitle: String? = nil
+    var create: ((String) -> Void)? = nil
+    @State private var showing = false
+    @State private var query = ""
+    @FocusState private var searching: Bool
+    private var matches: [NativeSearchOption] { options.filter { query.isEmpty || [$0.title, $0.detail ?? ""].contains { $0.localizedCaseInsensitiveContains(query) } } }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            Button { query = ""; showing = true } label: {
+                HStack {
+                    Text(options.first { $0.id == selection }?.title ?? "Choose…").multilineTextAlignment(.leading)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.down").font(.caption.bold())
+                }.padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+            }.buttonStyle(.plain).accessibilityLabel(title + ": " + (options.first { $0.id == selection }?.title ?? "Choose"))
+        }
+        .sheet(isPresented: $showing) {
+            NavigationStack {
+                List {
+                    TextField("Type to filter " + title.lowercased(), text: $query).textFieldStyle(.roundedBorder).focused($searching)
+                    ForEach(matches) { option in
+                        Button {
+                            selection = option.id; showing = false
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(option.title)
+                                    if let detail = option.detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
+                                }
+                                Spacer(minLength: 6)
+                                if selection == option.id { Image(systemName: "checkmark") }
+                            }
+                        }.buttonStyle(.plain)
+                    }
+                    if let create, let createTitle, let name = query.nilIfBlank,
+                       !options.contains(where: { $0.title.caseInsensitiveCompare(name) == .orderedSame }) {
+                        Button { create(name); showing = false } label: { Label(createTitle + ": " + name, systemImage: "plus.circle") }
+                    } else if matches.isEmpty { Text("No matches").foregroundStyle(.secondary) }
+                }
+                .navigationTitle(title)
+                .toolbar { Button("Close") { showing = false } }
+                .task { searching = true }
+            }.frame(minWidth: 300, minHeight: 360)
+        }
+    }
+}
+
+struct PlacementCandidateCard: View {
+    @EnvironmentObject private var model: AppModel
+    let candidate: PlacementCandidate
+    let person: Person
+    let title: String
+    let data: PlacementSnapshot
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            NavigationLink { PlacementCandidateView(candidateId: candidate.id, data: data) } label: {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(person.displayName).font(.headline)
+                        Text(title).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 5)
+                    Text(["nominated", "first_reading", "second_reading"].contains(candidate.stage) ? (candidate.firstReading == nil ? "First reading" : "Vote pending") : placementLabel(candidate.response)).font(.caption).foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right").font(.caption)
+                }.foregroundStyle(.primary)
+            }.buttonStyle(.plain)
+            HStack(spacing: 16) {
+                if let phone = person.mobilePhone.nilIfBlank ?? person.homePhone.nilIfBlank,
+                   let url = URL(string: "tel:" + phone.filter { $0.isNumber || $0 == "+" }) {
+                    Link(destination: url) { Label(phone, systemImage: "phone") }.lineLimit(1)
+                }
+                if let email = person.email.nilIfBlank, let url = URL(string: "mailto:" + email) {
+                    Link(destination: url) { Label(email, systemImage: "envelope") }.lineLimit(1).truncationMode(.middle)
+                }
+            }.font(.caption)
+            let serving = model.assignments.filter { $0.personId == person.id && $0.isCurrentPlacement }.map { $0.roleName + ($0.subRoleName.map { " · " + $0 } ?? "") }
+            Text(serving.isEmpty ? "No current positions" : "Serving: " + serving.joined(separator: "; ")).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            if let due = candidate.followUp { Text("Follow up: " + due).font(.caption).foregroundStyle(.secondary) }
+        }.modifier(WorkflowCardStyle())
+    }
+}
+
+struct PlacementOpeningCard: View {
+    let title: String
+    let status: String
+    let candidates: Int
+    let expanded: Bool
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: "list.bullet.clipboard").font(.title3).foregroundStyle(AppTheme.riverBlue)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(title).font(.headline).multilineTextAlignment(.leading)
+                    Text("\(candidates) candidate\(candidates == 1 ? "" : "s") · \(placementLabel(status))").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 4)
+                Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.caption.bold())
+            }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                .background(expanded ? AppTheme.riverBlueSoft : Color.white, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(expanded ? AppTheme.riverBlue : Color.secondary.opacity(0.18)))
+                .foregroundStyle(.primary)
+        }.buttonStyle(.plain).accessibilityValue(expanded ? "Expanded" : "Collapsed")
+    }
+}
+
 struct PlacementWorkflowView: View {
     @EnvironmentObject private var model: AppModel
     @State private var data = PlacementSnapshot()
@@ -740,132 +731,151 @@ struct PlacementWorkflowView: View {
     @State private var error: String?
     @State private var showingOpening = false
     @State private var personId = ""
-    @State private var search = ""
-
+    @State private var trashOpening: UUID?
+    @State private var showingTrashConfirmation = false
+    let onVotes: () -> Void
     private func title(_ opening: PlacementOpening) -> String {
         [model.roles.first { $0.id == opening.roleId }?.name,
          model.subRoles.first { $0.id == opening.subRoleId }?.name,
          model.terms.first { $0.id == opening.termId }?.name].compactMap { $0 }.joined(separator: " · ")
     }
-    private var displayed: [PlacementCandidate] {
+    private var openings: [PlacementOpening] {
+        data.openings.filter { $0.status == (scope == "Trash" ? "cancelled" : scope == "Completed" ? "filled" : "open") }
+    }
+    private var otherCandidates: [PlacementCandidate] {
         data.candidates.filter { candidate in
-            switch scope {
-            case "My Calls":
-                return candidate.assignedTo == model.currentProfile?.userId
-                    && data.openings.contains { $0.id == candidate.openingId && $0.status == "open" }
+            if scope == "My Calls" {
+                return candidate.assignedTo == model.currentProfile?.userId && data.openings.contains { $0.id == candidate.openingId && $0.status == "open" }
                     && !["elected", "appointed", "withdrawn", "not_elected"].contains(candidate.stage)
                     && (!["yes", "no"].contains(candidate.response) || candidate.followUp != nil)
-            case "Nominations": return ["nominated", "first_reading", "second_reading", "deferred"].contains(candidate.stage)
-            default: return candidate.openingId == selectedOpening
             }
+            return scope == "Completed" && ["elected", "appointed", "withdrawn", "not_elected"].contains(candidate.stage)
+                && !data.openings.contains { $0.id == candidate.openingId && $0.status == "filled" }
         }
     }
     private func refresh() async {
         do { data = try await model.loadPlacementWorkflow(); error = nil }
         catch { self.error = error.localizedDescription }
     }
+    @discardableResult private func command(_ action: String, _ values: [String: String]) async -> Bool {
+        if await model.savePlacementAction(action, data: values) { await refresh(); return true }
+        return false
+    }
     var body: some View {
-        List {
-            Picker("Show", selection: $scope) {
-                Text("Openings").tag("Openings")
-                Text("My Calls").tag("My Calls")
-                Text("Nominations").tag("Nominations")
-            }
-            if let error { Text(error).foregroundStyle(.red) }
-            if scope == "Openings" {
-                if model.canEdit { Button("Create Opening") { showingOpening = true } }
-                Picker("Opening", selection: $selectedOpening) {
-                    Text("Choose opening").tag(nil as UUID?)
-                    ForEach(data.openings) { opening in
-                        Text("\(title(opening)) — \(opening.status)").tag(Optional(opening.id))
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(["Openings", "My Calls", "Completed", "Trash"], id: \.self) { value in
+                            Button(value) { scope = value; selectedOpening = nil; personId = "" }
+                                .buttonStyle(.bordered).tint(scope == value ? AppTheme.riverBlue : .secondary).fixedSize()
+                        }
+                        Button("Needing Votes", action: onVotes).buttonStyle(.bordered).fixedSize()
                     }
                 }
-                if let opening = data.openings.first(where: { $0.id == selectedOpening }) {
-                    Section(title(opening)) {
-                        Text("\(opening.quantity) needed · \(data.candidates.filter { $0.openingId == opening.id && ["elected", "appointed"].contains($0.stage) }.count) filled")
-                        if !opening.notes.isEmpty { Text(opening.notes) }
-                        if model.canEdit && opening.status == "open" {
-                            TextField("Find candidate", text: $search)
-                            Picker("Candidate", selection: $personId) {
-                                Text("Choose person").tag("")
-                                ForEach(model.people.filter { person in person.isActive && (search.isEmpty || person.displayName.localizedCaseInsensitiveContains(search)) && !data.candidates.contains { $0.openingId == opening.id && $0.personId == person.id } }) { person in
-                                    Text(person.displayName).tag(person.id.uuidString)
-                                }
-                            }
-                            Button("Add Candidate") {
-                                Task { if await model.savePlacementAction("candidate", data: ["opening_id": opening.id.uuidString, "person_id": personId]) { personId = ""; await refresh() } }
-                            }.disabled(personId.isEmpty || model.isBusy)
-                            Button("Close Opening", role: .destructive) {
-                                Task { if await model.savePlacementAction("cancel_opening", data: ["opening_id": opening.id.uuidString]) { await refresh() } }
-                            }.disabled(model.isBusy)
+                if let error = error ?? model.errorMessage { Text(error).foregroundStyle(.red).modifier(WorkflowCardStyle()) }
+                if scope == "Openings" && model.canEdit {
+                    Button { showingOpening = true } label: { Label("Create Opening", systemImage: "plus") }.buttonStyle(.borderedProminent).controlSize(.regular)
+                }
+                if scope == "Trash" { Text("Canceled openings are kept here with their candidates and history. Restore an opening to resume recruitment.").font(.subheadline).foregroundStyle(.secondary) }
+                if scope != "My Calls" {
+                    ForEach(openings) { opening in
+                        PlacementOpeningCard(title: title(opening), status: opening.status, candidates: data.candidates.filter { $0.openingId == opening.id }.count, expanded: selectedOpening == opening.id) {
+                            selectedOpening = selectedOpening == opening.id ? nil : opening.id; personId = ""
+                        }
+                        if selectedOpening == opening.id {
+                            openingDetails(opening)
+                            ForEach(data.candidates.filter { $0.openingId == opening.id }) { candidate in candidateCard(candidate) }
                         }
                     }
+                    if openings.isEmpty && otherCandidates.isEmpty { Text("No \(scope.lowercased()) to show.").foregroundStyle(.secondary).padding(.vertical) }
                 }
-            }
-            if scope == "Nominations" {
-                BulletinSuggestionsSection(data: data)
-            }
-            ForEach(displayed) { candidate in
-                if let person = model.people.first(where: { $0.id == candidate.personId }), let opening = data.openings.first(where: { $0.id == candidate.openingId }) {
-                    NavigationLink {
-                        PlacementCandidateView(candidateId: candidate.id, data: data)
-                    } label: {
-                        VStack(alignment: .leading) {
-                            Text(person.displayName).font(.headline)
-                            Text(title(opening))
-                            Text("\(placementLabel(candidate.response)) · \(placementLabel(candidate.stage))").font(.caption)
-                            if let followUp = candidate.followUp { Text("Follow up: \(followUp)").font(.caption) }
-                        }
-                    }
-                }
-            }
-            if scope != "Openings" && displayed.isEmpty { Text("Nothing in this list.") }
+                ForEach(otherCandidates) { candidate in candidateCard(candidate) }
+                if scope == "My Calls" && otherCandidates.isEmpty { Text("No calls assigned to you.").foregroundStyle(.secondary).padding(.vertical) }
+            }.padding(16).frame(maxWidth: 960).frame(maxWidth: .infinity)
         }
+        .background(AppTheme.pageBackground)
         .navigationTitle("Placement Process")
         .task { await refresh() }
         .refreshable { await refresh() }
-        .toolbar { Button("Refresh") { Task { await refresh() } } }
-        .sheet(isPresented: $showingOpening, onDismiss: { Task { await refresh() } }) { NewPlacementOpeningView() }
+        .toolbar { Button { Task { await refresh() } } label: { Label("Refresh", systemImage: "arrow.clockwise") } }
+        .sheet(isPresented: $showingOpening, onDismiss: { Task { await refresh() } }) { NewPlacementOpeningView(openings: data.openings) }
+        .confirmationDialog("Move opening to Trash?", isPresented: $showingTrashConfirmation) {
+            Button("Move to Trash", role: .destructive) {
+                if let id = trashOpening { Task { if await command("cancel_opening", ["opening_id":id.uuidString]) { selectedOpening = nil }; trashOpening = nil } }
+            }
+        } message: { Text("Candidate records and call history are preserved.") }
     }
-
+    @ViewBuilder private func candidateCard(_ candidate: PlacementCandidate) -> some View {
+        if let person = model.people.first(where: { $0.id == candidate.personId }), let opening = data.openings.first(where: { $0.id == candidate.openingId }) {
+            PlacementCandidateCard(candidate: candidate, person: person, title: title(opening), data: data)
+        }
+    }
+    private func openingDetails(_ opening: PlacementOpening) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !opening.notes.isEmpty { Text(opening.notes).font(.subheadline) }
+            if model.canEdit {
+                if opening.status == "open" {
+                    NativeSearchPicker(title: "Add a candidate", selection: $personId, options: model.people.filter { person in person.isActive && !data.candidates.contains { $0.openingId == opening.id && $0.personId == person.id } }.map { NativeSearchOption(id: $0.id.uuidString, title: $0.displayName, detail: [$0.email, $0.mobilePhone].compactMap { $0 }.joined(separator: " · ")) })
+                    Button("Add Candidate") { Task { await command("candidate", ["opening_id": opening.id.uuidString, "person_id": personId]); personId = "" } }.buttonStyle(.borderedProminent).disabled(personId.isEmpty || model.isBusy)
+                    HStack {
+                        Button("Finish Recruiting") { Task { if await command("finish_opening", ["opening_id":opening.id.uuidString]) { selectedOpening = nil } } }
+                        Spacer(minLength: 10)
+                        Button("Move to Trash", role: .destructive) { trashOpening = opening.id; showingTrashConfirmation = true }
+                    }.font(.callout).disabled(model.isBusy)
+                } else {
+                    Button(opening.status == "cancelled" ? "Restore Opening" : "Reopen Recruitment") { Task { if await command("restore_opening", ["opening_id":opening.id.uuidString]) { selectedOpening = nil } } }.buttonStyle(.bordered).disabled(model.isBusy)
+                }
+            }
+        }.modifier(WorkflowCardStyle())
+    }
 }
 
 private struct NewPlacementOpeningView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
+    let openings: [PlacementOpening]
     @State private var roleId = ""
     @State private var positionId = ""
     @State private var termId = ""
-    @State private var quantity = 1
+    @State private var newMinistry = ""
+    @State private var newPosition = ""
+    @State private var newTerm = ""
+    @State private var voteRequired = false
+    @State private var termStart = Date()
+    @State private var termEnd = Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date()
     @State private var notes = ""
+    private var requiresTerm: Bool {
+        !positionId.isEmpty && (model.roles.first { $0.id.uuidString == roleId }?.requiresVote == true || (positionId == "new" ? voteRequired : model.subRoles.first { $0.id.uuidString == positionId }?.requiresVote == true))
+    }
+    private var duplicate: Bool { roleId != "new" && positionId != "new" && termId != "new" && openings.contains { $0.status == "open" && $0.roleId.uuidString == roleId && ($0.subRoleId?.uuidString ?? "") == positionId && ($0.termId?.uuidString ?? "") == termId } }
     var body: some View {
         NavigationStack {
             Form {
-                Picker("Ministry", selection: $roleId) {
-                    Text("Choose ministry").tag("")
-                    ForEach(model.roles.filter(\.isActive)) { Text($0.name).tag($0.id.uuidString) }
-                }.onChange(of: roleId) { _, _ in positionId = "" }
-                Picker("Position", selection: $positionId) {
-                    Text("Team member — no vote").tag("")
-                    ForEach(model.subRoles.filter { $0.roleId?.uuidString == roleId && $0.isActive }) { Text($0.name).tag($0.id.uuidString) }
+                NativeSearchPicker(title: "Ministry", selection: $roleId, options: model.roles.filter(\.isActive).map { NativeSearchOption(id:$0.id.uuidString,title:$0.name) } + (newMinistry.isEmpty ? [] : [NativeSearchOption(id:"new",title:newMinistry)]), createTitle: "Create a new ministry", create: { newMinistry = $0; roleId = "new" })
+                    .onChange(of: roleId) { _, _ in positionId = ""; newPosition = "" }
+                NativeSearchPicker(title: "Position", selection: $positionId, options: [NativeSearchOption(id:"",title:"Team member — no vote")] + model.subRoles.filter { $0.roleId?.uuidString == roleId && $0.isActive }.map { NativeSearchOption(id:$0.id.uuidString,title:$0.name) } + (newPosition.isEmpty ? [] : [NativeSearchOption(id:"new",title:newPosition)]), createTitle: "Create a new position", create: { newPosition = $0; positionId = "new" }).disabled(roleId.isEmpty)
+                if positionId == "new" { Toggle("Position requires a church vote", isOn: $voteRequired) }
+                NativeSearchPicker(title: requiresTerm ? "Term (required)" : "Term", selection: $termId, options: [NativeSearchOption(id:"",title:"No term")] + model.terms.filter(\.isActive).map { NativeSearchOption(id:$0.id.uuidString,title:$0.name) } + (newTerm.isEmpty ? [] : [NativeSearchOption(id:"new",title:newTerm)]), createTitle: "Create a new term", create: { newTerm = $0; termId = "new" })
+                if termId == "new" {
+                    DatePicker("Term starts", selection:$termStart, displayedComponents:.date)
+                    DatePicker("Term ends", selection:$termEnd, in:termStart..., displayedComponents:.date)
                 }
-                Picker("Term", selection: $termId) {
-                    Text("No term").tag("")
-                    ForEach(model.terms.filter(\.isActive)) { Text($0.name).tag($0.id.uuidString) }
-                }
-                Stepper("People needed: \(quantity)", value: $quantity, in: 1...100)
                 TextField("Committee notes", text: $notes, axis: .vertical)
+                if duplicate { Label("An open recruitment already exists for this ministry, position and term.",systemImage:"exclamationmark.triangle").foregroundStyle(.orange) }
                 if let error = model.errorMessage { Text(error).foregroundStyle(.red) }
                 Button("Create Opening") {
                     Task {
-                        var body = ["role_id": roleId, "quantity": String(quantity), "notes": notes]
-                        if !positionId.isEmpty { body["sub_role_id"] = positionId }
-                        if !termId.isEmpty { body["term_id"] = termId }
+                        var body = ["notes": notes]
+                        if roleId == "new" { body["new_role_name"] = newMinistry } else { body["role_id"] = roleId }
+                        if positionId == "new" { body["new_position_name"] = newPosition; body["new_position_vote"] = String(voteRequired) } else if !positionId.isEmpty { body["sub_role_id"] = positionId }
+                        if termId == "new" { body["new_term_name"] = newTerm; body["term_start"] = AppDate.storage(termStart); body["term_end"] = AppDate.storage(termEnd) } else if !termId.isEmpty { body["term_id"] = termId }
                         if await model.savePlacementAction("opening", data: body) { dismiss() }
                     }
-                }.disabled(roleId.isEmpty || model.isBusy)
-            }.navigationTitle("Create Opening")
-                .toolbar { Button("Cancel") { dismiss() } }
+                }.disabled(roleId.isEmpty || model.isBusy || duplicate || (requiresTerm && termId.isEmpty))
+            }
+            .navigationTitle("Create Opening")
+            .toolbar { Button("Cancel") { dismiss() } }
         }
     }
 }
@@ -876,7 +886,7 @@ struct PlacementCandidateView: View {
     @State var data: PlacementSnapshot
     @State private var callerId = ""
     @State private var assignee = ""
-    @State private var response = "considering"
+    @State private var response = ""
     @State private var notes = ""
     @State private var callDate = Date()
     @State private var actionDate = Date()
@@ -913,24 +923,23 @@ struct PlacementCandidateView: View {
                 if let error = model.errorMessage { Text(error).foregroundStyle(.red) }
                 if model.isAdministrator && !closed {
                     Section("Assign Call") {
-                        Picker("Caller", selection: $assignee) {
-                            Text("Unassigned").tag("")
-                            ForEach(data.staff) { Text($0.displayName).tag($0.userId.uuidString) }
-                        }
+                        NativeSearchPicker(title: "Assign caller", selection: $assignee, options: [NativeSearchOption(id:"",title:"Unassigned")] + data.staff.map { NativeSearchOption(id:$0.userId.uuidString,title:$0.displayName) })
+                        Toggle("Schedule follow-up", isOn: $includeFollowUp)
+                        if includeFollowUp { DatePicker("Follow up", selection: $followUp, displayedComponents: .date) }
                         Button("Save Call Assignment") { Task { await execute("assign_call") } }.disabled(model.isBusy)
                     }
                 }
-                if model.canEdit {
+                if model.canEdit && !closed {
                     Section("Record Call") {
                         if model.isAdministrator {
-                            Picker("Call made by", selection: $callerId) { ForEach(data.staff) { Text($0.displayName).tag($0.userId.uuidString) } }
+                            NativeSearchPicker(title: "Call made by", selection: $callerId, options: data.staff.map { NativeSearchOption(id:$0.userId.uuidString,title:$0.displayName) })
                         } else { Text("Call made by you. Only an admin may enter another caller’s results.") }
                         DatePicker("Call date", selection: $callDate, in: ...Date(), displayedComponents: .date)
-                        Picker("Response", selection: $response) { ForEach(placementResponses, id: \.self) { Text(placementLabel($0)).tag($0) } }
+                        Picker("Response", selection: $response) { Text("Choose response").tag(""); ForEach(placementResponses, id: \.self) { Text(placementLabel($0)).tag($0) } }
                         Toggle("Schedule follow-up", isOn: $includeFollowUp)
                         if includeFollowUp { DatePicker("Follow up", selection: $followUp, displayedComponents: .date) }
                         TextField("Notes / explanation", text: $notes, axis: .vertical)
-                        Button("Save Call to Person’s History") { Task { await execute("call") } }.disabled(model.isBusy || (response == "other" && notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+                        Button("Save Call to Person’s History") { Task { await execute("call") } }.disabled(model.isBusy || response.isEmpty || (response == "other" && notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
                     }
                 }
                 if model.canEdit && !closed {
@@ -953,7 +962,12 @@ struct PlacementCandidateView: View {
                 Section("Person’s Volunteer Contact History") { VolunteerHistoryRows(entries: data.history.filter { $0.personId == person.id }) }
             }
         }.navigationTitle("Candidate")
-            .onAppear { callerId = model.currentProfile?.userId.uuidString ?? ""; assignee = data.candidates.first { $0.id == candidateId }?.assignedTo?.uuidString ?? "" }
+            .onAppear {
+                let candidate = data.candidates.first { $0.id == candidateId }
+                callerId = (model.isAdministrator ? candidate?.assignedTo : nil)?.uuidString ?? model.currentProfile?.userId.uuidString ?? ""
+                assignee = candidate?.assignedTo?.uuidString ?? ""
+                if let due = candidate?.followUp.flatMap(AppDate.parse) { includeFollowUp = true; followUp = due }
+            }
             .task { do { data = try await model.loadPlacementWorkflow() } catch { self.error = error.localizedDescription } }
     }
     private func actionButton(_ title: String, _ action: String) -> some View {
@@ -964,13 +978,16 @@ struct PlacementCandidateView: View {
 struct BulletinSuggestionsSection: View {
     @EnvironmentObject private var model: AppModel
     let data: PlacementSnapshot
+    @State private var expanded = false
     var body: some View {
-        Section("Bulletin Suggestions") {
-            Text("First reading").font(.headline)
-            Text(bulletin(stage: "nominated")).textSelection(.enabled)
-            Text("Second reading").font(.headline)
-            Text(bulletin(stage: "first_reading")).textSelection(.enabled)
-        }
+        DisclosureGroup("Bulletin Suggestions", isExpanded: $expanded) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("First reading").font(.headline)
+                Text(bulletin(stage: "nominated")).font(.subheadline).textSelection(.enabled)
+                Text("Second reading").font(.headline)
+                Text(bulletin(stage: "first_reading")).font(.subheadline).textSelection(.enabled)
+            }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 12)
+        }.font(.headline).modifier(WorkflowCardStyle())
     }
     private func bulletin(stage: String) -> String {
         let lines = data.candidates.filter { stage == "nominated" ? $0.stage == "nominated" : ["first_reading", "second_reading"].contains($0.stage) }.compactMap { candidate -> String? in

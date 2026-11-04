@@ -652,6 +652,29 @@ actor SupabaseRESTClient {
         return try await rpc("upsert_assignment_from_source", body: body)
     }
 
+    func focusOverview() async throws -> FocusOverview {
+        struct PendingNomination: Decodable { let id: UUID }
+        async let people: [Person] = rpc("volunteer_activation", body: EmptyBody())
+        async let preferences: FocusPreferences = rpc("focus_preferences", body: EmptyBody())
+        async let pending: [PendingNomination] = restAll("placement_candidates", query: [
+            .init(name: "select", value: "id"),
+            .init(name: "stage", value: "in.(nominated,first_reading,second_reading,deferred)"),
+            .init(name: "order", value: "id")
+        ])
+        return try await FocusOverview(people: people, preferences: preferences, pendingNominations: pending.count)
+    }
+    func focusPreferences() async throws -> FocusPreferences {
+        try await rpc("focus_preferences", body: EmptyBody())
+    }
+    func saveFocusMemberships(_ values: [String]) async throws {
+        let _: EmptyBody = try await rpc("save_focus_memberships", body: ["p_statuses": values])
+    }
+    func planningCenterMembershipTypes() async throws -> [String] {
+        struct MembershipTypes: Decodable { let membershipTypes: [String] }
+        let result: MembershipTypes = try await send(method: "POST", path: "functions/v1/planning-center-sync", body: encoder.encode(["action":"membership_types"]))
+        return result.membershipTypes
+    }
+
     func placementSnapshot() async throws -> PlacementSnapshot {
         async let openings: [PlacementOpening] = restAll("placement_openings", query: [.init(name: "order", value: "created_at,id")])
         async let candidates: [PlacementCandidate] = restAll("placement_candidates", query: [.init(name: "order", value: "created_at,id")])

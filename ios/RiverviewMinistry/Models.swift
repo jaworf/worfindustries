@@ -641,3 +641,13 @@ struct PlacementCommandRequest: Encodable {
     let pData: [String: String]
 }
 struct PlacementCommandResult: Decodable { let id: UUID }
+
+struct FocusPreferences: Codable, Sendable {
+    var selected: [String] = []
+    var options: [String] = []
+}
+struct FocusOverview: Sendable {
+    var people: [Person] = []
+    var preferences = FocusPreferences()
+    var pendingNominations = 0
+}
