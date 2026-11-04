@@ -250,7 +250,8 @@ final class CSVParserTests: XCTestCase {
         let renderer = ImageRenderer(content:view.frame(width:width).padding(16).background(Color.white).environment(\.colorScheme,.light))
         renderer.scale = 2
         let image = try XCTUnwrap(renderer.cgImage)
-        let destination = try XCTUnwrap(CGImageDestinationCreateWithURL(URL(fileURLWithPath:path) as CFURL,"public.png" as CFString,1,nil))
+        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent(URL(fileURLWithPath: path).lastPathComponent)
+        let destination = try XCTUnwrap(CGImageDestinationCreateWithURL(outputURL as CFURL,"public.png" as CFString,1,nil))
         CGImageDestinationAddImage(destination,image,nil)
         XCTAssertTrue(CGImageDestinationFinalize(destination))
         return image
