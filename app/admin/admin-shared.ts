@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 export type AppRole = "admin" | "editor" | "viewer";
 export type Tab =
+  | "placement"
   | "focus"
   | "assign"
   | "ministries"
@@ -16,6 +17,10 @@ export type OrdinationKind = "deacon" | "deaconess" | "elder";
 export type Profile = {
   user_id: string;
   display_name: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  phone?: string | null;
+  person_id?: string | null;
   app_role: AppRole;
   church_id: string;
   is_platform_admin: boolean;
@@ -96,6 +101,7 @@ export type Assignment = {
   end_date: string | null;
   term_type: string | null;
   vote_date: string | null;
+  first_reading_published?: boolean;
   ministry_requires_vote: boolean;
   position_requires_vote: boolean;
   requires_vote: boolean;
@@ -126,11 +132,12 @@ export const emptySnapshot: Snapshot = {
 };
 
 export const navItems: Array<{ id: Tab; label: string; short: string }> = [
+  { id: "placement", label: "Placement Process", short: "Placement" },
   { id: "focus", label: "Focus", short: "Focus" },
   { id: "assign", label: "Assign", short: "Assign" },
   { id: "ministries", label: "Ministry Directory", short: "Ministries" },
   { id: "people", label: "People Directory", short: "People" },
-  { id: "votes", label: "Awaiting Vote", short: "Votes" },
+  { id: "votes", label: "Needing Votes", short: "Votes" },
   { id: "manage", label: "Manage", short: "Manage" },
   { id: "reports", label: "Reports", short: "Reports" },
   { id: "users", label: "Users", short: "Users" },

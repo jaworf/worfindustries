@@ -578,6 +578,7 @@ struct SettingsView: View {
                 }
 
                 if model.isAdministrator {
+                    NavigationLink("Volunteer Activation membership types") { FocusMembershipSettingsView() }
                     SecureField("Personal Access Token application ID", text: $pcoApplicationId)
                         .textContentType(.none)
                     SecureField("Personal Access Token secret", text: $pcoSecret)

@@ -7,7 +7,7 @@ People Directory includes church-specific profile and assessment filters. Editor
 Native app version 1.2 (15) includes profile search, summaries, matching, observations, and church-link sharing. Assessment completion opens the responsive web workflow using the same account; signing into the browser may be necessary. Native distribution requires a separate App Store/TestFlight release.
 
 ## Deployment
-Apply supabase/migrations/20261027052447_ministry_discovery.sql before deploying the frontend. Supabase Auth must allow https://ministryvolunteers.worf.app/discover and https://ministryvolunteers.worf.app/discover/** as confirmation destinations. Preserve existing password recovery and church application callbacks.
+Apply supabase/migrations/20261027054830_ministry_discovery.sql before deploying the frontend. Supabase Auth must allow https://ministryvolunteers.worf.app/discover and https://ministryvolunteers.worf.app/discover/** as confirmation destinations. Preserve existing password recovery and church application callbacks.
 The migration adds discovery tables/functions without replacing existing placement tables. Authenticated mutations use explicit ownership or church-role checks inside narrowly scoped functions. Anonymous callers can only resolve an active, unguessable church-registration token to church name/id/slug. Other discovery functions deny anonymous execution; public tables use RLS and do not grant direct authenticated writes.
 The database advisor identifies these intentional security-definer APIs and the deny-by-default observations table. Every endpoint checks its required authority; the token resolver returns no people or results. Existing Auth OTP-expiry and leaked-password-protection notices predate this release.
 

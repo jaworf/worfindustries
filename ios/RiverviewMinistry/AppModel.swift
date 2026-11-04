@@ -22,6 +22,7 @@ final class AppModel: ObservableObject {
     @Published var noticeMessage: String?
 
     private var client: SupabaseRESTClient?
+    private var clientGeneration = UUID()
     private let configurationKey = "supabase-configuration"
     private let sessionAccount = "supabase-session"
     private static let passwordResetURL = URL(
@@ -52,7 +53,7 @@ final class AppModel: ObservableObject {
         }
 
         if configuration.isValid {
-            client = SupabaseRESTClient(configuration: configuration)
+            client = makeClient()
         }
     }
 
@@ -77,8 +78,31 @@ final class AppModel: ObservableObject {
         }
 
         session = restored
-        client = SupabaseRESTClient(configuration: configuration, session: restored)
+        client = makeClient(session: restored)
         hasRestoredSession = true
+    }
+
+    private func makeClient(session: SupabaseSession? = nil) -> SupabaseRESTClient {
+        let generation = UUID()
+        clientGeneration = generation
+        return SupabaseRESTClient(
+            configuration: configuration,
+            session: session,
+            sessionDidChange: { [weak self] updated in
+                try await MainActor.run {
+                    guard let self, self.clientGeneration == generation else {
+                        throw CancellationError()
+                    }
+                    if let updated {
+                        try KeychainStore.save(updated, account: self.sessionAccount)
+                        self.session = updated
+                    } else {
+                        self.clearSessionState()
+                        self.errorMessage = SupabaseClientError.sessionExpired.localizedDescription
+                    }
+                }
+            }
+        )
     }
 
     private static func productionConfiguration() -> SupabaseConfiguration {
@@ -102,7 +126,7 @@ final class AppModel: ObservableObject {
             session = nil
             currentProfile = nil
             KeychainStore.delete(account: sessionAccount)
-            client = SupabaseRESTClient(configuration: configuration)
+            client = makeClient()
             hasRestoredSession = true
             noticeMessage = "Supabase connection settings saved."
         } catch {
@@ -149,6 +173,7 @@ final class AppModel: ObservableObject {
     }
 
     private func clearSessionState() {
+        clientGeneration = UUID()
         session = nil
         currentProfile = nil
         currentChurch = nil
@@ -161,8 +186,42 @@ final class AppModel: ObservableObject {
         assignments = []
         KeychainStore.delete(account: sessionAccount)
         client = configuration.isValid
-            ? SupabaseRESTClient(configuration: configuration)
+            ? makeClient()
             : nil
+    }
+
+    func loadFocusOverview() async throws -> FocusOverview {
+        try await requireClient().focusOverview()
+    }
+    func loadFocusPreferences() async throws -> FocusPreferences {
+        try await requireClient().focusPreferences()
+    }
+    func refreshFocusMembershipTypes() async throws -> [String] {
+        try await requireClient().planningCenterMembershipTypes()
+    }
+    func saveFocusMemberships(_ values: [String]) async -> Bool {
+        var saved = false
+        await perform {
+            try await requireClient().saveFocusMemberships(values)
+            noticeMessage = "Volunteer Activation membership types saved."
+            saved = true
+        }
+        return saved
+    }
+
+    func loadPlacementWorkflow() async throws -> PlacementSnapshot {
+        try await requireClient().placementSnapshot()
+    }
+
+    func savePlacementAction(_ action: String, data: [String: String]) async -> Bool {
+        var succeeded = false
+        await perform {
+            try await requireClient().placementCommand(action, data: data)
+            try await reload(using: requireClient())
+            succeeded = true
+            noticeMessage = "Placement process saved."
+        }
+        return succeeded
     }
 
     func reload() async {
@@ -367,6 +426,15 @@ final class AppModel: ObservableObject {
         return succeeded
     }
 
+    func setFirstReadingPublished(_ assignmentId: UUID, published: Bool) async {
+        await perform {
+            let client = try requireClient()
+            try await client.assignmentVoteStep(assignmentId, published: published)
+            try await reload(using: client)
+            noticeMessage = "First-reading publication updated."
+        }
+    }
+
     func recordAssignmentVote(
         assignmentId: UUID,
         voteDate: Date
@@ -374,10 +442,7 @@ final class AppModel: ObservableObject {
         var succeeded = false
         await perform {
             let client = try requireClient()
-            try await client.updateAssignmentVoteDate(
-                assignmentId: assignmentId,
-                voteDate: voteDate
-            )
+            try await client.assignmentVoteStep(assignmentId, voteDate: voteDate)
             try await reload(using: client)
             noticeMessage = "Church vote recorded."
             succeeded = true

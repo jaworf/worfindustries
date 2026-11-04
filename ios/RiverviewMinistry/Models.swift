@@ -132,6 +132,7 @@ struct AssignmentDetail: Codable, Identifiable, Hashable, Sendable {
     let endDate: String?
     let termType: String?
     let voteDate: String?
+    var firstReadingPublished: Bool? = nil
     let ministryRequiresVote: Bool
     let positionRequiresVote: Bool
     let requiresVote: Bool
@@ -585,4 +586,68 @@ struct DiscoveryRegistration: Codable, Sendable {
     let token: String
     let enabled: Bool
     var url: URL { URL(string: "https://ministryvolunteers.worf.app/discover/" + token)! }
+}
+
+struct PlacementOpening: Codable, Identifiable, Sendable {
+    let id: UUID
+    let roleId: UUID
+    let subRoleId: UUID?
+    let termId: UUID?
+    let quantity: Int
+    let status: String
+    let notes: String
+}
+struct PlacementCandidate: Codable, Identifiable, Sendable {
+    let id: UUID
+    let openingId: UUID
+    let personId: UUID
+    let assignedTo: UUID?
+    let response: String
+    let followUp: String?
+    let stage: String
+    let nominatedOn: String?
+    let firstReading: String?
+    let secondReading: String?
+    let decisionOn: String?
+    let requiresVote: Bool?
+}
+struct VolunteerContactEntry: Codable, Identifiable, Sendable {
+    let id: UUID
+    let personId: UUID
+    let candidateId: UUID
+    let kind: String
+    let happenedOn: String
+    let response: String?
+    let notes: String
+    let followUp: String?
+    let callerName: String?
+    let recorderName: String
+    let roleLabel: String
+}
+struct PlacementStaff: Codable, Identifiable, Sendable {
+    let userId: UUID
+    let displayName: String
+    let appRole: String
+    var id: UUID { userId }
+}
+struct PlacementSnapshot: Sendable {
+    var openings: [PlacementOpening] = []
+    var candidates: [PlacementCandidate] = []
+    var history: [VolunteerContactEntry] = []
+    var staff: [PlacementStaff] = []
+}
+struct PlacementCommandRequest: Encodable {
+    let pAction: String
+    let pData: [String: String]
+}
+struct PlacementCommandResult: Decodable { let id: UUID }
+
+struct FocusPreferences: Codable, Sendable {
+    var selected: [String] = []
+    var options: [String] = []
+}
+struct FocusOverview: Sendable {
+    var people: [Person] = []
+    var preferences = FocusPreferences()
+    var pendingNominations = 0
 }

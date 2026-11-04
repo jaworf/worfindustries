@@ -1,5 +1,7 @@
 import XCTest
 import PDFKit
+import SwiftUI
+import ImageIO
 @testable import RiverviewMinistry
 
 final class CSVParserTests: XCTestCase {
@@ -143,6 +145,115 @@ final class CSVParserTests: XCTestCase {
                 return XCTFail("Expected sessionExpired, received \(error)")
             }
         }
+    }
+
+    func testRefreshedSessionIsPersistedEvenWhenDataLoadingFails() async throws {
+        RefreshCoalescingURLProtocol.reset(rejectData: true)
+        let changes = SessionChangeRecorder()
+        let client = sessionTestClient(changes: changes)
+        do {
+            _ = try await client.loadSnapshot()
+            XCTFail("The simulated data failure should propagate.")
+        } catch { }
+        let recorded = await changes.tokens
+        XCTAssertEqual(recorded, ["rotated-refresh-token"])
+        XCTAssertEqual(RefreshCoalescingURLProtocol.refreshRequestCount, 1)
+    }
+
+    func testInvalidRefreshClearsSessionAndNotifiesOnce() async throws {
+        RefreshCoalescingURLProtocol.reset(rejectRefresh: true)
+        let changes = SessionChangeRecorder()
+        let client = sessionTestClient(changes: changes)
+        do { _ = try await client.loadSnapshot(); XCTFail("Refresh should fail.") }
+        catch { }
+        let recorded = await changes.tokens
+        XCTAssertEqual(recorded, [nil])
+        let session = await client.currentSession()
+        XCTAssertNil(session)
+        do { _ = try await client.loadSnapshot(); XCTFail("Sign-in is required.") }
+        catch let error as SupabaseClientError {
+            guard case .notSignedIn = error else { return XCTFail("Expected sign-in requirement") }
+        }
+        XCTAssertEqual(RefreshCoalescingURLProtocol.refreshRequestCount, 1)
+    }
+
+    private func sessionTestClient(changes: SessionChangeRecorder) -> SupabaseRESTClient {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RefreshCoalescingURLProtocol.self]
+        return SupabaseRESTClient(
+            configuration: SupabaseConfiguration(projectURL: "https://example.supabase.co", publishableKey: "test-key"),
+            session: SupabaseSession(accessToken: "expired", refreshToken: "old", expiresAt: 0,
+                user: SupabaseUser(id: UUID(), email: "tester@example.com")),
+            urlSession: URLSession(configuration: configuration),
+            sessionDidChange: { session in await changes.record(session) }
+        )
+    }
+
+    func testVotePublicationUsesCheckboxAndFinalVoteRPC() async throws {
+        VoteStepURLProtocol.reset()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [VoteStepURLProtocol.self]
+        let client = SupabaseRESTClient(configuration: SupabaseConfiguration(projectURL: "https://example.supabase.co", publishableKey: "test"), session: SupabaseSession(accessToken: "token", refreshToken: "refresh", expiresAt: 4102444800, user: SupabaseUser(id: UUID(), email: "test@example.com")), urlSession: URLSession(configuration: configuration))
+        let id = UUID()
+        try await client.assignmentVoteStep(id, published: true)
+        try await client.assignmentVoteStep(id, voteDate: AppDate.parse("2026-11-04"))
+        let bodies = try VoteStepURLProtocol.bodies.map { try XCTUnwrap(JSONSerialization.jsonObject(with: $0) as? [String: Any]) }
+        XCTAssertEqual(bodies.count, 2)
+        XCTAssertEqual(bodies[0]["p_published"] as? Bool, true)
+        XCTAssertNil(bodies[0]["p_vote_date"])
+        XCTAssertEqual(bodies[1]["p_vote_date"] as? String, "2026-11-04")
+        XCTAssertNil(bodies[1]["p_published"])
+    }
+
+    func testNativeFocusUsesSharedActivationAndMembershipAPIs() async throws {
+        var person = makePerson(name: "Newest Example", ordainedDeacon: false)
+        person.sourceCreatedAt = "2026-11-04T12:00:00Z"
+        let encoder = JSONEncoder(); encoder.keyEncodingStrategy = .convertToSnakeCase
+        FocusRequestURLProtocol.reset(people: try encoder.encode([person]))
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [FocusRequestURLProtocol.self]
+        let client = SupabaseRESTClient(configuration: SupabaseConfiguration(projectURL: "https://example.supabase.co", publishableKey: "test"), session: SupabaseSession(accessToken: "test-access-token", refreshToken: "test-refresh-token", expiresAt: 4102444800, user: SupabaseUser(id: UUID(), email: "test@example.com")), urlSession: URLSession(configuration: configuration))
+        let focus = try await client.focusOverview()
+        XCTAssertEqual(focus.people.map(\.id), [person.id])
+        XCTAssertEqual(focus.preferences.selected, ["Member"])
+        XCTAssertEqual(focus.pendingNominations, 1)
+        try await client.saveFocusMemberships(["Member", "Regular Attender"])
+        let membershipTypes = try await client.planningCenterMembershipTypes()
+        XCTAssertEqual(membershipTypes, ["Member", "Regular Attender"])
+        let paths = FocusRequestURLProtocol.paths
+        XCTAssertTrue(paths.contains { $0.contains("/rpc/volunteer_activation") })
+        XCTAssertTrue(paths.contains { $0.contains("/rpc/focus_preferences") })
+        XCTAssertTrue(paths.contains { $0.contains("placement_candidates") && $0.contains("stage=") })
+        let saved = try XCTUnwrap(FocusRequestURLProtocol.savedMemberships)
+        XCTAssertEqual(try JSONDecoder().decode([String:[String]].self, from:saved)["p_statuses"], ["Member", "Regular Attender"])
+    }
+
+    @MainActor
+    func testPhoneWidthCardsAndVoteButtonRenderWithoutOverflow() throws {
+        let cards = VStack(spacing:12) {
+            FocusAttentionCard(title:"Needing Votes",symbol:"checkmark.seal",count:7)
+            FocusAttentionCard(title:"Ordination Actions",symbol:"person.crop.circle.badge.checkmark",count:2)
+            FocusAttentionCard(title:"Terms ending in next 6 months",symbol:"calendar",count:3)
+            FocusAttentionCard(title:"Ministries needing volunteers",symbol:"person.3",count:4)
+            FocusAttentionCard(title:"Volunteer Activation",symbol:"person.badge.plus",count:100)
+        }
+        let image = try renderPreview(cards, width:358, path:"/tmp/native-focus-cards-phone.png")
+        XCTAssertLessThanOrEqual(image.height, 1100, "Five cards should fit the standard phone workspace at 2x scale")
+        let button = try renderPreview(HStack { Spacer(minLength:0); CompactVoteButton {} },width:300,path:"/tmp/native-vote-button-phone.png")
+        XCTAssertLessThan(button.height,140,"The vote action must remain a single compact row")
+        _ = try renderPreview(VStack(spacing:12) {
+            PlacementOpeningCard(title:"Welcome Ministry · Welcome Team Leader · 2027–2028",status:"open",candidates:3,expanded:true) {}
+            PlacementOpeningCard(title:"Music · Accompanist",status:"open",candidates:2,expanded:false) {}
+        },width:358,path:"/tmp/native-opening-cards-phone.png")
+    }
+    @MainActor private func renderPreview<V: View>(_ view: V, width:CGFloat, path:String) throws -> CGImage {
+        let renderer = ImageRenderer(content:view.frame(width:width).padding(16).background(Color.white).environment(\.colorScheme,.light))
+        renderer.scale = 2
+        let image = try XCTUnwrap(renderer.cgImage)
+        let destination = try XCTUnwrap(CGImageDestinationCreateWithURL(URL(fileURLWithPath:path) as CFURL,"public.png" as CFString,1,nil))
+        CGImageDestinationAddImage(destination,image,nil)
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+        return image
     }
 
     func testChurchAdministratorsCanDelegateAllSupportedRoles() {
@@ -474,19 +585,26 @@ private final class DeletionRequestURLProtocol: URLProtocol, @unchecked Sendable
     override func stopLoading() {}
 }
 
+private actor SessionChangeRecorder {
+    var tokens: [String?] = []
+    func record(_ session: SupabaseSession?) { tokens.append(session?.refreshToken) }
+}
+
 private final class RefreshCoalescingURLProtocol: URLProtocol, @unchecked Sendable {
     private static let lock = NSLock()
     nonisolated(unsafe) private static var storedRefreshRequestCount = 0
     nonisolated(unsafe) private static var rejectRefresh = false
+    nonisolated(unsafe) private static var rejectData = false
 
     static var refreshRequestCount: Int {
         lock.withLock { storedRefreshRequestCount }
     }
 
-    static func reset(rejectRefresh: Bool = false) {
+    static func reset(rejectRefresh: Bool = false, rejectData: Bool = false) {
         lock.withLock {
             storedRefreshRequestCount = 0
             Self.rejectRefresh = rejectRefresh
+            Self.rejectData = rejectData
         }
     }
 
@@ -531,6 +649,9 @@ private final class RefreshCoalescingURLProtocol: URLProtocol, @unchecked Sendab
                     """.utf8
                 )
             }
+        } else if Self.lock.withLock({ Self.rejectData }) {
+            statusCode = 503
+            data = Data("{\"message\":\"Temporary data failure\"}".utf8)
         } else {
             statusCode = 200
             data = Data("[]".utf8)
@@ -547,5 +668,74 @@ private final class RefreshCoalescingURLProtocol: URLProtocol, @unchecked Sendab
         client?.urlProtocolDidFinishLoading(self)
     }
 
+    override func stopLoading() {}
+}
+
+private final class VoteStepURLProtocol: URLProtocol, @unchecked Sendable {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var stored: [Data] = []
+    static var bodies: [Data] { lock.withLock { stored } }
+    static func reset() { lock.withLock { stored = [] } }
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        XCTAssertEqual(request.url?.path, "/rest/v1/rpc/assignment_vote_step")
+        var body = request.httpBody ?? Data()
+        if let stream = request.httpBodyStream {
+            stream.open(); defer { stream.close() }
+            var buffer = [UInt8](repeating: 0, count: 1024)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                if count <= 0 { break }
+                body.append(contentsOf: buffer.prefix(count))
+            }
+        }
+        Self.lock.withLock { Self.stored.append(body) }
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type":"application/json"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data("null".utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+private final class FocusRequestURLProtocol: URLProtocol, @unchecked Sendable {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var people = Data("[]".utf8)
+    nonisolated(unsafe) private static var requests: [String] = []
+    nonisolated(unsafe) private static var saved: Data?
+    static var paths: [String] { lock.withLock { requests } }
+    static var savedMemberships: Data? { lock.withLock { saved } }
+    static func reset(people: Data) { lock.withLock { Self.people = people; requests = []; saved = nil } }
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        XCTAssertEqual(request.value(forHTTPHeaderField:"Authorization"),"Bearer test-access-token")
+        let path = request.url!.path
+        Self.lock.withLock { Self.requests.append(request.url!.absoluteString) }
+        var body = request.httpBody ?? Data()
+        if let stream = request.httpBodyStream {
+            stream.open(); defer { stream.close() }
+            var buffer = [UInt8](repeating:0,count:1024)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer,maxLength:buffer.count)
+                if count <= 0 { break }
+                body.append(contentsOf:buffer.prefix(count))
+            }
+        }
+        let data: Data
+        switch path {
+        case "/rest/v1/rpc/volunteer_activation": data = Self.lock.withLock { Self.people }
+        case "/rest/v1/rpc/focus_preferences": data = Data("{\"selected\":[\"Member\"],\"options\":[\"Member\",\"Regular Attender\"]}".utf8)
+        case "/rest/v1/placement_candidates": data = Data("[{\"id\":\"00000000-0000-0000-0000-000000000001\"}]".utf8)
+        case "/rest/v1/rpc/save_focus_memberships": Self.lock.withLock { Self.saved = body }; data = Data("null".utf8)
+        case "/functions/v1/planning-center-sync": data = Data("{\"membership_types\":[\"Member\",\"Regular Attender\"]}".utf8)
+        default: XCTFail("Unexpected Focus request: " + path); data = Data("null".utf8)
+        }
+        let response = HTTPURLResponse(url:request.url!,statusCode:200,httpVersion:nil,headerFields:["Content-Type":"application/json"])!
+        client?.urlProtocol(self,didReceive:response,cacheStoragePolicy:.notAllowed)
+        client?.urlProtocol(self,didLoad:data)
+        client?.urlProtocolDidFinishLoading(self)
+    }
     override func stopLoading() {}
 }

@@ -541,6 +541,7 @@ private struct ForgotPasswordView: View {
 }
 
 enum AppTab: Hashable {
+    case placement
     case ministries
     case people
     case focus
@@ -565,11 +566,8 @@ struct MainShellView: View {
     @State private var assignmentRoute: AssignmentRoute?
 
     private var ministryWatchCount: Int {
-        let ministryCount = PlacementFocusSnapshot(
-            roles: model.roles,
-            subRoles: model.subRoles,
-            assignments: model.assignments
-        ).ministryNeeds.count
+        let occupied = Set(model.assignments.filter(\.isCurrentPlacement).map(\.roleId))
+        let ministryCount = model.roles.filter { $0.isActive && !occupied.contains($0.id) }.count
         let ordinationCount = makeOrdinationFocusNeeds(
             people: model.people,
             assignments: model.assignments
@@ -579,6 +577,11 @@ struct MainShellView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
+            if model.canEdit {
+                NavigationStack { PlacementWorkflowView(onVotes: { selectedTab = .votes }) }
+                    .tabItem { Label("Placement", systemImage: "list.bullet.clipboard") }
+                    .tag(AppTab.placement)
+            }
             NavigationStack {
                 DirectoryView()
             }
@@ -592,7 +595,7 @@ struct MainShellView: View {
             .tag(AppTab.people)
 
             NavigationStack {
-                FocusView { route in
+                FocusView(votes: { selectedTab = .votes }) { route in
                     assignmentRoute = route
                     selectedTab = .assign
                 }

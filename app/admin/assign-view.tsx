@@ -1,4 +1,5 @@
 "use client";
+import {SearchSelect} from "./search-select";
 import {useState, type FormEvent} from "react";
 import type {SupabaseClient} from "@supabase/supabase-js";
 import {type AssignmentRoute, type Snapshot, type MutationRunner, ordinationKind, ordinationField, personName, formatDate, todayISO, ordinationLabel} from "./admin-shared";
@@ -19,7 +20,6 @@ export function AssignView({
   mutate: MutationRunner;
 }) {
   const [newPerson, setNewPerson] = useState(false);
-  const [personQuery, setPersonQuery] = useState("");
   const [personId, setPersonId] = useState(initialRoute.personId ?? "");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -51,14 +51,6 @@ export function AssignView({
       selectedPosition?.requires_vote ||
       (positionId === "add" && newPositionVote)),
   );
-  const people = snapshot.people.filter((person) => {
-    if (!person.is_active) return false;
-    const query = personQuery.trim().toLowerCase();
-    if (!query) return true;
-    return [personName(person), person.email, person.mobile_phone, person.membership_status]
-      .filter(Boolean)
-      .some((value) => value!.toLowerCase().includes(query));
-  });
 
   const ordinationKey = `${newPerson ? "new" : personId}:${kind ?? "none"}`;
   const ordained = ordinationOverride?.key === ordinationKey
@@ -151,7 +143,6 @@ export function AssignView({
 
     if (succeeded) {
       setPersonId("");
-      setPersonQuery("");
       setFirstName("");
       setLastName("");
       setEmail("");
@@ -203,50 +194,15 @@ export function AssignView({
               </label>
             </div>
           ) : (
-            <div className="admin-form-grid">
-              <label>
-                Find a person
-                <input
-                  type="search"
-                  placeholder="Name, email, phone, or membership"
-                  value={personQuery}
-                  onChange={(event) => {setPersonQuery(event.target.value); changePerson("");}}
-                />
-              </label>
-              <div className="full" aria-label="Matching volunteers">
-                {personQuery.trim() && !personId && <ul className="admin-person-results">{people.slice(0,30).map(person => <li key={person.id}><button type="button" onClick={() => {changePerson(person.id);setPersonQuery(personName(person));}}>{personName(person)}{person.membership_status ? " — "+person.membership_status : ""}</button></li>)}</ul>}
-                {personQuery.trim() && !personId && !people.length && <p>No matching volunteers.</p>}
-                {selectedPerson && <p>Selected: <strong>{personName(selectedPerson)}</strong></p>}
-              </div>
-            </div>
+            <SearchSelect label="Volunteer" value={personId} required options={snapshot.people.filter(p=>p.is_active).map(p=>({value:p.id,label:personName(p),detail:[p.email,p.mobile_phone,p.membership_status].filter(Boolean).join(' · ')}))} onChange={changePerson}/>
           )}
         </fieldset>
 
         <fieldset disabled={!canEdit || working}>
           <legend>Ministry placement</legend>
           <div className="admin-form-grid">
-            <label>
-              Ministry
-              <select value={ministryId} onChange={(event) => changeMinistry(event.target.value)} required>
-                <option value="">Choose a ministry</option>
-                {activeMinistries.map((ministry) => (
-                  <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Position
-              <select value={positionId} onChange={(event) => {
-                setPositionId(event.target.value);
-                if (!event.target.value) { setTermId(""); setVoteDate(""); }
-              }} disabled={!ministryId}>
-                <option value="">No position — team member</option>
-                {availablePositions.map((position) => (
-                  <option key={position.id} value={position.id}>{position.name}</option>
-                ))}
-                <option value="add">＋ Add a position…</option>
-              </select>
-            </label>
+            <SearchSelect label="Ministry" value={ministryId} required options={activeMinistries.map(m=>({value:m.id,label:m.name}))} onChange={changeMinistry}/>
+            <SearchSelect label="Position" value={positionId} disabled={!ministryId} options={[{value:'',label:'No position — team member'},...availablePositions.map(p=>({value:p.id,label:p.name})),{value:'add',label:'＋ Add a position…'}]} onChange={v=>{setPositionId(v);if(!v){setTermId('');setVoteDate('');}}}/>
             {positionId === "add" && (
               <>
                 <label>
@@ -259,17 +215,7 @@ export function AssignView({
                 </label>
               </>
             )}
-            <label>
-              Term {requiresVote ? "(required)" : "(optional)"}
-              <select value={termId} onChange={(event) => setTermId(event.target.value)} required={requiresVote} disabled={!positionId}>
-                <option value="">{requiresVote ? "Choose a term" : "No term"}</option>
-                {snapshot.terms.filter((term) => term.is_active).map((term) => (
-                  <option key={term.id} value={term.id}>
-                    {term.name}{term.end_date ? ` — ends ${formatDate(term.end_date)}` : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SearchSelect label={requiresVote?'Term (required)':'Term'} value={termId} disabled={!positionId} options={[{value:'',label:requiresVote?'Choose a term':'No term'},...snapshot.terms.filter(t=>t.is_active).map(t=>({value:t.id,label:t.name,detail:t.end_date?'Ends '+formatDate(t.end_date):undefined}))]} onChange={setTermId}/>
             {positionId && (requiresVote || voteDate) && (
               <label>
                 Church vote date (optional)

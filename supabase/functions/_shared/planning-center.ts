@@ -144,6 +144,8 @@ export async function requireEditor(
   ) {
     throw new Error("An admin or editor account is required.");
   }
+  const { data: church, error: churchError } = await client.from("churches").select("is_active").eq("id",profile.church_id).single();
+  if (churchError || !church?.is_active) throw new Error("This church workspace is not active.");
   return { userId: user.id, churchId: profile.church_id };
 }
 

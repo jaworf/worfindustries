@@ -62,7 +62,7 @@ async function handler(name, options = {}) {
           const target=filters.some(item=>item[1]==='user_id'&&item[2]!=='actor');
           return {data: target ? options.existingProfile ?? null : caller,error:target ? options.profileError ?? null : null};
         }
-        if(table==='churches') return {data:{id:filters.find(item=>item[1]==='id')?.[2] ?? 'church-a',name:'Test Church',is_active:true,slug:'test-church'},error:null};
+        if(table==='churches') return {data:{id:filters.find(item=>item[1]==='id')?.[2] ?? 'church-a',name:'Test Church',is_active:!options.inactiveChurch,slug:'test-church'},error:null};
         if(table==='person_external_ids') {calls.push(['person_lookup',filters]);return {data:options.personLink ?? null,error:null};}
         if(table==='people') {calls.push(['people_filters',filters]);return {data:null,error:options.peopleError ?? null};}
         if(table==='import_runs') return {data:{id:'run-1'},error:null};
@@ -75,9 +75,9 @@ async function handler(name, options = {}) {
   const env = {SUPABASE_URL:'https://test.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'test-service',SUPABASE_ANON_KEY:'test-public',
     PCO_WEBHOOK_CONNECTIONS:JSON.stringify([{churchId:'church-a',secret:'secret-a'},{churchId:'church-b',secret:'secret-b'}]),...options.env};
   let serve;
-  const context=vm.createContext({Request,Response,Headers,TextEncoder,TextDecoder,crypto:webcrypto,btoa,console,
+  const context=vm.createContext({Request,Response,Headers,URL,TextEncoder,TextDecoder,crypto:webcrypto,btoa,console,
     Deno:{env:{get:key=>env[key]},serve:fn=>{serve=fn;}},
-    fetch:async (url,init) => {calls.push(['fetch',url,init.headers.Authorization]);return new Response(JSON.stringify({data:options.person ?? [],links:{next:null}}),{status:200});},
+    fetch:async (url,init) => {calls.push(['fetch',url,init.headers.Authorization]);return new Response(JSON.stringify({data:options.person ?? [],links:{next:options.pcoNext??null}}),{status:200});},
   });
   const cache=new Map();
   async function load(path) {
@@ -94,7 +94,7 @@ async function handler(name, options = {}) {
   }
   const root=new URL('../../supabase/functions/',import.meta.url);
   const sourceModule=await load(fileURLToPath(new URL(name+'/index.ts',root)));await sourceModule.evaluate();
-  return {calls,request:async (body={},headers={Authorization:'Bearer test'}) => serve(new Request('https://test/'+name,{method:'POST',headers,body:typeof body==='string'?body:JSON.stringify(body)}))};
+  return {calls,request:async (body={},headers={Authorization:'Bearer test'},method='POST') => serve(new Request('https://test/'+name,{method,headers,...(method==='OPTIONS'?{}:{body:typeof body==='string'?body:JSON.stringify(body)})}))};
 }
 const invite={email:'pending@example.org',role:'viewer',church_id:'church-a'};
 const deletionTarget='abcdefab-1234-4567-89ab-abcdefabcdef';
@@ -343,3 +343,10 @@ test('successful diagnostics audit first, scope users, and select no private sec
  assert.ok(calls.some(c=>c[0]==='profile_filters'&&c[1].some(f=>f[1]==='church_id'&&f[2]===deletionTarget)));
  assert.equal(calls.filter(c=>c[0]==='select'&&/encrypted_password|application_id_secret_id|secret_secret_id|last_sync_error/.test(c[2])).length,0);
 });
+
+test('membership options use the caller church credentials and never import people',async()=>{const {request,calls}=await handler('planning-center-sync',{caller:{app_role:'editor',church_id:'church-b'},person:[{type:'MembershipType',id:'1',attributes:{value:'Member'}},{type:'MembershipType',id:'2',attributes:{value:'Visitor'}}]});const response=await request({action:'membership_types',church_id:'church-a'});assert.equal(response.status,200);assert.deepEqual((await response.json()).membership_types,['Member','Visitor']);const cached=calls.find(c=>c[1]==='cache_pco_membership_types');assert.equal(cached[2].p_church_id,'church-b');assert.ok(!calls.some(c=>c[0]==='import_runs'));assert.ok(calls.some(c=>c[0]==='fetch'&&c[1].includes('/membership_types')));});
+test('membership pagination refuses foreign URLs before sending credentials',async()=>{const {request,calls}=await handler('planning-center-sync',{pcoNext:'https://foreign.example/people/v2/membership_types'});assert.equal((await request({action:'membership_types'})).status,400);assert.equal(calls.filter(c=>c[0]==='fetch').length,1);});
+
+test('Planning Center browser preflight does not require login or contact PCO',async()=>{const {request,calls}=await handler('planning-center-sync');assert.equal((await request({}, {}, 'OPTIONS')).status,200);assert.equal(calls.length,0);});
+
+test('inactive churches cannot retrieve Planning Center membership types',async()=>{const {request,calls}=await handler('planning-center-sync',{inactiveChurch:true});assert.equal((await request({action:'membership_types'})).status,400);assert.equal(calls.length,0);});

@@ -4,6 +4,7 @@ actor SupabaseRESTClient {
     private var configuration: SupabaseConfiguration
     private var session: SupabaseSession?
     private var refreshTask: Task<SupabaseSession, Error>?
+    private let sessionDidChange: (@Sendable (SupabaseSession?) async throws -> Void)?
     private let urlSession: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -11,11 +12,13 @@ actor SupabaseRESTClient {
     init(
         configuration: SupabaseConfiguration,
         session: SupabaseSession? = nil,
-        urlSession: URLSession = .shared
+        urlSession: URLSession = .shared,
+        sessionDidChange: (@Sendable (SupabaseSession?) async throws -> Void)? = nil
     ) {
         self.configuration = configuration
         self.session = session
         self.urlSession = urlSession
+        self.sessionDidChange = sessionDidChange
 
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
@@ -94,13 +97,26 @@ actor SupabaseRESTClient {
 
     private func refreshSession(using refreshToken: String) async throws -> SupabaseSession {
         let body = try encoder.encode(RefreshRequest(refreshToken: refreshToken))
-        return try await send(
-            method: "POST",
-            path: "auth/v1/token",
-            query: [URLQueryItem(name: "grant_type", value: "refresh_token")],
-            body: body,
-            requiresAuthentication: false
-        )
+        do {
+            let refreshed: SupabaseSession = try await send(
+                method: "POST",
+                path: "auth/v1/token",
+                query: [URLQueryItem(name: "grant_type", value: "refresh_token")],
+                body: body,
+                requiresAuthentication: false
+            )
+            // Persist rotation before any dependent data request can fail.
+            session = refreshed
+            try await sessionDidChange?(refreshed)
+            return refreshed
+        } catch {
+            if let clientError = error as? SupabaseClientError,
+               case .sessionExpired = clientError {
+                session = nil
+                try await sessionDidChange?(nil)
+            }
+            throw error
+        }
     }
 
     func loadSnapshot() async throws -> MinistrySnapshot {
@@ -309,6 +325,11 @@ actor SupabaseRESTClient {
             query: [.init(name: "id", value: "eq.\(assignmentId.uuidString)")],
             body: payload
         )
+    }
+
+    func assignmentVoteStep(_ id: UUID, published: Bool? = nil, voteDate: Date? = nil) async throws {
+        struct VoteStep: Encodable { let pAssignment: UUID; let pPublished: Bool?; let pVoteDate: String? }
+        let _: EmptyBody = try await rpc("assignment_vote_step", body: VoteStep(pAssignment: id, pPublished: published, pVoteDate: voteDate.map(AppDate.storage)))
     }
 
     func updateAssignmentVoteDate(
@@ -629,6 +650,41 @@ actor SupabaseRESTClient {
             pRowNumber: rowNumber
         )
         return try await rpc("upsert_assignment_from_source", body: body)
+    }
+
+    func focusOverview() async throws -> FocusOverview {
+        struct PendingNomination: Decodable { let id: UUID }
+        async let people: [Person] = rpc("volunteer_activation", body: EmptyBody())
+        async let preferences: FocusPreferences = rpc("focus_preferences", body: EmptyBody())
+        async let pending: [PendingNomination] = restAll("placement_candidates", query: [
+            .init(name: "select", value: "id"),
+            .init(name: "stage", value: "in.(nominated,first_reading,second_reading,deferred)"),
+            .init(name: "order", value: "id")
+        ])
+        return try await FocusOverview(people: people, preferences: preferences, pendingNominations: pending.count)
+    }
+    func focusPreferences() async throws -> FocusPreferences {
+        try await rpc("focus_preferences", body: EmptyBody())
+    }
+    func saveFocusMemberships(_ values: [String]) async throws {
+        let _: EmptyBody = try await rpc("save_focus_memberships", body: ["p_statuses": values])
+    }
+    func planningCenterMembershipTypes() async throws -> [String] {
+        struct MembershipTypes: Decodable { let membershipTypes: [String] }
+        let result: MembershipTypes = try await send(method: "POST", path: "functions/v1/planning-center-sync", body: encoder.encode(["action":"membership_types"]))
+        return result.membershipTypes
+    }
+
+    func placementSnapshot() async throws -> PlacementSnapshot {
+        async let openings: [PlacementOpening] = restAll("placement_openings", query: [.init(name: "order", value: "created_at,id")])
+        async let candidates: [PlacementCandidate] = restAll("placement_candidates", query: [.init(name: "order", value: "created_at,id")])
+        async let history: [VolunteerContactEntry] = restAll("volunteer_contact_history", query: [.init(name: "order", value: "created_at.desc,id")])
+        async let staff: [PlacementStaff] = rpc("placement_staff", body: [String: String]())
+        return try await PlacementSnapshot(openings: openings, candidates: candidates, history: history, staff: staff)
+    }
+
+    func placementCommand(_ action: String, data: [String: String]) async throws {
+        let _: PlacementCommandResult = try await rpc("placement_command", body: PlacementCommandRequest(pAction: action, pData: data))
     }
 
     private func rpc<Response: Decodable, Body: Encodable>(

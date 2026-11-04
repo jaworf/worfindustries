@@ -1,9 +1,12 @@
 /** Cloudflare Worker entry point for the Riverview directory. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
+import {loadEmbedConfig} from "../app/embed/config";
 import handler from "vinext/server/app-router-entry";
 
 interface Env {
   EMBED_ALLOWED_ORIGINS?: string;
+  SUPABASE_URL?: string;
+  SUPABASE_PUBLISHABLE_KEY?: string;
   ASSETS: Fetcher;
   DB: D1Database;
   IMAGES: {
@@ -54,15 +57,15 @@ const worker = {
     headers.set("X-Content-Type-Options", "nosniff");
     headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 
-    if (url.pathname === "/embed" || url.pathname.startsWith("/embed/")) {
-      headers.delete("X-Frame-Options");
-      headers.set(
-        "Content-Security-Policy",
-        `frame-ancestors 'self' ${embedOrigins(env.EMBED_ALLOWED_ORIGINS).join(" ")}`,
-      );
-    } else {
-      headers.set("Content-Security-Policy", "frame-ancestors 'self'");
-    }
+    const churchEmbed = url.pathname.match(/^\/embed\/(app|directory)\/([a-z0-9][a-z0-9-]{0,79})\/?$/);
+    let origins: string[] = [];
+    if (churchEmbed) {
+      const config = await loadEmbedConfig(churchEmbed[2], churchEmbed[1] as "app"|"directory", env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY);
+      origins = config ? embedOrigins(config.allowed_origins.join(" ")) : [];
+      headers.set("Cache-Control", "private, no-store");
+    } else if (url.pathname === "/embed") origins = embedOrigins(env.EMBED_ALLOWED_ORIGINS);
+    if (origins.length) headers.delete("X-Frame-Options");
+    headers.set("Content-Security-Policy", `frame-ancestors 'self'${origins.length ? " " + origins.join(" ") : ""}`);
 
     return new Response(response.body, {
       status: response.status,
@@ -79,7 +82,7 @@ function embedOrigins(configured?: string): string[] {
   return origins.split(/[\s,]+/).filter(value => {
     try {
       const url = new URL(value);
-      return url.protocol === "https:" && url.origin === value;
+      return url.protocol === "https:" && !url.hostname.includes("*") && url.origin === value;
     } catch {
       return false;
     }

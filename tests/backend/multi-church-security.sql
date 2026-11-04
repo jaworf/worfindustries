@@ -88,6 +88,11 @@ select public.manage_app_user_access('20000000-0000-4000-8000-000000000001','200
 update public.profiles set must_change_password=false where user_id='20000000-0000-4000-8000-000000000002';
 
 -- Logo metadata uses actual Storage RLS under authenticated church roles.
+-- This rolled-back fixture has metadata rows only, never uploaded files.
+-- Match the Storage API's transaction flag so its statement guard does not
+-- obscure the cross-church DELETE RLS assertion (RLS remains enabled).
+-- https://github.com/supabase/supabase/blob/master/apps/www/_blog/2026-03-05-supabase-storage-performance-security-reliability-updates.mdx
+select set_config('storage.allow_delete_query','true',true);
 update public.churches set is_active=true where id='10000000-0000-4000-8000-000000000001';
 insert into storage.objects(bucket_id,name) values('church-logos','10000000-0000-4000-8000-000000000002/logo');
 select set_config('request.jwt.claim.sub','20000000-0000-4000-8000-000000000001',true);
@@ -115,4 +120,63 @@ do $$declare changed int;begin
 end $$;
 reset role;
 do $$begin if (select public from storage.buckets where id='church-logos') then raise exception 'Church logos were made public';end if;end $$;
+-- Direct-role regression: private recruitment rows stay inside editor/admin access.
+reset role;
+insert into public.churches(id,name,slug) values
+ ('a1000000-0000-4000-8000-000000000001','Privacy Church','privacy-regression-a'),
+ ('a1000000-0000-4000-8000-000000000002','Other Privacy Church','privacy-regression-b');
+insert into auth.users(id,email,email_confirmed_at) values
+ ('a2000000-0000-4000-8000-000000000001','privacy-admin@example.invalid',now()),
+ ('a2000000-0000-4000-8000-000000000002','privacy-editor@example.invalid',now()),
+ ('a2000000-0000-4000-8000-000000000003','privacy-viewer@example.invalid',now()),
+ ('a2000000-0000-4000-8000-000000000004','privacy-other-admin@example.invalid',now());
+update public.profiles set church_id='a1000000-0000-4000-8000-000000000001',app_role=case when user_id='a2000000-0000-4000-8000-000000000001' then 'admin' when user_id='a2000000-0000-4000-8000-000000000002' then 'editor' else 'viewer' end
+ where user_id in ('a2000000-0000-4000-8000-000000000001','a2000000-0000-4000-8000-000000000002','a2000000-0000-4000-8000-000000000003');
+update public.profiles set church_id='a1000000-0000-4000-8000-000000000002',app_role='admin' where user_id='a2000000-0000-4000-8000-000000000004';
+insert into public.roles(id,church_id,name) values
+ ('a3000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','Privacy Ministry'),
+ ('a3000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000002','Other Ministry');
+insert into public.people(id,church_id,first_name,last_name) values
+ ('a4000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','Private','Candidate'),
+ ('a4000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000002','Other','Candidate');
+insert into public.placement_openings(id,church_id,role_id) values
+ ('a5000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','a3000000-0000-4000-8000-000000000001'),
+ ('a5000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000002','a3000000-0000-4000-8000-000000000002');
+insert into public.placement_candidates(id,church_id,opening_id,person_id,response) values
+ ('a6000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','a5000000-0000-4000-8000-000000000001','a4000000-0000-4000-8000-000000000001','no'),
+ ('a6000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000002','a5000000-0000-4000-8000-000000000002','a4000000-0000-4000-8000-000000000002','maybe_later');
+insert into public.volunteer_contact_history(church_id,candidate_id,person_id,kind,happened_on,response,notes,recorded_by,recorder_name,role_label)
+ select c.church_id,c.id,c.person_id,'call',current_date,c.response,'Private response explanation',case when c.church_id='a1000000-0000-4000-8000-000000000001' then 'a2000000-0000-4000-8000-000000000001'::uuid else 'a2000000-0000-4000-8000-000000000004'::uuid end,'Test Recorder','Privacy Ministry'
+ from public.placement_candidates c where c.id in ('a6000000-0000-4000-8000-000000000001','a6000000-0000-4000-8000-000000000002');
+select set_config('request.jwt.claim.sub','a2000000-0000-4000-8000-000000000003',true);
+set local role authenticated;
+do $$begin
+ if exists(select 1 from public.placement_candidates) then raise exception 'Viewer read private recruitment candidates';end if;
+ if exists(select 1 from public.volunteer_contact_history) then raise exception 'Viewer read private call notes';end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','a2000000-0000-4000-8000-000000000001',true);
+set local role authenticated;
+do $$begin
+ if (select count(*) from public.placement_candidates)<>1 then raise exception 'Admin recruitment visibility is incorrect';end if;
+ if (select count(*) from public.volunteer_contact_history)<>1 then raise exception 'Admin call history visibility is incorrect';end if;
+ if exists(select 1 from public.placement_candidates where church_id='a1000000-0000-4000-8000-000000000002') then raise exception 'Admin read other church candidates';end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','a2000000-0000-4000-8000-000000000002',true);
+set local role authenticated;
+do $$begin
+ if (select count(*) from public.placement_candidates)<>1 then raise exception 'Editor recruitment visibility is incorrect';end if;
+ if (select count(*) from public.volunteer_contact_history)<>1 then raise exception 'Editor call history visibility is incorrect';end if;
+ if exists(select 1 from public.volunteer_contact_history where church_id='a1000000-0000-4000-8000-000000000002') then raise exception 'Editor read other church call notes';end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','a2000000-0000-4000-8000-000000000004',true);
+set local role authenticated;
+do $$begin
+ if (select count(*) from public.placement_candidates)<>1 then raise exception 'Other church admin visibility is incorrect';end if;
+ if exists(select 1 from public.volunteer_contact_history where church_id='a1000000-0000-4000-8000-000000000001') then raise exception 'Other church admin read private call notes';end if;
+end $$;
+reset role;
+
 rollback;
