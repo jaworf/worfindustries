@@ -221,6 +221,13 @@ try {
   assert.equal(entry.caller_name, "editor2");
   passed++;
   await deny("appoint", { candidate_id: candidate }, /requires nomination/);
+  await db.exec("reset role");
+  await db.query("update public.people set is_active=false where id=(select person_id from public.placement_candidates where id=$1)", [candidate]);
+  await as(ids.admin);
+  await deny("nominate", {candidate_id:candidate}, /inactive/);
+  await db.exec("reset role");
+  await db.query("update public.people set is_active=true where id=(select person_id from public.placement_candidates where id=$1)", [candidate]);
+  await as(ids.admin);
   await cmd("nominate", { candidate_id: candidate, date: "2026-11-01" });
   assert.equal(await count("assignments"), 0);
   passed++;
@@ -254,6 +261,13 @@ try {
     response: "yes",
     date: "2026-11-02",
   });
+  await db.exec("reset role");
+  await db.query("update public.people set is_active=false where id=(select person_id from public.placement_candidates where id=$1)", [candidate]);
+  await as(ids.admin);
+  await deny("vote_passed", {candidate_id:candidate}, /inactive/);
+  await db.exec("reset role");
+  await db.query("update public.people set is_active=true where id=(select person_id from public.placement_candidates where id=$1)", [candidate]);
+  await as(ids.admin);
   await cmd("vote_passed", { candidate_id: candidate, date: "2026-11-02" });
   assert.equal(await count("assignments"), 1);
   passed++;
@@ -275,6 +289,13 @@ try {
   });
   await cmd("call", { candidate_id: teamCandidate, response: "yes" });
   await deny("nominate", { candidate_id: teamCandidate }, /appointment/);
+  await db.exec("reset role");
+  await db.query("update public.people set is_active=false where id=(select person_id from public.placement_candidates where id=$1)", [teamCandidate]);
+  await as(ids.admin);
+  await deny("appoint", {candidate_id:teamCandidate}, /inactive/);
+  await db.exec("reset role");
+  await db.query("update public.people set is_active=true where id=(select person_id from public.placement_candidates where id=$1)", [teamCandidate]);
+  await as(ids.admin);
   await cmd("appoint", { candidate_id: teamCandidate });
   assert.equal(await count("assignments"), 2);
   passed++;

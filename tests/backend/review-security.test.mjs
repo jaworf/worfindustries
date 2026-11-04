@@ -12,6 +12,14 @@ test('church owners, viewer privacy, value-only search and friendly validation',
  await q('insert into auth.users(id,email,email_confirmed_at) values($1,$2,now())',[id(n),'review'+n+'@example.invalid']);await q('update public.profiles set church_id=$1,app_role=$2 where user_id=$3',[id(c),role,id(n)]);
  }
  assert.equal((await q('select user_id from public.church_owners where church_id=$1',[id(101)])).rows[0].user_id,id(1));
+ await auth(2);await assert.rejects(()=>q('update public.profiles set must_change_password=true where user_id=$1',[id(1)]),/permission denied/);
+ await db.exec('reset role;set role service_role');await q('update public.profiles set must_change_password=true where user_id=$1',[id(1)]);
+ await db.exec('reset role');assert.equal((await q('select must_change_password from public.profiles where user_id=$1',[id(1)])).rows[0].must_change_password,true);
+ await auth(1);await assert.rejects(()=>rpc('discovery_staff_search'),/Placement team access/);
+ await db.exec('reset role');await q("update auth.users set encrypted_password='new-password-hash' where id=$1",[id(1)]);
+ assert.equal((await q('select must_change_password from public.profiles where user_id=$1',[id(1)])).rows[0].must_change_password,false);
+ assert.equal((await q('select user_id from public.church_owners where church_id=$1',[id(101)])).rows[0].user_id,id(1));
+
  for(const [role,disabled]of [['viewer',null],[null,true]])await rejected(()=>rpc('manage_app_user_access',{p_actor_id:id(2),p_user_id:id(1),p_role:role,p_disabled:disabled}),/Transfer church ownership/);
  await assert.rejects(()=>q('delete from auth.users where id=$1',[id(1)]),/owner|church_owners|administrator/i);
  await rpc('manage_app_user_access',{p_actor_id:id(1),p_user_id:id(2),p_role:'editor'});

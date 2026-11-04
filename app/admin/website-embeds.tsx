@@ -34,8 +34,9 @@ export function WebsiteEmbedSettings({client,churchName,churchSlug}:{client:Supa
    </section>
    <section className="embed-option-card"><h4>2. Limited public directory</h4>
     <p>A read-only ministry directory with PDF download and printing. It shows only ministry, volunteer name and term. There are no login or editing controls.</p>
-    <label className="admin-check-row"><input type="checkbox" checked={published} disabled={loading||busy} onChange={e=>{setPublished(e.target.checked);if(!e.target.checked)setPublicEmbed(false);}}/>Allow public-directory publishing for this church</label>
-    <label className="admin-check-row"><input type="checkbox" checked={publicEmbed} disabled={loading||busy||!published} onChange={e=>setPublicEmbed(e.target.checked)}/>Allow the approved directory on approved websites</label>
+    <label className="admin-check-row"><input type="checkbox" checked={published} disabled={loading||busy} onChange={e=>{setPublished(e.target.checked);if(!e.target.checked)setPublicEmbed(false);}}/>Publish this church’s directory publicly</label>
+    <label className="admin-check-row"><input type="checkbox" checked={publicEmbed} disabled={loading||busy||!published} onChange={e=>setPublicEmbed(e.target.checked)}/>Allow this public directory inside approved websites</label>
+    <p>Publishing controls public access, including direct directory links. The website switch only allows embedding; turning it off does not unpublish the directory.</p>
     <p><strong>This directory is public.</strong> A password on the containing webpage does not protect the separate iframe URL. Anyone with a public directory link can open it. Turning off public-directory publishing makes those records unavailable to anonymous visitors.</p>
     <CodeBox label="Limited public directory iframe code" code={iframeCode(`${base}/embed/directory/${encodeURIComponent(churchSlug)}`,`${churchName} Limited Public Directory`)}/>
    </section>
